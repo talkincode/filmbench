@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 import {
   Service,
   build,
+  ensurePosters,
   projectStoryboard,
   reconcileOrphans,
   runJobs,
@@ -18,7 +19,7 @@ import {
   summarize,
 } from "@filmbench/core";
 import { builtinProviders, colabReap } from "@filmbench/providers";
-import { renderDocument } from "@filmbench/storyboard-audit";
+import { renderDocument, resolvePreviews } from "@filmbench/storyboard-audit";
 
 const registry = builtinProviders();
 const reconciled: string[] = [];
@@ -125,7 +126,8 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
     }
     case "storyboard": {
       const { service, dir } = svc(args.project as string | undefined);
-      const doc = projectStoryboard(service, registry);
+      await ensurePosters(service);
+      const doc = resolvePreviews(projectStoryboard(service, registry), join(dir, "build"));
       const html = renderDocument(doc, {
         css: readFileSync(join(import.meta.dir, "../../storyboard-audit/src/style.css"), "utf8"),
         client: readFileSync(join(import.meta.dir, "../../storyboard-audit/src/client.js"), "utf8"),

@@ -143,7 +143,7 @@ filmbench jobs run                 # 执行队列（串行）
 filmbench select --shot s1         # 选定（默认取最新产物）
 filmbench review --shot s1         # 批准；--reject 否决
 filmbench build                    # 编译 + ffmpeg 出片
-filmbench storyboard               # 审计故事板 HTML
+filmbench storyboard [--embed]     # 审计故事板 HTML（--embed 内联预览图，可单文件外发）
 filmbench ledger --json
 filmbench colab up|status|down|reap
 filmbench ui [--shot ID]           # 打开桌面界面（单实例）

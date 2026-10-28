@@ -10,3 +10,4 @@ export * from "./storyboard.ts";
 export * from "./detail.ts";
 export * from "./prompt.ts";
 export * from "./stale.ts";
+export * from "./posters.ts";

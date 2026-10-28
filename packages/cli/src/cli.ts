@@ -10,6 +10,7 @@ import {
   ConflictError,
   Service,
   ValidationError,
+  ensurePosters,
   lintPrompt,
   build,
   compile,
@@ -21,7 +22,7 @@ import {
   totalFrames,
 } from "@filmbench/core";
 import { builtinProviders } from "@filmbench/providers";
-import { renderDocument } from "@filmbench/storyboard-audit";
+import { renderDocument, resolvePreviews } from "@filmbench/storyboard-audit";
 
 const VERSION = "0.0.1";
 
@@ -76,7 +77,7 @@ function help(): void {
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
   filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
-  filmbench storyboard [--out path]
+  filmbench storyboard [--out path] [--embed]   # --embed：把预览图内联进单文件
   filmbench assets
   filmbench ledger [--json]
   filmbench export [--out film.yaml]
@@ -510,19 +511,23 @@ const cmdBuild = (argv: string[]) =>
   });
 
 const cmdStoryboard = (argv: string[]) =>
-  withService((svc, dir) => {
-    const { values } = parseArgs({ args: argv, options: { out: { type: "string" } } });
+  withServiceAsync(async (svc, dir) => {
+    const { values } = parseArgs({ args: argv, options: { out: { type: "string" }, embed: { type: "boolean" } } });
     const registry = builtinProviders();
+    await ensurePosters(svc);
     const doc = projectStoryboard(svc, registry);
-    const html = renderDocument(doc, {
+    const target = resolve(values.out ?? join(dir, "build/storyboard.html"));
+    const resolved = resolvePreviews(doc, dirname(target), { embed: values.embed });
+    const html = renderDocument(resolved, {
       css: readFileSync(join(import.meta.dir, "../../storyboard-audit/src/style.css"), "utf8"),
       client: readFileSync(join(import.meta.dir, "../../storyboard-audit/src/client.js"), "utf8"),
     });
-    const target = resolve(values.out ?? join(dir, "build/storyboard.html"));
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, html);
     const blocked = doc.shots.filter((s) => (s.checks ?? []).some((c) => c.status === "fail")).length;
-    out(`故事板 ${target}\n  ${doc.shots.length} 镜 · ${blocked} 镜有阻塞 · 修订 #${doc.revision.seq}`);
+    out(
+      `故事板 ${target}\n  ${doc.shots.length} 镜 · ${blocked} 镜有阻塞 · 修订 #${doc.revision.seq}${values.embed ? " · 媒体已内联" : ""}`,
+    );
   });
 
 const cmdAssets = () =>

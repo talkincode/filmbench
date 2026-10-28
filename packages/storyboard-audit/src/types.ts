@@ -39,6 +39,8 @@ export interface Produce {
   width?: number;
   height?: number;
   durationFrames?: number;
+  /** 预览图：绝对路径（渲染前会被改写成相对 URL 或 data URI） */
+  preview?: string | null;
   previewSeed?: string;
 }
 

@@ -168,7 +168,13 @@ ${s.intent.prompt}` : ""}`)}" aria-label="镜头 ${s.order} ${esc(s.title)}，�
       <span class="idx">${pad2(s.order)}</span>
       <span class="badge">${STATE_LABEL[s.state]}</span>
       <div class="guides" aria-hidden="true"></div>
-      ${s.hasPreview ? "" : `<div class="missing" aria-hidden="true"><span>暂无产物</span></div>`}
+      ${
+        main?.preview
+          ? `<img class="shot" src="${esc(main.preview)}" alt="${esc(s.title)}" loading="lazy">`
+          : s.hasPreview
+            ? ""
+            : `<div class="missing" aria-hidden="true"><span>暂无产物</span></div>`
+      }
       ${
         main && main.exists
           ? `<div class="rec"><span>sha ${esc((main.sha256 ?? "—").slice(0, 7))}</span><span><b>${bytes(main.bytes)}</b></span></div>`

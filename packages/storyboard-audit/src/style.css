@@ -466,6 +466,38 @@ svg.threads.hide-dep path.dep, svg.threads.hide-dep .dep-label { display: none; 
   border: 1px dashed rgba(236, 229, 215, 0.28);
   padding: 5px 10px;
 }
+.frame img.shot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.96;
+}
+.frame:has(img.shot)::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 58%;
+  background: linear-gradient(transparent, rgba(10, 8, 5, 0.88));
+  pointer-events: none;
+}
+.frame:has(img.shot)::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 34%;
+  background: linear-gradient(rgba(10, 8, 5, 0.7), transparent);
+  pointer-events: none;
+}
+.frame:has(img.shot) .idx,
+.frame:has(img.shot) .slate,
+.frame:has(img.shot) .spec,
+.frame:has(img.shot) .rec { text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+.frame:has(img.shot) .slate { color: rgba(242, 236, 224, 0.95); }
+.frame:has(img.shot) .spec { color: rgba(242, 236, 224, 0.82); }
+.frame:has(img.shot) .rec { color: rgba(242, 236, 224, 0.8); }
+.frame:has(img.shot) .rec b { color: rgba(242, 236, 224, 0.95); }
 .frame .guides {
   position: absolute;
   inset: 0;

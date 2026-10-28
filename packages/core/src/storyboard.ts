@@ -22,6 +22,7 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
   const state = service.state(ref);
   if (!state.project) throw new Error("项目尚未创建");
   const { format } = state.project;
+  const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
   const { ir } = compile(state, service.dir);
 
   const shots = state.shots.map((shot) => {
@@ -157,6 +158,12 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
         ? [
             {
               kind: produce.kind,
+              preview:
+                produce.kind === "image"
+                  ? abs(produce.path)
+                  : existsSync(join(service.dir, "build/posters", `${produce.asset}.jpg`))
+                    ? join(service.dir, "build/posters", `${produce.asset}.jpg`)
+                    : null,
               path: produce.path,
               exists: fileExists,
               stale: shotStale(state, shot),
