@@ -34,6 +34,7 @@ case "$1" in
   new) echo "$3" >> "${sessionsFile}" ;;
   stop) grep -v "^$3$" "${sessionsFile}" > "${sessionsFile}.tmp" || true; mv "${sessionsFile}.tmp" "${sessionsFile}" ;;
   download) cp "${dummy}" "$3" ;;
+  exec) echo "__FB_OK__" ;;
 esac
 exit 0
 `;
