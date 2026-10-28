@@ -190,7 +190,8 @@ shots:
     role: music
     durationFrames: 600
     intent:
-      description: A 小调 2/4：弦乐铺底 + 低音提琴 + 音盒（每两小节一次）+ 竖琴空气声；pp–p，段落边界与剪辑点对齐
+      description: A 小调 2/4、10 小节：钢琴主题（6s / 14s 两次模进）+ 弦乐 + 低音提琴 + 竖琴；定音鼓在 0s / 10s /
+        16s 各一下；p–mf
       action: ""
       prompt: ""
       prompts:

@@ -1,8 +1,8 @@
 title: 最后一单 · 雨夜铺底
 story: >-
-  雨夜、待拆的旧楼、最后一单。弦乐几乎不动，像潮气贴在墙上；
-  低音只给出房间的尺寸；音盒每隔两小节响一次，像楼上有人轻轻放下一件东西。
-  整段保持在 pp–p，给雨声和脚步留出空间。
+  雨夜、待拆的旧楼、最后一单。弦乐几乎不动，像潮气贴在墙上；低音只给出房间的尺寸。
+  钢琴在第 2 秒进入，两次模进分别在 6s 与 14s 抬起；10s 与 16s 用定音鼓各砸一下，
+  标记他放下包裹、以及门里那只手。
 tempo: 60
 key: A_minor
 time_signature: 2/4
@@ -10,16 +10,38 @@ bars: 10
 loop: false
 harmony: [i, VI, III, VII]
 performance:
-  humanize: { timing_ms: 14, velocity: 6, seed: 9 }
-  dynamics: { start: pp, peak: p }
-motifs:
-  bell:
-    - { degree: 5, beats: 1 }
-    - { degree: 3, beats: 1 }
-    - { degree: 8, beats: 1 }
-    - { degree: 5, beats: 1 }
+  humanize: { timing_ms: 10, velocity: 4, seed: 9 }
+  dynamics: { start: p, peak: mf }
+clips:
+  line:
+    kind: pitched
+    length_beats: 20
+    mode: once
+    events:
+      a1: { at: 2,  pitch: E5, duration: 1.4, velocity: 72 }
+      a2: { at: 4,  pitch: C5, duration: 1.0, velocity: 66 }
+      a3: { at: 5,  pitch: A4, duration: 1.4, velocity: 62 }
+      b1: { at: 6,  pitch: A5, duration: 1.4, velocity: 78 }
+      b2: { at: 8,  pitch: E5, duration: 1.0, velocity: 70 }
+      b3: { at: 9,  pitch: C5, duration: 1.4, velocity: 66 }
+      c1: { at: 10, pitch: F5, duration: 1.4, velocity: 74 }
+      c2: { at: 12, pitch: D5, duration: 1.0, velocity: 68 }
+      c3: { at: 13, pitch: B4, duration: 1.4, velocity: 64 }
+      d1: { at: 14, pitch: G5, duration: 1.4, velocity: 80 }
+      d2: { at: 16, pitch: E5, duration: 1.0, velocity: 72 }
+      d3: { at: 17, pitch: C5, duration: 1.6, velocity: 66 }
+      e1: { at: 18, pitch: A4, duration: 1.9, velocity: 52 }
+  hits:
+    kind: pitched
+    length_beats: 20
+    mode: once
+    events:
+      h0: { at: 0,  pitch: A2, duration: 2.0, velocity: 72 }
+      h1: { at: 10, pitch: A2, duration: 2.0, velocity: 88 }
+      h2: { at: 16, pitch: E2, duration: 2.0, velocity: 82 }
 tracks:
-  - { id: strings, instrument: slow_strings, pattern: sustain, intensity: 0.32 }
-  - { id: bass, instrument: contrabass, pattern: bass, intensity: 0.26 }
-  - { id: bell, instrument: music_box, pattern: melody, motif: bell, intensity: 0.16 }
-  - { id: air, instrument: harp, pattern: arpeggio, intensity: 0.1 }
+  - { id: strings, instrument: slow_strings, pattern: sustain, intensity: 0.22 }
+  - { id: bass, instrument: contrabass, pattern: bass, intensity: 0.22 }
+  - { id: line, instrument: piano, pattern: clip, clip: line, intensity: 0.8 }
+  - { id: hits, instrument: timpani, pattern: clip, clip: hits, intensity: 0.85 }
+  - { id: air, instrument: harp, pattern: arpeggio, intensity: 0.06 }
