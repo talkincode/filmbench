@@ -47,6 +47,11 @@ export const CHECK_REGISTRY: Record<string, { label: string; severity: Severity;
     severity: "warning",
     action: "显式写 no text / 无字幕，或去掉文字类描述",
   },
+  "reference.self-output": {
+    label: "参考图自引用",
+    severity: "warning",
+    action: "改用独立来源（上一镜的产物或单独的参考图）",
+  },
   "reference.roles": {
     label: "参考图缺用途",
     severity: "warning",

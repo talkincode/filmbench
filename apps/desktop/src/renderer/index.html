@@ -145,8 +145,10 @@
   .kv2{display:grid;grid-template-columns:56px minmax(0,1fr);gap:3px 8px;font-family:var(--mono);font-size:11.5px;align-items:baseline}
   .kv2 span{color:var(--ink-3);font-size:11px;letter-spacing:.04em}
   .kv2 b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .slot{display:grid;grid-template-columns:22px minmax(0,1fr) 104px 22px;gap:6px;align-items:center;border:1px solid var(--rule-hi);
+  .slot{display:grid;grid-template-columns:46px minmax(0,1fr) 104px 24px;gap:7px;align-items:center;border:1px solid var(--rule-hi);
     border-radius:5px;padding:4px 6px;background:var(--paper);margin-bottom:4px}
+  .slot .mini{width:46px;height:26px;object-fit:cover;border-radius:3px;background:#12100b;display:block}
+  .slot.empty{grid-template-columns:1fr;color:var(--ink-3)}
   .slot .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
   .slot .id{font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .slot select{font-family:var(--mono);font-size:11.5px;padding:2px 3px;border:1px solid var(--rule);border-radius:4px;background:var(--paper-hi);color:var(--ink)}
@@ -467,12 +469,12 @@ function renderDetail(d) {
   const ROLES = ["identity", "wardrobe", "prop", "environment", "layout", "first_frame", "last_frame", "style", "other"];
   const refs = s.references.length
     ? s.references.map((r, i) => `<div class="slot">
-        <span class="n">${i + 1}</span>
+        <img class="mini" data-poster="${esc(r.asset)}" alt="">
         <span class="id" title="${esc(r.absPath || r.asset)}">${esc(r.asset)}</span>
         <select data-role="${esc(r.asset)}">${ROLES.map((x) => `<option value="${x}"${x === r.role ? " selected" : ""}>${ROLE_ZH[x]}</option>`).join("")}</select>
         <button class="sm ghost" data-unref="${esc(r.asset)}" title="移除">✕</button>
       </div>`).join("")
-    : `<div class="slot empty">还没有参考图</div>`;
+    : `<div class="slot empty">还没有参考图（最多 5 张）</div>`;
 
   const failing = (s.checks || []).filter((c) => c.status === "fail" || c.status === "warn");
   const checks = failing.length
@@ -497,7 +499,7 @@ function renderDetail(d) {
 
   $("dBody").innerHTML = `
     <div class="sec">
-      <h4>素材 <span>${cands.length} 个候选 · 点缩略图切换</span></h4>
+      <h4>候选画面 <span>${cands.length} 个 · 点图切换进片版本</span></h4>
       <div class="strip">
         ${thumbs}
         <button class="thumb add" id="dAction2" title="生成新一版"><span>＋</span><span class="cap2">生成</span></button>
@@ -533,7 +535,7 @@ function renderDetail(d) {
     </div>
 
     <div class="sec">
-      <h4>参考 <span>${s.references.length}/5</span></h4>
+      <h4>参考图 <span>${s.references.length}/5 · 喂给模型的输入</span></h4>
       ${refs}
       <button class="sm" id="dAddRef" ${s.references.length >= 5 ? "disabled" : ""}>+ 添加参考</button>
     </div>

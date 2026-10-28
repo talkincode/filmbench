@@ -83,6 +83,13 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
 
     const selection = state.selections.get(shot.id);
     const selectedAsset = selection?.video ?? selection?.image ?? selection?.audio;
+    if (produce && shot.references.some((r) => r.asset === produce.asset)) {
+      checks.push({
+        id: "reference.self-output",
+        status: "warn",
+        detail: "参考图里包含本镜自己的产物：这会让模型把自己的输出再喂给自己（首/尾帧也应是来源镜头或独立图）",
+      });
+    }
     if (selectedAsset && produce && selectedAsset !== produce.asset) {
       checks.push({
         id: "selection.stale",
