@@ -569,11 +569,15 @@ const cmdColab = (argv: string[]) =>
       if (!st.state) {
         out("没有正在跟踪的 Colab 会话（filmbench colab up 创建）");
       } else {
-        out(`会话 ${st.state.session} · ${st.state.gpu} · ${st.state.workflow}`);
+        out(`本项目会话 ${st.state.session} · ${st.state.gpu} · ${st.state.workflow}`);
         out(`存活 ${st.alive ? "是" : "否"} · 空闲 ${st.idleMinutes?.toFixed(0) ?? "?"} 分钟 / 阈值 ${st.state.idleMinutes}`);
         out(`远端 ${st.state.remoteDir} · persist ${st.state.persist}`);
       }
-      if (st.usage.length) out(`额度：${st.usage.join(" · ")}`);
+      if (st.others.length) {
+        out(`\n其它活跃会话（不是本项目起的，不会被 filmbench 自动停）：`);
+        for (const s of st.others) out(`  - ${s.name}${s.hardware ? ` · ${s.hardware}` : ""}`);
+      }
+      if (st.usage.length) out(`\n额度：${st.usage.join(" · ")}`);
       return;
     }
     throw new Error(`未知子命令 colab ${sub}`);

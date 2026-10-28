@@ -124,14 +124,39 @@ function cleanLines(text: string): string[] {
     .filter((l) => l && !NOISE.test(l));
 }
 
-/** 解析 `colab sessions` 的会话名列表 */
-export async function listColabSessions(): Promise<string[]> {
+export interface ColabSessionInfo {
+  name: string;
+  hardware: string;
+}
+
+/**
+ * 解析 `colab sessions`。真实输出有两种行：
+ *   [fb-project-comfy-h3] gpu-l4-s-ass1a0-2ozk | Hardware: L4 | Shape: Standard | Variant: GPU
+ *   [?] gpu-l4-s-ass1a0-1yr6 | Hardware: L4 | ...
+ * 中括号里是名字；`?` 表示没命名，此时用第二列作为标识。
+ */
+export async function colabSessions(): Promise<ColabSessionInfo[]> {
   const { code, out } = await runColab(["sessions"], process.cwd());
   if (code !== 0) return [];
-  return cleanLines(out)
-    .filter((l) => !/^[-+|]/.test(l) && !/session/i.test(l))
-    .map((l) => l.split(/\s+/)[0])
-    .filter(Boolean);
+  const rows: ColabSessionInfo[] = [];
+  for (const line of cleanLines(out)) {
+    if (/^[-+|]/.test(line) || /^session\b/i.test(line) || /^name\b/i.test(line)) continue;
+    if (/no sessions/i.test(line)) continue;
+    const parts = line.split("|").map((x) => x.trim());
+    const head = parts[0] ?? "";
+    const m = head.match(/^\[([^\]]+)\]\s*(\S+)?/);
+    let name = "";
+    if (m) name = m[1] !== "?" ? m[1] : (m[2] ?? "");
+    else name = head.split(/\s+/)[0] ?? "";
+    if (!name || name === "-" || name === "?") continue;
+    const hw = (parts.find((p) => /hardware/i.test(p)) ?? "").replace(/hardware:\s*/i, "");
+    rows.push({ name, hardware: hw });
+  }
+  return rows;
+}
+
+export async function listColabSessions(): Promise<string[]> {
+  return (await colabSessions()).map((s) => s.name);
 }
 
 function sessionName(projectDir: string, workflow: string): string {
@@ -329,6 +354,7 @@ export async function colabReap(options: {
 }): Promise<{ stopped: boolean; idle: number | null }> {
   const state = readColabState(options.projectDir);
   if (!state) return { stopped: false, idle: null };
+  // 只回收本项目记录的那个会话；别处（另一个 agent / 手工开的）一概不碰
   const idle = (Date.now() - Date.parse(state.lastActiveAt)) / 60000;
   const limit = options.idleMinutes ?? state.idleMinutes ?? IDLE_DEFAULT;
   if (idle < limit) return { stopped: false, idle };
@@ -342,9 +368,20 @@ export async function colabStatus(projectDir: string): Promise<{
   alive: boolean;
   idleMinutes: number | null;
   usage: string[];
+  /** 账号上不属于本项目的会话：只展示，永远不自动停（可能别的 agent 在用） */
+  others: ColabSessionInfo[];
+  sessions: ColabSessionInfo[];
 }> {
   const state = readColabState(projectDir);
-  const alive = state ? (await listColabSessions()).includes(state.session) : false;
+  const sessions = await colabSessions();
+  const alive = state ? sessions.some((s) => s.name === state.session) : false;
   const usage = cleanLines((await runColab(["usage"], projectDir)).out).slice(0, 6);
-  return { state, alive, idleMinutes: colabIdleMinutes(projectDir), usage };
+  return {
+    state,
+    alive,
+    idleMinutes: colabIdleMinutes(projectDir),
+    usage,
+    sessions,
+    others: state ? sessions.filter((s) => s.name !== state.session) : sessions,
+  };
 }

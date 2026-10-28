@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { colabDown, colabReap, colabStatus, colabUp, readColabState } from "../src/colab.ts";
+import { colabDown, colabReap, colabSessions, colabStatus, colabUp, readColabState } from "../src/colab.ts";
 
 /**
  * 用假的 colab CLI 验证会话生命周期：建一次、复用、工作流变了才重建、空闲了停。
@@ -25,7 +25,7 @@ beforeAll(() => {
   writeFileSync(dummy, "fake-mp4");
   // 项目级工作流副本：改副本不会污染仓库
   cpSync(join(repoWorkflows, "comfy-h3"), join(project, "workflows", "comfy-h3"), { recursive: true });
-  writeFileSync(sessionsFile, "");
+  writeFileSync(sessionsFile, "[?] gpu-l4-s-foreign | Hardware: L4 | Shape: Standard | Variant: GPU\n");
 
   const fake = `#!/bin/sh
 echo "$@" >> "${logFile}"
@@ -55,6 +55,22 @@ afterAll(() => {
 
 const calls = () => readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
 
+describe("会话列表解析", () => {
+  test("认得 [名字] 与 [?] 两种行，并区分硬件", async () => {
+    writeFileSync(
+      sessionsFile,
+      [
+        "[?] gpu-l4-s-foreign | Hardware: L4 | Shape: Standard | Variant: GPU",
+        "[fb-project-comfy-h3] gpu-l4-s-ass1a0-2ozk | Hardware: A100 | Shape: Standard | Variant: GPU",
+        "[-] no sessions",
+      ].join("\n"),
+    );
+    const list = await colabSessions();
+    expect(list.map((s) => s.name)).toEqual(["gpu-l4-s-foreign", "fb-project-comfy-h3"]);
+    expect(list[1].hardware).toBe("A100");
+  });
+});
+
 describe("Colab 会话复用与空闲回收", () => {
   test("第一次 up：建会话、上传、解包、setup；第二次复用不重建", async () => {
     const first = await colabUp({ projectDir: project, workflow: "comfy-h3" });
@@ -82,15 +98,25 @@ describe("Colab 会话复用与空闲回收", () => {
     expect(next.workflowHash).not.toBe("");
   });
 
-  test("空闲未到阈值不停；超过阈值停会话并清状态", async () => {
+  test("空闲未到阈值不停；超过阈值只停本项目会话，别家的不动", async () => {
     const before = await colabReap({ projectDir: project, idleMinutes: 30 });
     expect(before.stopped).toBe(false);
+
+    const stBefore = await colabStatus(project);
+    expect(stBefore.others.map((s) => s.name)).toContain("gpu-l4-s-foreign");
 
     const after = await colabReap({ projectDir: project, idleMinutes: 0 });
     expect(after.stopped).toBe(true);
     expect(readColabState(project)).toBeNull();
+
+    const stopped = calls().filter((l) => l.startsWith("stop "));
+    const session = stBefore.state!.session;
+    expect(stopped.every((l) => l.includes(session))).toBe(true);
+    expect(stopped.some((l) => l.includes("gpu-l4-s-foreign"))).toBe(false);
+
     const st = await colabStatus(project);
     expect(st.state).toBeNull();
+    expect(st.others.map((s) => s.name)).toContain("gpu-l4-s-foreign");
   });
 
   test("down 在没有会话时是安全的", async () => {
