@@ -143,6 +143,14 @@
     padding:5px 0;border-bottom:1px solid var(--rule-hi);font-family:var(--mono);font-size:11px;color:var(--ink-2)}
   .film-row b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .film-row .st[data-s="ok"]{color:var(--ok)}.film-row .st[data-s="bad"]{color:var(--block)}
+  .script-edit{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
+  .script-edit label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+  .script-edit input,.script-edit textarea{font-family:var(--serif);font-size:13px;color:var(--ink);
+    background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:7px 9px;letter-spacing:0;text-transform:none}
+  .script-edit input:focus,.script-edit textarea:focus{outline:none;border-color:var(--ink-2);background:var(--paper-hi)}
+  .script-edit textarea{flex:1;min-height:220px;font-family:var(--mono);font-size:12px;line-height:1.7;resize:none}
+  .script-edit .row{display:flex;gap:8px;justify-content:flex-end}
   .film-pane .script-full{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;
     background:var(--paper);border:1px solid var(--rule-hi);border-radius:6px;padding:12px 14px;flex:1;overflow:auto;min-height:180px}
   .film-pane .ev-row{display:grid;grid-template-columns:46px 130px minmax(0,1fr) 110px;gap:8px;font-family:var(--mono);font-size:10.5px;
@@ -913,6 +921,7 @@ function stepShot(delta) {
 
 /* —— 整片详情：剧本 / 时间轴 / 检查 / 账本 / 事件 —— */
 let ovTab = "script";
+let ovEdit = false;
 async function openOverview(tab) {
   if (tab) ovTab = tab;
   try {
@@ -920,6 +929,7 @@ async function openOverview(tab) {
     if (!o.project) { toast("项目尚未创建"); return; }
     const fps = o.project.format.fps;
     $("ovTitle").textContent = o.project.title;
+    $("ovScriptEdit").textContent = ovEdit ? "取消编辑" : "编辑剧本";
     $("ovMeta").textContent = `${o.project.name} · ${o.project.format.width}×${o.project.format.height}@${fps} · 修订 #${o.head.seq} · ${o.shots.length} 镜 / ${(o.totalFrames / fps).toFixed(2)}s`;
 
     const tabs = [["script", "剧本"], ["timeline", "时间轴"], ["checks", "检查"], ["ledger", "账本"], ["events", "事件"]];
@@ -928,9 +938,17 @@ async function openOverview(tab) {
     const scriptBody = o.script?.body ?? "";
     const scriptPane = pane(
       "script",
-      `<p class="logline">${esc(o.script?.logline ?? "还没有一句话简介")}</p>
-       <p class="syn">${esc(o.script?.synopsis ?? "还没有梗概")}</p>
-       <pre class="script-full">${esc(scriptBody || "还没有剧本。点右上「编辑剧本」，或 filmbench script set --file script.md")}</pre>`,
+      ovEdit
+        ? `<div class="script-edit">
+             <label>片名<input id="seTitle" value="${esc(o.script?.title || o.project.title)}"></label>
+             <label>一句话<input id="seLogline" value="${esc(o.script?.logline ?? "")}" placeholder="用一句话说清这支片子"></label>
+             <label>梗概<input id="seSynopsis" value="${esc(o.script?.synopsis ?? "")}" placeholder="结构、语气、执行上的取舍"></label>
+             <label>正文<textarea id="seBody" spellcheck="false" placeholder="# 片名&#10;&#10;场景一……">${esc(scriptBody)}</textarea></label>
+             <div class="row"><button id="seCancel">取消</button><button class="primary" id="seSave">保存</button></div>
+           </div>`
+        : `<p class="logline">${esc(o.script?.logline ?? "还没有一句话简介")}</p>
+           <p class="syn">${esc(o.script?.synopsis ?? "还没有梗概")}</p>
+           <pre class="script-full">${esc(scriptBody || "还没有剧本。点右上「编辑剧本」，或 filmbench script set --file script.md")}</pre>`,
     );
 
     const maxFrames = Math.max(...o.shots.map((s) => s.durationFrames), 1);
@@ -1023,14 +1041,27 @@ async function openOverview(tab) {
       $("overviewModal").classList.remove("open");
       openFilm(o.renders.find((r) => r.out === el.dataset.render));
     }));
-    $("ovScriptEdit").onclick = async () => {
-      const body = window.prompt("剧本正文（Markdown/纯文本）", o.script?.body ?? "");
-      if (body === null) return;
-      const logline = window.prompt("一句话简介", o.script?.logline ?? "");
-      if (logline === null) return;
-      try { await rpc("script_set", { body, logline, title: o.project.title }); toast("剧本已保存"); await openOverview("script"); }
-      catch (e) { toast(e.message); }
-    };
+    $("ovScriptEdit").onclick = () => { ovEdit = !ovEdit; openOverview("script"); };
+    const save = $("seSave");
+    if (save) {
+      save.onclick = async () => {
+        try {
+          await rpc("script_set", {
+            title: $("seTitle").value.trim() || o.project.title,
+            logline: $("seLogline").value.trim(),
+            synopsis: $("seSynopsis").value.trim(),
+            body: $("seBody").value,
+          });
+          ovEdit = false;
+          toast("剧本已保存");
+          await openOverview("script");
+        } catch (e) { toast(e.message); }
+      };
+      $("seCancel").onclick = () => { ovEdit = false; openOverview("script"); };
+      $("seBody").addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") save.click();
+      });
+    }
     $("overviewModal").classList.add("open");
   } catch (e) { toast(e.message); }
 }
