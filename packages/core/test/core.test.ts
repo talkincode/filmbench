@@ -39,6 +39,15 @@ describe("事件日志与单写路径", () => {
     svc.close();
   });
 
+  test("重写同样的值不产生新事件（幂等写入）", () => {
+    const { svc } = project("noop-patch");
+    const before = svc.head().seq;
+    const r = svc.patchShot("shot-a", { title: "A" }); // 与当前 title 相同
+    expect(r.replayed).toBe(true);
+    expect(svc.head().seq).toBe(before);
+    svc.close();
+  });
+
   test("baseRevision 不匹配时拒绝写入，状态不变", () => {
     const { svc } = project("conflict");
     const head = svc.head().seq;

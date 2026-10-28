@@ -17,10 +17,8 @@ shots:
     intent:
       description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
       action: 静止，雨声，灯管轻微频闪
-      prompt: rain-soaked lobby of a condemned apartment building at night, single
-        bare bulb, wet cracked tiles, peeling paint, cardboard boxes by the
-        wall, 35mm cinematic still, cold teal and amber, no people, no text, no
-        watermark
+      prompt: 废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm
+        电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印
       prompts:
         image: 废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm
           电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印
@@ -41,10 +39,8 @@ shots:
     intent:
       description: 穿深色雨衣的快递员背对镜头，把一个小纸箱放在门口脚垫上
       action: 弯腰、放下、起身，肩膀上有雨
-      prompt: a courier in a dark raincoat seen from behind, bending to place a small
-        cardboard parcel on a wet doormat, cold fluorescent light, rain on
-        shoulders, cinematic 35mm still, shallow depth of field, no text, no
-        watermark
+      prompt: 穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm
+        电影剧照，浅景深，画面里没有文字，没有水印
       prompts:
         image: 穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm
           电影剧照，浅景深，画面里没有文字，没有水印
@@ -89,10 +85,8 @@ shots:
     intent:
       description: 走廊尽头那扇门缝里漏出暖光，地上有湿脚印
       action: 极缓慢前推，脚印从镜头下缘延伸出去
-      prompt: long dim corridor of an old apartment building, one door at the far end
-        leaking warm light, wet footprints on the floor leading toward it, 35mm
-        anamorphic cinematic still, teal shadows and amber spill, no people, no
-        text, no watermark
+      prompt: 老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm
+        变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
       prompts:
         image: 老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm
           变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
@@ -117,10 +111,7 @@ shots:
     intent:
       description: " scratched brass number plate beside the door"
       action: 特写，焦点从划痕移到数字
-      prompt: extreme close-up of a scratched brass apartment number plate showing the
-        number 14 beside a dark doorway, shallow depth of field, cold light with
-        warm rim, 35mm cinematic still, no text other than the number, no
-        watermark
+      prompt: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
       prompts:
         image: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
         video: ""
@@ -142,9 +133,7 @@ shots:
     intent:
       description: 包裹不见了，脚垫上只留一圈水渍，门已经关上
       action: 静止两秒，然后切黑
-      prompt: close-up of a wet doormat in a dim hallway, a round water stain where a
-        parcel used to be, door closed, single overhead light, 35mm cinematic
-        still, melancholic, no people, no text, no watermark
+      prompt: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
       prompts:
         image: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
         video: ""

@@ -226,8 +226,8 @@ const cmdShot = (argv: string[]) => {
         params[pair.slice(0, eq)] = raw === "true" ? true : raw === "false" ? false : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
       }
       for (const key of values.unset ?? []) delete params[key];
-      const { event } = svc.patchShot(shot.id, { binder: { params } }, { actor: { kind: "human", id: "cli" } });
-      out(`已更新 ${shot.id} 的参数（事件 #${event.seq}）：${JSON.stringify(params)}`);
+      const { event, replayed } = svc.patchShot(shot.id, { binder: { params } }, { actor: { kind: "human", id: "cli" } });
+      out(replayed ? `${shot.id} 参数没变，未写入事件` : `已更新 ${shot.id} 的参数（事件 #${event.seq}）：${JSON.stringify(params)}`);
     });
     return;
   }
@@ -256,8 +256,8 @@ const cmdShot = (argv: string[]) => {
       if (values.title) patch.title = values.title;
       if (values.frames) patch.durationFrames = Number(values.frames);
       if (values.prompt) patch.intent = { prompt: values.prompt };
-      const { event } = svc.patchShot(values.id!, patch, { actor: { kind: "human", id: "cli" } });
-      out(`已更新 ${values.id}（事件 #${event.seq}）`);
+      const { event, replayed } = svc.patchShot(values.id!, patch, { actor: { kind: "human", id: "cli" } });
+      out(replayed ? `${values.id} 没有变化，未写入事件` : `已更新 ${values.id}（事件 #${event.seq}）`);
     });
     return;
   }
@@ -321,8 +321,8 @@ const cmdPrompt = (argv: string[]) =>
       if (values.video !== undefined) prompts.video = values.video;
       const intent: Record<string, unknown> = { prompts };
       if (values.text !== undefined) intent.prompt = values.text;
-      svc.patchShot(shot.id, { intent } as any, { actor: { kind: "human", id: "cli" } });
-      out(`已更新 ${shot.id} 的 prompt`);
+      const r = svc.patchShot(shot.id, { intent } as any, { actor: { kind: "human", id: "cli" } });
+      out(r.replayed ? `${shot.id} 的 prompt 没变，未写入事件` : `已更新 ${shot.id} 的 prompt`);
       return;
     }
     if (sub === "lint" || sub === undefined) {

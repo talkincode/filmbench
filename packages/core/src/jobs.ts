@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
-import { canonical } from "@filmbench/protocol";
+import { canonical, promptFor } from "@filmbench/protocol";
 import { remainingBudget, type ShotState } from "./state.ts";
 import { PATHS, ValidationError, type Actor, type Service } from "./service.ts";
 import { requireProvider, type ProviderRegistry, type ProviderRunResult } from "./providers.ts";
@@ -13,13 +13,19 @@ export function inputsHash(
   shot: ShotState,
   fps: number,
   params: Record<string, string | number | boolean> = shot.binder.params,
+  modality: "image" | "video" | null = null,
 ): string {
+  // 只哈希"实际生效"的 prompt：改了通用兜底但专用 prompt 已存在时，不该判过期
   return sha256(
     Buffer.from(
       canonical({
         id: shot.id,
         durationFrames: shot.durationFrames,
-        intent: shot.intent,
+        intent: {
+          description: shot.intent.description,
+          action: shot.intent.action,
+          prompt: promptFor(shot.intent, modality),
+        },
         binder: shot.binder,
         params,
         subjects: shot.subjects,
@@ -69,7 +75,7 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
 
   const params = { ...shot.binder.params, ...(input.params ?? {}) };
   const estimate = provider.estimate({ shot, format: state.project.format });
-  const hash = inputsHash(shot, state.project.format.fps, params);
+  const hash = inputsHash(shot, state.project.format.fps, params, provider.modality ?? null);
 
   const pendingSame = [...state.jobs.values()].find(
     (j) => j.shot === shot.id && j.phase === "requested" && j.inputsHash === hash,

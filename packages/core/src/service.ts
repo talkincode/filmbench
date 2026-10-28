@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  canonical,
   type EventOp,
   type Film,
   type Shot,
@@ -11,7 +12,7 @@ import {
 } from "@filmbench/protocol";
 import { Journal, type StoredEvent } from "./journal.ts";
 import { Index } from "./db.ts";
-import { fold, type ProjectState } from "./state.ts";
+import { fold, mergeShotPatch, type ProjectState } from "./state.ts";
 
 export class ConflictError extends Error {
   constructor(
@@ -135,7 +136,12 @@ export class Service {
         id: s.id,
         title: s.title,
         durationFrames: s.durationFrames,
-        intent: s.intent,
+        intent: {
+          description: s.intent.description,
+          action: s.intent.action,
+          prompt: s.intent.prompt,
+          prompts: s.intent.prompts ?? { image: "", video: "" },
+        },
         binder: s.binder,
         subjects: s.subjects,
         references: s.references,
@@ -165,7 +171,24 @@ export class Service {
 
   patchShot(id: string, patch: ShotPatch, options?: AppendOptions) {
     const state = this.state();
-    if (!state.shots.some((s) => s.id === id)) throw new ValidationError(`镜头不存在: ${id}`);
+    const shot = state.shots.find((s) => s.id === id);
+    if (!shot) throw new ValidationError(`镜头不存在: ${id}`);
+    // 无变化就不写事件：避免"重写同样的 prompt"产生噪音（过期判定已改为输入哈希，双保险）
+    const view = (s: typeof shot) =>
+      canonical({
+        id: s.id,
+        title: s.title,
+        durationFrames: s.durationFrames,
+        intent: s.intent,
+        binder: s.binder,
+        subjects: s.subjects,
+        references: s.references,
+        dependsOn: s.dependsOn,
+      });
+    if (view(mergeShotPatch(shot, patch)) === view(shot)) {
+      const last = this.journal.events().at(-1);
+      if (last) return { event: last, replayed: true };
+    }
     return this.append("shot.patched", { id, patch }, options);
   }
 

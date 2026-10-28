@@ -32,9 +32,9 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
   const selected = selection?.video ?? selection?.image ?? selection?.audio;
   const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
 
-  const currentHash = inputsHash(shot, state.project?.format.fps ?? 30);
-  const produceJob = shot.produce ? state.jobs.get(shot.produce.jobId) : undefined;
   const provider = registry.get(shot.binder.provider);
+  const currentHash = inputsHash(shot, state.project?.format.fps ?? 30, shot.binder.params, provider?.modality ?? null);
+  const produceJob = shot.produce ? state.jobs.get(shot.produce.jobId) : undefined;
 
   const jobs = [...state.jobs.values()]
     .filter((j) => j.shot === shotId)

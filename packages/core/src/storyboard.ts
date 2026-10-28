@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { CHECK_REGISTRY, type StoryboardDoc } from "@filmbench/storyboard-audit";
 import { subjectApproved, totalFrames, type ProjectState, type ShotState } from "./state.ts";
 import { compile } from "./compile.ts";
+import { shotStale } from "./stale.ts";
 import { lintPrompt } from "./prompt.ts";
 import { remainingBudget } from "./state.ts";
 import type { ProviderRegistry } from "./providers.ts";
@@ -33,11 +34,11 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
       checks.push({ id: "artifact.missing", status: "fail", detail: "没有已完成作业的产物" });
     } else if (!fileExists) {
       checks.push({ id: "artifact.missing", status: "fail", detail: `文件不在磁盘上: ${produce.path}` });
-    } else if (shot.mutatedAt > produce.atSeq) {
+    } else if (shotStale(state, shot)) {
       checks.push({
         id: "artifact.stale",
         status: "fail",
-        detail: `意图在事件 #${shot.mutatedAt} 改动，产物停留在 #${produce.atSeq}`,
+        detail: `输入变了，产物停留在 #${produce.atSeq}；重新生成即可`,
       });
     }
 
@@ -158,7 +159,7 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
               kind: produce.kind,
               path: produce.path,
               exists: fileExists,
-              stale: shot.mutatedAt > produce.atSeq,
+              stale: shotStale(state, shot),
               sha256: produce.sha256,
               bytes: produce.bytes,
               width: produce.width,

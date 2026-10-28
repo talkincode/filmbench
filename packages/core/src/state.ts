@@ -111,7 +111,7 @@ const EMPTY: Omit<ProjectState, "ref" | "head" | "events"> = {
   renders: [],
 };
 
-function applyPatch(shot: Shot, patch: ShotPatch): Shot {
+export function mergeShotPatch(shot: Shot, patch: ShotPatch): Shot {
   const next: Shot = {
     ...shot,
     ...patch,
@@ -162,7 +162,7 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
       case "shot.patched": {
         const shot = state.shots.find((s) => s.id === p.id);
         if (!shot) break;
-        Object.assign(shot, applyPatch(shot, p.patch as ShotPatch), { mutatedAt: e.seq });
+        Object.assign(shot, mergeShotPatch(shot, p.patch as ShotPatch), { mutatedAt: e.seq });
         break;
       }
       case "shot.removed":

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Format } from "@filmbench/protocol";
 import { PATHS, ValidationError, type Service } from "./service.ts";
 import { totalFrames, type ProjectState } from "./state.ts";
+import { shotStale } from "./stale.ts";
 
 /**
  * Render IR：编译的唯一产物。声明式、逐字节确定、可 diff。
@@ -70,11 +71,11 @@ export function compile(
       continue;
     }
     const p = shot.produce;
-    if (!options.allowStale && shot.mutatedAt > p.atSeq) {
+    if (!options.allowStale && shotStale(state, shot)) {
       issues.push({
         code: "stale-output",
         shot: shot.id,
-        detail: `意图/参考在事件 #${shot.mutatedAt} 改过，产物停在 #${p.atSeq}：重新生成，或 build --force 强行出片`,
+        detail: `输入变了（意图/参考/参数），产物停在 #${p.atSeq}：重新生成，或 build --force 强行出片`,
       });
     }
     if (p.kind === "video" && (p.width !== state.project.format.width || p.height !== state.project.format.height)) {
