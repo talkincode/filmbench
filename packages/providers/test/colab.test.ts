@@ -34,7 +34,11 @@ case "$1" in
   new) echo "$3" >> "${sessionsFile}" ;;
   stop) grep -v "^$3$" "${sessionsFile}" > "${sessionsFile}.tmp" || true; mv "${sessionsFile}.tmp" "${sessionsFile}" ;;
   download) cp "${dummy}" "$3" ;;
-  exec) echo "__FB_OK__" ;;
+  exec)
+    case "$*" in
+      *check.py*) echo "DONE 0"; echo "__FB_OK__" ;;
+      *) echo "__FB_OK__" ;;
+    esac ;;
 esac
 exit 0
 `;
@@ -45,6 +49,7 @@ exit 0
   oldEnv = { PATH: process.env.PATH, FILMBENCH_REMOTE: process.env.FILMBENCH_REMOTE, FILMBENCH_COLAB_BIN: process.env.FILMBENCH_COLAB_BIN };
   process.env.PATH = `${binDir}:${oldPath}`;
   process.env.FILMBENCH_COLAB_BIN = join(binDir, "colab");
+  process.env.FILMBENCH_COLAB_POLL_MS = "20";
 });
 
 afterAll(() => {
@@ -74,6 +79,7 @@ describe("会话列表解析", () => {
 
 describe("Colab 会话复用与空闲回收", () => {
   test("第一次 up：建会话、上传、解包、setup；第二次复用不重建", async () => {
+    writeFileSync(logFile, "");
     const first = await colabUp({ projectDir: project, workflow: "comfy-h3" });
     expect(first.session.startsWith("fb-")).toBe(true);
     expect(first.idleMinutes).toBe(30);
@@ -92,10 +98,11 @@ describe("Colab 会话复用与空闲回收", () => {
   });
 
   test("工作流改了才重建会话", async () => {
+    writeFileSync(logFile, "");
     writeFileSync(join(project, "workflows/comfy-h3/heartbeat.py"), "# touched\n", { flag: "a" });
     const next = await colabUp({ projectDir: project, workflow: "comfy-h3" });
     expect(calls().filter((l) => l.startsWith("stop ")).length).toBeGreaterThanOrEqual(1);
-    expect(calls().filter((l) => l.startsWith("new ")).length).toBe(2);
+    expect(calls().filter((l) => l.startsWith("new ")).length).toBe(1);
     expect(next.workflowHash).not.toBe("");
   });
 

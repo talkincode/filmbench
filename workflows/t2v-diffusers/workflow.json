@@ -1,0 +1,14 @@
+{
+  "name": "t2v-diffusers",
+  "title": "Diffusers · ModelScope T2V 1.7B",
+  "gpu": "A100",
+  "remoteDir": "/content/filmbench",
+  "persist": "/content/filmbench/persist",
+  "idleMinutes": 30,
+  "pips": [],
+  "models": [],
+  "run": "run.py",
+  "setup": "setup.py",
+  "out": "/content/filmbench/out/{jobId}.mp4",
+  "notes": "Colab 已预装 diffusers/transformers/torch，pips 留空；模型首会话下载 ~7GB，之后走 HF 缓存"
+}

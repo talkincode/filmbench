@@ -199,6 +199,57 @@ async function execFile(
   }
 }
 
+/** 长任务：远端后台执行 + 轮询状态（colab exec 的长单元格会掉连接） */
+/** 远端建目录：上传前必须先存在，否则 colab upload 会 500 */
+async function ensureRemoteDirs(
+  session: string,
+  workflowDir: string,
+  dirs: string[],
+  cwd: string,
+  env: Record<string, string>,
+  options: { onLog?: (l: string) => void } = {},
+): Promise<void> {
+  await execFile(session, join(workflowDir, "mkdir.py"), cwd, { ...env, FB_DIRS: JSON.stringify(dirs) }, 120, options);
+}
+
+async function execTask(
+  session: string,
+  dir: string,
+  workflowDir: string,
+  task: string,
+  args: string[],
+  cwd: string,
+  env: Record<string, string>,
+  timeoutSec: number,
+  options: { onLog?: (l: string) => void; signal?: AbortSignal } = {},
+): Promise<void> {
+  const base = { ...env, FB_TASK: task, FB_ARGS: JSON.stringify(args) };
+  await execFile(session, join(workflowDir, "launch.py"), cwd, base, 120, options);
+
+  const deadline = Date.now() + timeoutSec * 1000;
+  let lastLog = "";
+  while (Date.now() < deadline) {
+    if (options.signal?.aborted) throw new Error("任务被取消");
+    await Bun.sleep(Number(process.env.FILMBENCH_COLAB_POLL_MS ?? 5000));
+    const r = await runColab(
+      ["exec", "--session", session, "--file", join(workflowDir, "check.py"), "--timeout", "90",
+        ...Object.entries(base).flatMap(([k, v]) => ["--env", `${k}=${v}`])],
+      cwd,
+      {},
+    );
+    const body = r.out.trim();
+    const lines = body.split("\n").filter((l) => l.trim());
+    for (const line of lines) if (!line.startsWith("__FB_") && line !== "RUNNING" && !line.startsWith("DONE")) options.onLog?.(line);
+    if (body.includes("DONE")) {
+      const code = Number(body.match(/DONE\s+(\d+)/)?.[1] ?? "1");
+      if (code !== 0) throw new Error(`远端任务失败（exit ${code}）：\n${lines.slice(-8).join("\n")}`);
+      return;
+    }
+    lastLog = body;
+  }
+  throw new Error(`远端任务超时（${timeoutSec}s）：\n${lastLog.split("\n").slice(-6).join("\n")}`);
+}
+
 /**
  * 建会话或复用它。复用条件：会话还活着 + 工作流哈希一致。
  * 只有工作流真的变了才重建，避免每次都重装环境、重下模型。
@@ -245,8 +296,18 @@ export async function colabUp(options: ColabUpOptions): Promise<ColabState> {
     const env = { FILMBENCH_REMOTE: remoteDir, FILMBENCH_IDLE_MINUTES: String(idleMinutes) };
     onLog?.("解包工作流…");
     await execFile(session, join(dir, "bootstrap.py"), projectDir, env, 300, { onLog });
-    onLog?.("准备环境（persist 命中则跳过安装）…");
-    await execFile(session, join(dir, spec.setup ?? "setup.py"), projectDir, env, 1800, { onLog });
+    onLog?.("准备环境（后台执行，长任务不会掉连接）…");
+    await execTask(
+      session,
+      dir,
+      dir,
+      `${remoteDir}/setup.py`,
+      [],
+      projectDir,
+      env,
+      1800,
+      { onLog, signal: options.signal },
+    );
     await execFile(session, join(dir, "heartbeat.py"), projectDir, env, 120, { onLog });
   } catch (err) {
     // 建会话失败要收尾，不然会话会挂着烧 CU
@@ -279,6 +340,9 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
   const spec = readColabSpec(dir);
   const remote = state.remoteDir;
   const jobDir = `${remote}/jobs/${input.jobId}`;
+  await ensureRemoteDirs(state.session, dir, [jobDir, `${jobDir}/refs`, `${remote}/out`], projectDir, {
+    FILMBENCH_REMOTE: remote,
+  }, { onLog });
   const remoteOut = (spec.out ?? `${remote}/out/{jobId}.mp4`).replace("{jobId}", input.jobId);
 
   // 参考图先传：按镜头声明顺序，最多 provider 上限
@@ -321,10 +385,17 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
     FILMBENCH_JOB: remoteSpec,
   };
   try {
-    await execFile(state.session, join(dir, spec.run ?? "run.py"), projectDir, env, Number(jobSpec.timeoutSec) + 120, {
-      onLog,
-      signal: input.signal,
-    });
+    await execTask(
+      state.session,
+      dir,
+      dir,
+      `${remote}/${spec.run ?? "run.py"}`,
+      [remoteSpec],
+      projectDir,
+      env,
+      Number(jobSpec.timeoutSec) + 60,
+      { onLog, signal: input.signal },
+    );
   } finally {
     // 失败也要打 heartbeat：人在看，不该被当成空闲
     await execFile(state.session, join(dir, "heartbeat.py"), projectDir, env, 120, { onLog }).catch(() => {});

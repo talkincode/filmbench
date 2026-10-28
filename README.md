@@ -145,6 +145,23 @@ filmbench colab down                     # 立即停
 > 状态（在本机实测）：会话创建、上传、解包、幂等 setup（clone ComfyUI + 模型检查 + watchdog）、心跳、状态文件、空闲停止**全部跑通**；
 > `workflows/comfy-h3` 里的 `models[].url` 还是占位地址，**没有真实权重就不会出视频**——把地址换成你的 ckpt（或先手工放进 persist 目录）后即可。
 > 另：`colab exec` 的退出码恒为 0，远端脚本必须自己打印 `__FB_OK__` / `__FB_FAIL__`，filmbench 靠这个判断成败。
+> 长任务（装环境、下模型、推理）一律**后台执行 + 轮询**（`launch.py` / `check.py`），否则 colab exec 的长单元格会掉连接。
+
+### 已验证：A100 出视频
+
+`workflows/t2v-diffusers`（ModelScope T2V 1.7B，diffusers）在 A100 上端到端跑通：
+
+```bash
+filmbench colab up --workflow t2v-diffusers --gpu A100     # 会话 + 模型缓存
+filmbench shot add --id t2v --title A100生成 --frames 60 --provider colab --task video \
+  --prompt "a courier places a small parcel on a wet doormat at night, cinematic" \
+  --param workflow=t2v-diffusers --param numFrames=16 --param steps=16
+filmbench jobs submit --shot t2v && filmbench jobs run      # 后台生成 → 回传 → 内容寻址
+filmbench colab down
+```
+
+实测：A100（5.30 CU/hr），16 帧 / 16 步 → 2 秒 1344×768 H.264，单次作业端到端约 2 分钟（模型已缓存时）。
+输出原生 256×256，`run.py` 直接放大 + 补边到成片规格（会看到左右黑边），不适合最终交付画质，适合"先用起来"。
 
 ## 配乐
 
