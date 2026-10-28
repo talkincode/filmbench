@@ -1,0 +1,27 @@
+{
+  "name": "comfy-h3",
+  "title": "ComfyUI · MiniMax H3 Ref2VA",
+  "gpu": "L4",
+  "remoteDir": "/content/filmbench",
+  "persist": "/content/drive/MyDrive/filmbench",
+  "idleMinutes": 30,
+  "pips": ["torch", "torchvision", "torchaudio"],
+  "repos": [
+    {
+      "dir": "ComfyUI",
+      "url": "https://github.com/comfyanonymous/ComfyUI.git",
+      "ref": "v0.3.40"
+    }
+  ],
+  "models": [
+    {
+      "file": "models/checkpoints/h3-ref2va.safetensors",
+      "url": "https://example.invalid/h3-ref2va.safetensors",
+      "note": "替换成你自己的权重地址；先落到 Drive 就不会每次重下"
+    }
+  ],
+  "comfy": "comfy/workflow.json",
+  "run": "run.py",
+  "setup": "setup.py",
+  "out": "/content/filmbench/out/{jobId}.mp4"
+}

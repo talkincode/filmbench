@@ -17,7 +17,7 @@ import {
   submit,
   summarize,
 } from "@filmbench/core";
-import { builtinProviders } from "@filmbench/providers";
+import { builtinProviders, colabReap } from "@filmbench/providers";
 import { renderDocument } from "@filmbench/storyboard-audit";
 
 const registry = builtinProviders();
@@ -248,6 +248,13 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       throw new Error(`未知命令 ${cmd}`);
   }
 }
+
+// Colab 会话空闲回收：每 60 秒检查一次（默认 30 分钟），防止人走了 VM 继续烧 CU
+setInterval(() => {
+  for (const dir of services.keys()) {
+    colabReap({ projectDir: dir, onLog: (l) => console.error(`[colab] ${l}`) }).catch(() => {});
+  }
+}, 60_000).unref?.();
 
 const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
 rl.on("line", (line) => {

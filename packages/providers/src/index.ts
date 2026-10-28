@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Provider, ProviderRegistry, ProviderRunInput } from "@filmbench/core";
+import { colabRunJob } from "./colab.ts";
+export * from "./colab.ts";
 
 const PALETTE = ["0x1a2733", "0x2b1f2a", "0x1d2a24", "0x2a2118", "0x22202e", "0x2e2420"];
 
@@ -206,15 +208,15 @@ export function imagine(): Provider {
 }
 
 /**
- * colab 会话：一个会话跑一条自备脚本，产物从 /content 拉回，退出前无条件 stop。
- * 会话是有成本的资源，teardown 放在 finally，不看 stop 的退出码，用 sessions 核对。
+ * colab：可复用会话。第一次 up 时装环境/下模型，之后每个作业只传 spec、跑图、取结果；
+ * 30 分钟无活动由本地 reap 与 VM 内 watchdog 双重停掉。
  */
 export function colab(): Provider {
   return {
     id: "colab",
     tasks: ["video"],
     determinism: "nondeterministic",
-    modality: "video" as const,
+    modality: "video",
     requiresPrompt: true,
     maxReferences: 3,
     estimate: ({ shot }) => {
@@ -225,45 +227,27 @@ export function colab(): Provider {
       }
       return { amount: Math.round(cu * rate * 1000) / 1000, currency: "USD", units: "CU", priceUnknown: false };
     },
-    health: () => (has("colab") ? { ok: true, detail: "colab 已安装" } : { ok: false, detail: "缺少 colab CLI" }),
+    health: () => {
+      const bin = process.env.FILMBENCH_COLAB_BIN ?? "colab";
+      return has(bin) ? { ok: true, detail: "colab 已安装（会话复用）" } : { ok: false, detail: "缺少 colab CLI" };
+    },
     async run(input: ProviderRunInput) {
-      if (!has("colab")) throw new Error("colab 未安装");
-      const { shot, params, projectDir, onLog } = input;
-      const script = String(params.script ?? "");
-      if (!script || !existsSync(join(projectDir, script))) {
-        throw new Error(`${shot.id} 缺少 params.script（会话内执行的脚本路径）`);
-      }
-      const gpu = String(params.gpu ?? "L4");
-      const session = `fb-${shot.id}-${Date.now().toString(36)}`;
-      const remote = String(params.remoteOut ?? "/content/out.mp4");
-      const local = join(projectDir, ".filmbench", "tmp", `${shot.id}.mp4`);
-      mkdirSync(join(projectDir, ".filmbench", "tmp"), { recursive: true });
-
-      const created = await run(["colab", "new", "--gpu", gpu, "--name", session], projectDir, onLog, undefined, input.signal);
-      if (created.code !== 0) throw new Error(`colab new 失败：${created.stderr.slice(-300)}`);
-      try {
-        const exec = await run(["colab", "exec", "--session", session, "--file", join(projectDir, script)], projectDir, onLog, undefined, input.signal);
-        if (exec.code !== 0) throw new Error(`colab exec 失败：${exec.stderr.slice(-300)}`);
-        const pull = await run(["colab", "download", "--session", session, remote, local], projectDir, onLog, undefined, input.signal);
-        if (pull.code !== 0) throw new Error(`colab download 失败：${pull.stderr.slice(-300)}`);
-      } finally {
-        await run(["colab", "stop", "--session", session], projectDir, onLog);
-        const list = await run(["colab", "sessions"], projectDir);
-        if (list.code === 0) onLog?.(`colab 会话已清理：${list.stderr ? "" : ""}`);
-      }
+      if (!has(process.env.FILMBENCH_COLAB_BIN ?? "colab")) throw new Error("colab 未安装");
+      const jobId = input.jobId ?? `${String(input.shot.id)}-${Date.now().toString(36)}`;
+      const { path } = await colabRunJob({ ...input, jobId });
       return {
         files: [
           {
             kind: "video" as const,
-            path: local,
+            path,
             mime: "video/mp4",
             width: input.format.width,
             height: input.format.height,
-            durationFrames: shot.durationFrames,
+            durationFrames: input.shot.durationFrames,
           },
         ],
-        priceUnknown: true,
         cost: { kind: "compute" as const, units: "CU", unitPrice: 0, amount: 0, currency: "USD" },
+        priceUnknown: true,
       };
     },
   };

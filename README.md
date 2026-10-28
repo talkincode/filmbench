@@ -91,7 +91,7 @@ filmbench build             # 1344×768 / 210 帧 / 7.000s
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
 | 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
 | 调用 imagine 生成素材 | ✅ 已用 MAI-Image-2.6-Flash 真跑通：出图 → 内容寻址 → 编译 → 成片 | `packages/providers` |
-| 调用 colab | ✅ 会话适配器：new → exec → download → **finally 无条件 stop** | 同上 |
+| 调用 colab | ✅ 可复用会话：装一次环境/模型，之后复用；30 分钟空闲自动停（本地 reap + VM watchdog） | `workflows/comfy-h3` · `packages/providers/src/colab.ts` |
 | 内置 pi agent 核心 | ✅ pi 1.4.0 已装，真会话跑通（调用 `project_state` 并正确汇总） | `packages/agent` |
 | 消耗统计 | ✅ 账本 = 事件投影：按 provider / 计量 / 镜头聚合，未知价格单列 | `packages/core/src/cost.ts` |
 | 全功能 stdio MCP | ✅ 与 agent 同一张工具表；真 MCP 客户端测试覆盖读写 | `packages/mcp` |
@@ -116,6 +116,22 @@ filmbench build             # 1344×768 / 210 帧 / 7.000s
 - **截图标注**：`⌘⇧S` → 框选（可裁剪）、矩形、箭头、文字，四种颜色，撤销；「复制图片」进剪贴板，「保存到项目」落到 `<project>/review/markup-*.png` 并把路径复制到剪贴板，可以直接甩给 agent
 - **从 agent 唤起**：`filmbench ui --shot shot-003`，或让 agent 调 `open_ui` 工具；已在运行时不会开第二个窗口，而是聚焦并跳到该镜头
 
+## Colab：可复用工作流
+
+```bash
+filmbench colab up --workflow comfy-h3   # 建会话（或复用）＋ 上传工作流包 ＋ setup（persist 命中则跳过）
+filmbench colab status                   # 会话、存活、空闲分钟数、CU 余额
+filmbench colab reap                     # 空闲 ≥ 30 分钟就停
+filmbench colab down                     # 立即停
+```
+
+- 工作流在 `workflows/comfy-h3/`：`workflow.json`（GPU/依赖/模型/持久化）、`setup.py`（幂等安装）、`run.py`（起 ComfyUI → 提交图 → 取结果）、`watchdog.py`（VM 内 30 分钟空闲自动 `unassign`）、`comfy/workflow.json`（ComfyUI API 图）。
+- **只装一次**：`workflow.json` 的哈希写进 persist 目录的 marker；模型文件存在就不重下。persist 建议指向 Google Drive（`colab drivemount /content/drive`），VM 被回收也不重装。
+- **只建一次会话**：作业之间复用；只有工作流文件变了才会 stop + 重建。
+- **30 分钟空闲自动停**：engine 每 60 秒 reap 一次；即使 filmbench 关掉，VM 里的 watchdog 也会自己 unassign。
+
+作业里指定工作流：`--param workflow=comfy-h3`；换 GPU：`filmbench colab up --gpu A100`。
+
 ## 命令
 
 ```bash
@@ -129,6 +145,7 @@ filmbench review --shot s1         # 批准；--reject 否决
 filmbench build                    # 编译 + ffmpeg 出片
 filmbench storyboard               # 审计故事板 HTML
 filmbench ledger --json
+filmbench colab up|status|down|reap
 filmbench ui [--shot ID]           # 打开桌面界面（单实例）
 filmbench doctor
 filmbench status | verify | reindex | export

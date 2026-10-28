@@ -204,6 +204,7 @@ export async function runJobs(
         if (asset) references[ref.asset] = join(service.dir, asset.path);
       }
       const result: ProviderRunResult = await provider.run({
+        jobId: job.jobId,
         shot,
         params: job.params,
         projectDir: service.dir,

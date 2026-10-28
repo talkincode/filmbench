@@ -79,6 +79,8 @@ function help(): void {
   filmbench export [--out film.yaml]
   filmbench verify
   filmbench reindex
+  filmbench colab up [--workflow comfy-h3] [--gpu L4]   # 建/复用会话（装一次环境）
+  filmbench colab status | down | reap [--idle 30]
   filmbench doctor
   filmbench ui [--shot ID]
   filmbench mcp
@@ -533,6 +535,50 @@ const sh = (cmd: string[]) => {
   }
 };
 
+const cmdColab = (argv: string[]) =>
+  withServiceAsync(async (svc, dir) => {
+    const { colabUp, colabDown, colabReap, colabStatus, colabWorkflowDir } = await import("@filmbench/providers");
+    const sub = argv[0] ?? "status";
+    if (sub === "up") {
+      const { values } = parseArgs({
+        args: argv.slice(1),
+        options: { workflow: { type: "string", default: "comfy-h3" }, gpu: { type: "string" } },
+      });
+      colabWorkflowDir(dir, values.workflow!); // 早失败：找不到工作流就先报
+      const state = await colabUp({ projectDir: dir, workflow: values.workflow, gpu: values.gpu, onLog: (l) => out(l) });
+      out(`会话 ${state.session}（${state.gpu}）· 工作流 ${state.workflow} · 空闲 ${state.idleMinutes} 分钟后自动停`);
+      return;
+    }
+    if (sub === "down") {
+      const stopped = await colabDown({ projectDir: dir, onLog: (l) => out(l) });
+      out(stopped ? "已停止" : "没有记录的会话");
+      return;
+    }
+    if (sub === "reap") {
+      const { values } = parseArgs({ args: argv.slice(1), options: { idle: { type: "string" } } });
+      const r = await colabReap({
+        projectDir: dir,
+        idleMinutes: values.idle ? Number(values.idle) : undefined,
+        onLog: (l) => out(l),
+      });
+      if (!r.stopped) out(r.idle === null ? "没有记录的会话" : `空闲 ${r.idle.toFixed(0)} 分钟，未到阈值`);
+      return;
+    }
+    if (sub === "status") {
+      const st = await colabStatus(dir);
+      if (!st.state) {
+        out("没有正在跟踪的 Colab 会话（filmbench colab up 创建）");
+      } else {
+        out(`会话 ${st.state.session} · ${st.state.gpu} · ${st.state.workflow}`);
+        out(`存活 ${st.alive ? "是" : "否"} · 空闲 ${st.idleMinutes?.toFixed(0) ?? "?"} 分钟 / 阈值 ${st.state.idleMinutes}`);
+        out(`远端 ${st.state.remoteDir} · persist ${st.state.persist}`);
+      }
+      if (st.usage.length) out(`额度：${st.usage.join(" · ")}`);
+      return;
+    }
+    throw new Error(`未知子命令 colab ${sub}`);
+  });
+
 const cmdDoctor = async () => {
   const rows: [string, boolean, string][] = [];
   const ff = sh(["ffmpeg", "-version"]);
@@ -734,6 +780,8 @@ async function main(): Promise<void> {
         return await cmdVerify();
       case "reindex":
         return await cmdReindex();
+      case "colab":
+        return await cmdColab(rest);
       case "doctor":
         return await cmdDoctor();
       case "ui":
