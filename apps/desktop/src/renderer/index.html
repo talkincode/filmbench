@@ -68,6 +68,15 @@
   .topbar .spacer{flex:1}
   .topbar .actions{display:flex;gap:8px;-webkit-app-region:no-drag}
 
+  .pipeline{display:flex;align-items:center;gap:8px;padding:7px 26px;border-bottom:1px solid var(--rule-hi);
+    background:var(--paper-2);font-family:var(--mono);font-size:11px;color:var(--ink-2);flex-wrap:wrap}
+  .p-step{display:flex;align-items:baseline;gap:6px;padding:3px 9px;border:1px solid transparent;border-radius:999px;
+    background:transparent;color:var(--ink-2);cursor:pointer;font-size:11px}
+  .p-step:hover{border-color:var(--ink-2);color:var(--ink)}
+  .p-step b{color:var(--ink);font-weight:600}
+  .p-step .cost{color:var(--ink-3);font-size:10.5px}
+  .p-step.hot{border-color:var(--rule);background:var(--paper-hi)}
+  .p-arrow{color:var(--ink-3)}
   .scroll{overflow:auto;padding:18px 26px 40px;flex:1}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:16px}
   .card{position:relative;background:var(--paper-hi);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);
@@ -239,7 +248,9 @@
   /* —— 截图标注 —— */
   .snap{position:fixed;inset:0;background:rgba(16,14,10,.86);display:none;flex-direction:column;z-index:80}
   .snap.open{display:flex}
-  .snapbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--paper-hi);border-bottom:1px solid var(--ink)}
+  .snapbar{display:flex;align-items:center;gap:8px;padding:38px 14px 10px;background:var(--paper-hi);border-bottom:1px solid var(--ink);
+    -webkit-app-region:no-drag}
+  .snapbar button{-webkit-app-region:no-drag}
   .snapbar .grp{display:flex;gap:4px;padding-right:8px;margin-right:8px;border-right:1px solid var(--rule-hi)}
   .snapbar button.on{background:var(--ink);color:var(--paper-hi);border-color:var(--ink)}
   .swatch{width:18px;height:18px;border-radius:50%;border:2px solid var(--paper-hi);outline:1px solid var(--rule);cursor:pointer}
@@ -293,15 +304,16 @@
       </div>
       <span class="spacer"></span>
       <div class="actions">
-        <button id="bSubmit" title="把「缺产物 / 过期」的镜头排进队列——只排队，不花钱">提交待办</button>
-        <button id="bRun" class="primary" title="按顺序真正调用模型生成（会花钱）">执行队列</button>
-        <button id="bBuild" title="本地 ffmpeg 合成 mp4——不调用模型，不花钱">出片</button>
+        <button id="bSubmit" title="把「缺产物 / 过期」的镜头排进队列——只排队，不花钱">① 提交待办</button>
+        <button id="bRun" class="primary" title="按顺序真正调用模型生成（会花钱）">② 执行队列</button>
+        <button id="bBuild" title="本地 ffmpeg 合成 mp4——不调用模型，不花钱">③ 出片</button>
         <button id="bCheck" class="ghost" title="一键验收：事件链 / 产物 / 选定 / 审阅 / 编译 / 预算">验收</button>
         <button id="bOverview" class="ghost" title="剧本、封面、镜头表与流程说明">总览</button>
         <button id="bStory">审计故事板</button>
         <button id="bSnap" class="ghost" title="⌘⇧S">截图</button>
       </div>
     </div>
+    <div class="pipeline" id="pipeline"></div>
     <div class="scroll" id="scroll"><div class="grid" id="grid"></div></div>
   </main>
 </div>
@@ -497,6 +509,29 @@ function render() {
 
   const jobs = (st.jobs || []).slice(-20).reverse();
   $("jobCount").textContent = jobs.length ? `${jobs.length} 条` : "";
+  const needWork = st.shots.filter((x) => !x.hasOutput || x.stale).length;
+  const queued = (st.jobs || []).filter((j) => j.phase === "requested" || j.phase === "running").length;
+  const ready = st.shots.filter((x) => x.hasOutput && !x.stale && x.selected).length;
+  $("pipeline").innerHTML = `
+    <button class="p-step${needWork ? " hot" : ""}" data-step="submit" title="把缺产物/过期的镜头排进队列（不花钱）">
+      ① 待生成 <b>${needWork}</b> 镜 <span class="cost">· 排队不花钱</span></button>
+    <span class="p-arrow">→</span>
+    <button class="p-step${queued ? " hot" : ""}" data-step="run" title="按顺序调用模型（花钱）">
+      ② 队列 <b>${queued}</b> 个 <span class="cost">· 调用模型会花钱</span></button>
+    <span class="p-arrow">→</span>
+    <button class="p-step" data-step="build" title="本地 ffmpeg 合成（不花钱）">
+      ③ 就绪 <b>${ready}/${st.shots.length}</b> 镜 <span class="cost">· 合成不花钱</span></button>
+    <span class="spacer" style="flex:1"></span>
+    <span class="cost" style="color:var(--ink-3)">${ready === st.shots.length && st.shots.length > 0 ? "全部就绪，可以出片" : "有镜头未就绪，出片会被拒绝"}</span>
+  `;
+  $("pipeline").querySelectorAll("[data-step]").forEach((b) => {
+    b.onclick = () => {
+      if (b.dataset.step === "submit") $("bSubmit").click();
+      else if (b.dataset.step === "run") $("bRun").click();
+      else $("bBuild").click();
+    };
+  });
+
   $("jobList").innerHTML = jobs.length
     ? `<ul class="jlist">${jobs.map((j) => `<li class="jrow ${esc(j.phase)}" data-shot="${esc(j.shot)}">
         <span class="dot"></span>
