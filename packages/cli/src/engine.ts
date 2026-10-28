@@ -13,6 +13,7 @@ import {
   ensurePosters,
   readPolicy,
   runChecks,
+  shotStale,
   projectStoryboard,
   reconcileOrphans,
   runJobs,
@@ -65,7 +66,7 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
           task: s.binder.task,
           intent: s.intent,
           hasOutput: Boolean(s.produce),
-          stale: s.produce ? s.mutatedAt > s.produce.atSeq : false,
+          stale: s.produce ? shotStale(state, s) : false,
           asset: s.produce?.asset ?? null,
           kind: s.produce?.kind ?? null,
           selected: (() => {

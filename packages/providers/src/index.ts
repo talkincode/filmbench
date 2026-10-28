@@ -328,9 +328,14 @@ export function imagineVideo(): Provider {
 
 /**
  * filmbench/title：本地渲染标题卡 / 封面（SVG → PNG，rsvg-convert 或 resvg）。
- * 支持纯色背景或"参考图 + 压暗"，图里只有标题与副标题，不依赖 drawtext。
+ *
+ * 设计不是"打一行字"：分四个层级——kicker（上方小字）/ title（主标题）/
+ * subtitle（一句剧情）/ credits（署名行）；背景可选剧照 + 压暗 + 暗角 + 颗粒。
+ * 预设：noir（夜戏，默认）/ paper（纸面）/ minimal（纯底左对齐）。
  */
 export function titleCard(): Provider {
+  const PRESETS = ["noir", "paper", "minimal"] as const;
+
   return {
     id: "filmbench/title",
     tasks: ["title"],
@@ -347,13 +352,27 @@ export function titleCard(): Provider {
       const { shot, params, projectDir, format } = input;
       const W = format.width;
       const H = format.height;
-      const bg = String(params.bg ?? "0d1114");
-      const fg = String(params.fg ?? "ece5d7");
+      const preset = (PRESETS.includes(String(params.preset) as any) ? String(params.preset) : "noir") as
+        | "noir"
+        | "paper"
+        | "minimal";
+      const dark = preset !== "paper";
+      const fg = String(params.fg ?? (dark ? "ece5d7" : "191610"));
       const accent = String(params.accent ?? "ad3a20");
+      const scrim = Number(params.scrim ?? 0.66);
+      const grain = params.grain !== false;
+
       const title = String(params.text ?? shot.title);
+      const kicker = String(params.kicker ?? "");
       const subtitle = String(params.subtitle ?? shot.intent.description ?? "");
-      const size = Number(params.size ?? Math.round(W / 12));
-      const scrim = Number(params.scrim ?? 0.55);
+      const credits = String(params.credits ?? "");
+
+      const titleSize = Number(params.size ?? Math.round(W / 9));
+      const subtitleSize = Number(params.subtitleSize ?? Math.round(titleSize * 0.2));
+      const kickerSize = Number(params.kickerSize ?? Math.round(titleSize * 0.11));
+      const creditsSize = Math.round(titleSize * 0.1);
+      const align = params.align === "left" ? "left" : "center";
+
       const bgRef = (shot.references ?? [])[0];
       const bgPath = bgRef ? input.references?.[bgRef.asset] : undefined;
 
@@ -366,34 +385,102 @@ export function titleCard(): Provider {
             if ([...line].length >= perLine) { lines.push(line); line = ""; }
             line += ch;
           }
-          lines.push(line);
+          if (line) lines.push(line);
         }
-        return lines.filter((l) => l.length > 0);
+        return lines;
       };
 
-      const perLine = Math.max(4, Math.floor((W * 0.82) / size));
-      const lines = wrap(title, perLine);
-      const lineHeight = size * 1.25;
-      const blockH = lines.length * lineHeight;
-      const startY = H / 2 - blockH / 2 + size * 0.8;
-      let bgLayer = `<rect width="${W}" height="${H}" fill="#${bg}"/>`;
+      // 背景：纯色 / 剧照 + 压暗
+      let bgLayer = `<rect width="${W}" height="${H}" fill="#${dark ? "0b0f12" : "ece5d7"}"/>`;
       if (bgPath && existsSync(bgPath)) {
         const b64 = readFileSync(bgPath).toString("base64");
         const mime = bgPath.endsWith(".png") ? "image/png" : "image/jpeg";
-        bgLayer = `<image href="data:${mime};base64,${b64}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>
-          <rect width="${W}" height="${H}" fill="#0a0805" opacity="${scrim}"/>`;
+        bgLayer =
+          `<image href="data:${mime};base64,${b64}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>` +
+          `<rect width="${W}" height="${H}" fill="#0a0805" opacity="${scrim}"/>` +
+          `<rect width="${W}" height="${H}" fill="url(#vignette)"/>` +
+          `<rect width="${W}" height="${H}" fill="url(#bottomFade)"/>`;
       }
 
+      // 颗粒：确定性的点阵（不依赖 feTurbulence，rsvg 支持更稳）
+      let grainLayer = "";
+      if (grain) {
+        let dots = "";
+        let seed = 7;
+        const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+        for (let i = 0; i < 900; i++) {
+          const x = Math.round(rnd() * W);
+          const y = Math.round(rnd() * H);
+          const o = (0.03 + rnd() * 0.05).toFixed(3);
+          dots += `<circle cx="${x}" cy="${y}" r="${rnd() > 0.8 ? 1.2 : 0.7}" fill="#fff" opacity="${o}"/>`;
+        }
+        grainLayer = `<g>${dots}</g>`;
+      }
+
+      const titlePerLine = align === "left" ? Math.floor((W * 0.62) / titleSize) : Math.floor((W * 0.8) / titleSize);
+      const titleLines = wrap(title, Math.max(2, titlePerLine));
+      const lineH = titleSize * 1.22;
+      const blockH = titleLines.length * lineH;
+      const cx = align === "left" ? Math.round(W * 0.12) : Math.round(W / 2);
+      const anchor = align === "left" ? "start" : "middle";
+      const centerY = Math.round(H * (bgPath ? 0.5 : 0.47));
+      const titleTop = centerY - blockH / 2 + titleSize * 0.78;
+      const ruleY = titleTop + blockH - titleSize * 0.12;
+      const subLines = wrap(subtitle, Math.floor((W * 0.66) / subtitleSize));
+      const subTop = ruleY + subtitleSize * 1.9;
+      const kickerY = centerY - blockH / 2 - kickerSize * 2.2;
+
+      const ruleW = Math.min(W * 0.28, titleSize * 3.2);
+      const ruleX = align === "left" ? cx : cx - ruleW / 2;
+
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-        ${bgLayer}
-        <g font-family="Songti SC, PingFang SC, Iowan Old Style, serif" fill="#${fg}" text-anchor="middle">
-          ${lines
-            .map((line, i) => `<text x="${W / 2}" y="${startY + i * lineHeight}" font-size="${size}" letter-spacing="${Math.round(size * 0.06)}">${esc(line)}</text>`)
-            .join("")}
-          <rect x="${W / 2 - size * 1.6}" y="${startY + blockH - size * 0.9}" width="${size * 3.2}" height="2" fill="#${accent}"/>
-          ${subtitle ? `<text x="${W / 2}" y="${startY + blockH + size * 0.9}" font-size="${Math.round(size * 0.34)}" opacity="0.72" letter-spacing="${Math.round(size * 0.1)}">${esc(subtitle)}</text>` : ""}
-        </g>
-      </svg>`;
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="46%" r="72%">
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  ${bgLayer}
+  ${grainLayer}
+  <g font-family="Songti SC, PingFang SC, Iowan Old Style, serif" fill="#${fg}" text-anchor="${anchor}">
+    ${
+      kicker
+        ? `<text x="${cx}" y="${kickerY}" font-family="SF Mono, Menlo, monospace" font-size="${kickerSize}"
+             letter-spacing="${Math.round(kickerSize * 0.4)}" opacity="0.62">${esc(kicker)}</text>`
+        : ""
+    }
+    ${titleLines
+      .map(
+        (line, i) =>
+          `<text x="${cx}" y="${titleTop + i * lineH}" font-size="${titleSize}" letter-spacing="${Math.round(
+            titleSize * 0.1,
+          )}">${esc(line)}</text>`,
+      )
+      .join("")}
+    <rect x="${ruleX}" y="${ruleY}" width="${ruleW}" height="2" fill="#${accent}" opacity="0.9"/>
+    ${subLines
+      .map(
+        (line, i) =>
+          `<text x="${cx}" y="${subTop + i * subtitleSize * 1.6}" font-family="PingFang SC, Songti SC, sans-serif"
+             font-size="${subtitleSize}" letter-spacing="${Math.round(subtitleSize * 0.22)}" opacity="0.74">${esc(
+               line,
+             )}</text>`,
+      )
+      .join("")}
+    ${
+      credits
+        ? `<text x="${Math.round(W * 0.12)}" y="${Math.round(H * 0.9)}" font-family="SF Mono, Menlo, monospace"
+             font-size="${creditsSize}" letter-spacing="${Math.round(creditsSize * 0.18)}" opacity="0.45" text-anchor="start">${esc(
+               credits,
+             )}</text>`
+        : ""
+    }
+  </g>
+</svg>`;
 
       const tmp = join(projectDir, ".filmbench", "tmp");
       mkdirSync(tmp, { recursive: true });

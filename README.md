@@ -93,7 +93,7 @@ filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC
 | 界面支持编排 | ✅ 缩略图网格 · 项目切换 · 分镜详情抽屉 · 一键提交/执行/出片/故事板；⚠ 拖拽排时间轴未做 | `apps/desktop/src/renderer` |
 | 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件；**内置预览**（视频/图片直接播，可接着截图标注） | `packages/core/src/detail.ts` |
 | 影片总览与剧本 | ✅ `filmbench script set/info`，界面「总览」看封面、剧本、镜头表、渠道策略与三步流程 | `packages/core` · `apps/desktop` |
-| 片名卡 / 封面 | ✅ `filmbench/title` 本地渲染（SVG→PNG，宋体标题），`filmbench cover --shot` 设封面 | `packages/providers` |
+| 片名卡 / 封面 | ✅ `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits）+ 三个预设 + 剧照压暗/暗角/颗粒；`filmbench cover --shot` 设封面 | `packages/providers` · [设计规范](docs/title-design.md) |
 | 渠道策略 | ✅ `.filmbench/policy.json` 限制 agent 只能用白名单 provider；视频渠道默认需人工 `--approve` | `packages/core/src/policy.ts` |
 | 一键验收 | ✅ `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面，`exit 1` 即不通过 | `packages/core/src/check.ts` |
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
@@ -169,6 +169,7 @@ filmbench demo [dir]
 ## 文档
 
 - [架构](docs/architecture.md) —— 模块、真相与投影、单写路径、编译、预算、provider 契约、验收面与非目标
+- [片名卡与封面设计](docs/title-design.md) —— 四层结构、三个预设、怎么根据剧情写标题
 - [参考图与 prompt 规范](docs/prompt-guide.md) —— 5 张上限、槽位语义、prompt 结构、机器判定规则
 - [审计故事板](packages/storyboard-audit/README.md) —— 投影 schema、检查登记表、网格与连线规则
 

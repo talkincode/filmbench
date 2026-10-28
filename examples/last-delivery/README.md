@@ -17,7 +17,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 
 | # | id | 时长 | provider | 说明 |
 | --- | --- | --- | --- | --- |
-| 01 | `title` | 60f / 2.0s | filmbench/title | 片名卡：黑底、宋体标题、红线、副标题（本地 SVG 渲染，零成本） |
+| 01 | `title` | 60f / 2.0s | filmbench/title | 片名卡：门厅剧照压暗 + 宋体片名 + 红线 + 剧情副标题 + 署名行（本地 SVG，零成本；同时是封面） |
 | 02 | `door` | 90f / 3.0s | imagine | 雨夜门厅空镜；后续两镜把它当 `environment` 参考 |
 | 03 | `courier` | 120f / 4.0s | imagine | 快递员放下包裹（参考 01） |
 | 04 | `lift` | 90f / 3.0s | colorcard | 电梯空轿厢，纯色占位（零成本、确定性） |
@@ -42,8 +42,8 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 预算 / 账本 | 5 次 imagine 记为 `priceUnknown`（不记 0），colorcard 记 0 |
 | 编译 | 图片 `-loop 1 -t`、视频 trim、统一 scale/pad/fps 后 concat，600 帧整 |
 | 审计故事板 | `0 镜有阻塞`，底账为空 |
-| 标题卡 | `filmbench/title` 本地渲染 SVG→PNG（宋体标题 + 红线），不依赖 drawtext |
-| 封面 | `filmbench cover --shot door`，总览与故事板都用它 |
+| 标题卡 | `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits），剧照压暗 + 暗角 + 颗粒 |
+| 封面 | 标题卡本身就是封面（`filmbench cover --shot title`），与片头同一套设计语言 |
 | 一键验收 | `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面 12 项 |
 
 ## 复现命令（要真实凭据）

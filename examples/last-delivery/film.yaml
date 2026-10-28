@@ -26,12 +26,18 @@ shots:
       task: title
       params:
         text: 最后一单
-        subtitle: A FILMBENCH SHORT
+        subtitle: 雨夜 · 一栋待拆的楼 · 最后一单包裹
         bg: 0d1114
-        size: 170
+        size: 168
         accent: ad3a20
+        preset: noir
+        kicker: FILMBENCH 短片 01
+        credits: 2026 · 20s · 1344×768
+        scrim: 0.7
     subjects: []
-    references: []
+    references:
+      - asset: asset-884065adcf66
+        role: environment
     dependsOn: []
   - id: door
     title: 门厅 · 雨夜
