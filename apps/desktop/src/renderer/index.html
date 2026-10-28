@@ -107,6 +107,7 @@
   .sec p.desc{font-size:14px;color:var(--ink)}
   .dim{color:var(--ink-3);font-family:var(--mono);font-size:11.5px}
   .okline{margin:0;font-family:var(--mono);font-size:11.5px;color:var(--ok)}
+  .hintline{margin:-3px 0 2px;font-family:var(--mono);font-size:11.5px;line-height:1.45;color:var(--ink-3)}
   details.sec>summary{cursor:pointer;list-style:none;font-family:var(--serif);font-size:14px;font-weight:600;
     color:var(--ink);display:flex;justify-content:space-between;gap:8px;padding-bottom:5px;border-bottom:1px solid var(--rule-hi)}
   details.sec>summary::-webkit-details-marker{display:none}
@@ -411,6 +412,8 @@ function render() {
 /* —— 详情 —— */
 async function openDetail(id, opts = {}) {
   try {
+    const sameShot = S.shotId === id;
+    const keep = sameShot ? $("dBody").scrollTop : 0;
     const d = await rpc("shot_detail", { shot: id });
     S.detail = d;
     S.shotId = id;
@@ -418,7 +421,9 @@ async function openDetail(id, opts = {}) {
     renderDetail(d);
     $("drawer").classList.add("open");
     $("drawer").setAttribute("aria-hidden", "false");
-    if (!opts.keepScroll) $("dBody").scrollTop = 0;
+    const apply = () => { $("dBody").scrollTop = sameShot || opts.keepScroll ? keep : 0; };
+    apply();
+    requestAnimationFrame(apply);
   } catch (e) {
     toast(e.message);
   }
@@ -447,13 +452,25 @@ function renderDetail(d) {
   const fps = d.project.format?.fps || 30;
   const approved = s.reviewed === "approved";
 
+  const sameInputs = Boolean(d.inputs?.sameAsLast);
+  const deterministic = d.provider?.determinism === "deterministic";
+  const pendingSame = (d.jobs || []).find((j) => j.phase === "requested" && j.inputsHash === d.inputs?.current);
+  const est = d.estimate;
+  const estText = !est ? "" : est.priceUnknown ? "价格未知" : `预估 ${est.amount.toFixed(2)} ${est.currency}`;
+
   const next = !produce
     ? { label: "提交作业", act: "submit" }
     : !selected || selected !== produce.asset
       ? { label: "选定这一版", act: "select" }
       : !approved
         ? { label: "批准这一版", act: "approve" }
-        : { label: "再生成一版", act: "submit" };
+        : pendingSame
+          ? { label: "已有一版在排队", act: "noop", disabled: true }
+          : sameInputs && deterministic
+            ? { label: "输入未变，重跑无意义", act: "noop", disabled: true }
+            : sameInputs
+              ? { label: "同参重抽一版", act: "submit" }
+              : { label: "按新输入生成一版", act: "submit" };
 
   const thumbs = cands.map((c) => {
     const isSel = c.asset === selected;
@@ -507,13 +524,20 @@ function renderDetail(d) {
     </div>
 
     <div class="actbar">
-      <button class="primary" id="dAction">${next.label}</button>
+      <button class="primary" id="dAction"${next.disabled ? " disabled" : ""}>${next.label}</button>
       <button id="dApprove" ${selected ? "" : "disabled"}>批准</button>
       <button id="dReject" ${selected ? "" : "disabled"}>否决</button>
       <button class="ghost" id="dSnap">截图标注</button>
       ${produce ? `<button class="ghost" data-open="${esc(produce.absPath)}">打开</button>
         <button class="ghost" data-reveal="${esc(produce.absPath)}">显示</button>` : ""}
     </div>
+    <p class="hintline">${
+      pendingSame
+        ? "已排队，点右上「执行队列」才会真正调用模型"
+        : next.disabled
+          ? "确定性 provider：同输入会得到同一产物；改参数或参考再生成"
+          : `提交只排队 · 右上「执行队列」才真正生成${estText ? ` · ${estText}` : ""}`
+    }</p>
 
     <div class="sec">
       <h4>意图</h4>
@@ -590,11 +614,18 @@ function renderDetail(d) {
   }));
 
   const runAction = async () => {
+    if (next.disabled) {
+      toast(next.label === "已有一版在排队" ? "已有一版在排队，去右上执行队列" : "输入没变，换参数或参考再生成");
+      return;
+    }
     try {
-      if (next.act === "submit") await rpc("submit", { shot: s.id });
+      if (next.act === "submit") {
+        const r = await rpc("submit", { shot: s.id });
+        if (r?.[0]?.reused) { toast("已有一版在排队，没有重复提交"); await refreshAndDetail(); return; }
+      }
       if (next.act === "select") await rpc("select", { shot: s.id });
       if (next.act === "approve") await rpc("review", { shot: s.id });
-      toast(`${next.label} 完成`);
+      toast(next.act === "submit" ? "已排队 · 去右上「执行队列」开始生成" : `${next.label} 完成`);
       await refreshAndDetail();
     } catch (e) { toast(e.message, 4000); }
   };

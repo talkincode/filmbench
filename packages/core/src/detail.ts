@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ProviderRegistry } from "./providers.ts";
 import { CHECK_REGISTRY } from "@filmbench/storyboard-audit";
+import { inputsHash } from "./jobs.ts";
 import { projectStoryboard } from "./storyboard.ts";
 import { totalFrames, type ProjectState } from "./state.ts";
 import type { Service } from "./service.ts";
@@ -31,6 +32,10 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
   const selected = selection?.video ?? selection?.image ?? selection?.audio;
   const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
 
+  const currentHash = inputsHash(shot, state.project?.format.fps ?? 30);
+  const produceJob = shot.produce ? state.jobs.get(shot.produce.jobId) : undefined;
+  const provider = registry.get(shot.binder.provider);
+
   const jobs = [...state.jobs.values()]
     .filter((j) => j.shot === shotId)
     .sort((a, b) => a.requestedAt - b.requestedAt)
@@ -42,6 +47,7 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
       phase: j.phase,
       reason: j.reason ?? null,
       estimate: j.estimate,
+      inputsHash: j.inputsHash,
       asset: j.produce?.asset ?? null,
       atSeq: j.updatedAt,
       requestedAt: j.requestedAt,
@@ -156,6 +162,15 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
       candidates: projection.candidates,
     },
     produce,
+    inputs: {
+      current: currentHash,
+      lastProduce: produceJob?.inputsHash ?? null,
+      sameAsLast: Boolean(produceJob && produceJob.inputsHash === currentHash),
+    },
+    provider: provider
+      ? { id: provider.id, determinism: provider.determinism, modality: provider.modality ?? null, maxReferences: provider.maxReferences ?? null }
+      : null,
+    estimate: provider && state.project ? provider.estimate({ shot, format: state.project.format }) : null,
     jobs,
     cost: {
       currency: state.project?.budget?.currency ?? "USD",

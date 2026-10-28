@@ -9,7 +9,11 @@ import { blockedBy, lintPrompt } from "./prompt.ts";
 
 const sha256 = (buf: Uint8Array) => createHash("sha256").update(buf).digest("hex");
 
-export function inputsHash(shot: ShotState, fps: number): string {
+export function inputsHash(
+  shot: ShotState,
+  fps: number,
+  params: Record<string, string | number | boolean> = shot.binder.params,
+): string {
   return sha256(
     Buffer.from(
       canonical({
@@ -17,6 +21,7 @@ export function inputsHash(shot: ShotState, fps: number): string {
         durationFrames: shot.durationFrames,
         intent: shot.intent,
         binder: shot.binder,
+        params,
         subjects: shot.subjects,
         references: shot.references,
         format: { fps },
@@ -37,6 +42,8 @@ export interface SubmitResult {
   phase: "requested" | "rejected";
   estimate: { amount: number; currency: string; units: string; priceUnknown: boolean };
   reason?: string;
+  /** 已存在同输入的在途作业，直接复用，不重复排队 */
+  reused?: boolean;
 }
 
 /**
@@ -62,8 +69,16 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
 
   const params = { ...shot.binder.params, ...(input.params ?? {}) };
   const estimate = provider.estimate({ shot, format: state.project.format });
+  const hash = inputsHash(shot, state.project.format.fps, params);
+
+  const pendingSame = [...state.jobs.values()].find(
+    (j) => j.shot === shot.id && j.phase === "requested" && j.inputsHash === hash,
+  );
+  if (pendingSame && !input.opid) {
+    return { jobId: pendingSame.jobId, phase: "requested", estimate: pendingSame.estimate, reused: true };
+  }
+
   const jobId = `job-${shot.id}-${state.jobs.size + 1}`;
-  const hash = inputsHash(shot, state.project.format.fps);
 
   // 先记录请求：被预算拒绝的作业也必须留在队列历史里，否则"为什么没生成"查不到
   service.append(
