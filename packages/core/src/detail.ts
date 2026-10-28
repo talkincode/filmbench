@@ -48,6 +48,7 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
       reason: j.reason ?? null,
       estimate: j.estimate,
       inputsHash: j.inputsHash,
+      hasLog: Boolean(j.log?.length),
       asset: j.produce?.asset ?? null,
       atSeq: j.updatedAt,
       requestedAt: j.requestedAt,

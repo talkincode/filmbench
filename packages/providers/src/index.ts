@@ -30,7 +30,8 @@ async function run(
   try {
     const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
     const code = await proc.exited;
-    if (out.trim()) onLog?.(out.trim().split("\n").slice(-2).join("\n"));
+    if (out.trim()) for (const line of out.trim().split("\n").slice(-80)) onLog?.(line);
+    if (err.trim()) for (const line of err.trim().split("\n").slice(-80)) onLog?.(line);
     return { code, stderr: err };
   } finally {
     signal?.removeEventListener("abort", onAbort);

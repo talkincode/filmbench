@@ -88,7 +88,7 @@
   .empty code{background:rgba(25,22,16,.06);padding:1px 5px;border-radius:3px}
 
   /* —— 详情抽屉 —— */
-  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(540px,94vw);background:var(--paper-hi);border-left:1px solid var(--rule);
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(660px,96vw);background:var(--paper-hi);border-left:1px solid var(--rule);
     box-shadow:-24px 0 60px -40px rgba(30,22,8,.8);display:flex;flex-direction:column;transform:translateX(100%);
     transition:transform .22s cubic-bezier(.2,.8,.3,1);z-index:30}
   .drawer.open{transform:none}
@@ -107,6 +107,15 @@
   .sec p.desc{font-size:14px;color:var(--ink)}
   .dim{color:var(--ink-3);font-family:var(--mono);font-size:11.5px}
   .okline{margin:0;font-family:var(--mono);font-size:11.5px;color:var(--ok)}
+  .tabs{display:flex;gap:3px;border-bottom:1px solid var(--rule);margin:0 0 10px}
+  .tab{padding:5px 11px;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;
+    font-family:var(--mono);font-size:12px;color:var(--ink-2);cursor:pointer;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.on{background:var(--paper-hi);border-color:var(--rule);color:var(--ink);font-weight:600}
+  .tpanel{display:none;flex-direction:column;gap:10px}
+  .tpanel.on{display:flex}
+  .log-pre{font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
+    background:#141109;color:#d8d0bd;padding:12px 14px;border-radius:6px;max-height:58vh;overflow:auto;margin:0}
   .hintline{margin:-3px 0 2px;font-family:var(--mono);font-size:11.5px;line-height:1.45;color:var(--ink-3)}
   details.sec>summary{cursor:pointer;list-style:none;font-family:var(--serif);font-size:14px;font-weight:600;
     color:var(--ink);display:flex;justify-content:space-between;gap:8px;padding-bottom:5px;border-bottom:1px solid var(--rule-hi)}
@@ -263,6 +272,18 @@
   </div>
   <div class="dbody" id="dBody"></div>
 </aside>
+
+<div class="modal" id="logModal">
+  <div class="panel" style="width:min(860px,94vw)">
+    <header><h3 id="logTitle">作业日志</h3>
+      <div style="display:flex;gap:6px">
+        <button class="sm" id="logCopy">复制</button>
+        <button class="sm" id="logClose">关闭</button>
+      </div>
+    </header>
+    <div class="list" style="padding:12px"><pre class="log-pre" id="logBody"></pre></div>
+  </div>
+</div>
 
 <div class="modal" id="assetModal">
   <div class="panel" style="width:min(680px,92vw)">
@@ -451,7 +472,6 @@ function renderDetail(d) {
   }
   const fps = d.project.format?.fps || 30;
   const approved = s.reviewed === "approved";
-
   const sameInputs = Boolean(d.inputs?.sameAsLast);
   const deterministic = d.provider?.determinism === "deterministic";
   const pendingSame = (d.jobs || []).find((j) => j.phase === "requested" && j.inputsHash === d.inputs?.current);
@@ -493,29 +513,39 @@ function renderDetail(d) {
       </div>`).join("")
     : `<div class="slot empty">还没有参考图（最多 5 张）</div>`;
 
-  const failing = (s.checks || []).filter((c) => c.status === "fail" || c.status === "warn");
-  const checks = failing.length
-    ? failing.map((c) => `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status]}</span>
-        <span><b>${esc(c.label || c.id)}</b>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`).join("")
-    : `<p class="okline">✓ 全部检查通过</p>`;
+  const allChecks = s.checks || [];
+  const failing = allChecks.filter((c) => c.status === "fail" || c.status === "warn");
+  const checks = allChecks.length
+    ? allChecks.map((c) => `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status]}</span>
+        <span><b>${esc(c.label || c.id)}</b> <span class="cid">${esc(c.id)}</span>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`).join("")
+    : `<p class="dim">无检查项</p>`;
 
   const jobRow = (j) => `<div class="item">
       <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${PHASE_ZH[j.phase] || esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
+      ${j.hasLog ? `<button class="sm" data-log="${esc(j.jobId)}">日志</button>` : ""}
       ${j.asset ? `<button class="sm ghost" data-asset-jump="${esc(j.asset)}">看这一版</button>` : ""}
     </div>`;
 
-  const events = d.events.slice(-10).reverse().map((e) =>
+  const events = d.events.slice(-12).reverse().map((e) =>
     `<div class="ev"><span class="s">#${e.seq}</span><span>${esc(e.summary)}<div class="a">${esc(e.actor)} · ${esc(e.at.slice(5, 19).replace("T", " "))}</div></span></div>`
   ).join("");
 
   const deps = s.dependsOn.length ? s.dependsOn.map((x) => `<span class="tag" data-dep="${esc(x.shot)}">← ${esc(x.shot)} ${esc(x.kind)}</span>`).join("") : `<span class="tag">无</span>`;
   const dependents = s.dependents.length ? s.dependents.map((x) => `<span class="tag" data-dep="${esc(x.shot)}">→ ${esc(x.shot)} ${esc(x.kind)}</span>`).join("") : `<span class="tag">无</span>`;
 
+  const TABS = [
+    { id: "overview", label: "概览" },
+    { id: "refs", label: `参考 ${s.references.length}/5` },
+    { id: "checks", label: `检查 ${failing.length}` },
+    { id: "history", label: `历史 ${d.jobs.length}` },
+  ];
+  if (!S.tab || !TABS.some((t) => t.id === S.tab)) S.tab = "overview";
+
   $("dNum").textContent = `${String(s.order).padStart(2, "0")}/${String(s.count).padStart(2, "0")}`;
   $("dTitle").textContent = s.title;
 
   $("dBody").innerHTML = `
-    <div class="sec">
+    <div class="sec" style="border-top:0;padding-top:0">
       <h4>候选画面 <span>${cands.length} 个 · 点图切换进片版本</span></h4>
       <div class="strip">
         ${thumbs}
@@ -539,68 +569,75 @@ function renderDetail(d) {
           : `提交只排队 · 右上「执行队列」才真正生成${estText ? ` · ${estText}` : ""}`
     }</p>
 
-    <div class="sec">
-      <h4>意图</h4>
-      <p class="desc">${esc(s.intent.description) || "<span class='dim'>未填写描述</span>"}</p>
-      ${s.intent.action ? `<p>${esc(s.intent.action)}</p>` : ""}
-      <div class="pe"><div class="lbl"><span>图片提示词</span></div>
-        <textarea data-pe="image" rows="2" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
-      <div class="pe"><div class="lbl"><span>视频提示词</span></div>
-        <textarea data-pe="video" rows="2" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
-    </div>
+    <div class="tabs">${TABS.map((t) => `<button class="tab${S.tab === t.id ? " on" : ""}" data-tab="${t.id}">${t.label}</button>`).join("")}</div>
 
-    <div class="sec">
-      <h4>绑定</h4>
-      <div class="chips">
-        <span class="tag">${esc(s.binder.provider)}</span><span class="tag">${esc(s.binder.task)}</span>
-        ${Object.entries(s.binder.params || {}).map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v)}</span>`).join("")}
-        ${s.subjects.length ? s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("") : ""}
+    <div class="tpanel${S.tab === "overview" ? " on" : ""}" data-panel="overview">
+      <div class="sec" style="border-top:0;padding-top:0">
+        <h4>意图</h4>
+        <p class="desc">${esc(s.intent.description) || "<span class='dim'>未填写描述</span>"}</p>
+        ${s.intent.action ? `<p>${esc(s.intent.action)}</p>` : ""}
+        <div class="pe"><div class="lbl"><span>图片提示词</span></div>
+          <textarea data-pe="image" rows="2" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
+        <div class="pe"><div class="lbl"><span>视频提示词</span></div>
+          <textarea data-pe="video" rows="2" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
       </div>
+      <div class="sec">
+        <h4>绑定</h4>
+        <div class="chips">
+          <span class="tag">${esc(s.binder.provider)}</span><span class="tag">${esc(s.binder.task)}</span>
+          ${Object.entries(s.binder.params || {}).map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v)}</span>`).join("")}
+          ${s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("")}
+        </div>
+      </div>
+      ${produce ? `<div class="sec">
+        <h4>产物</h4>
+        <div class="kv2">
+          <span>素材</span><b>${esc(produce.asset)}</b>
+          <span>规格</span><b>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind === "video" ? "视频" : "图片"}</b>
+          <span>体积</span><b>${(produce.bytes / 1024).toFixed(0)} KB</b>
+          <span>摘要</span><b>${esc(produce.sha256).slice(0, 16)}…</b>
+          <span>路径</span><b title="${esc(produce.path)}">${esc(produce.path)}</b>
+        </div>
+      </div>` : ""}
     </div>
 
-    <div class="sec">
-      <h4>参考图 <span>${s.references.length}/5 · 喂给模型的输入</span></h4>
+    <div class="tpanel${S.tab === "refs" ? " on" : ""}" data-panel="refs">
       ${refs}
       <button class="sm" id="dAddRef" ${s.references.length >= 5 ? "disabled" : ""}>+ 添加参考</button>
+      <p class="dim">参考图是喂给模型的输入；候选画面是本镜的输出。首/尾帧用来源镜头或独立图，别用本镜自己的产物。</p>
     </div>
 
-    <div class="sec">
-      <h4>检查 <span>${failing.filter((c) => c.status === "fail").length} 项阻断 · ${failing.length} 项待处理</span></h4>
+    <div class="tpanel${S.tab === "checks" ? " on" : ""}" data-panel="checks">
+      <p class="dim">${failing.filter((c) => c.status === "fail").length} 项阻断 · ${failing.filter((c) => c.status === "warn").length} 项警告 · ${allChecks.filter((c) => c.status === "pass").length} 项通过</p>
       ${checks}
     </div>
 
-    ${produce ? `<div class="sec">
-      <h4>产物</h4>
-      <div class="kv2">
-        <span>素材</span><b>${esc(produce.asset)}</b>
-        <span>规格</span><b>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind === "video" ? "视频" : "图片"}</b>
-        <span>体积</span><b>${(produce.bytes / 1024).toFixed(0)} KB</b>
-        <span>摘要</span><b>${esc(produce.sha256).slice(0, 16)}…</b>
-        <span>路径</span><b title="${esc(produce.path)}">${esc(produce.path)}</b>
+    <div class="tpanel${S.tab === "history" ? " on" : ""}" data-panel="history">
+      <div class="sec" style="border-top:0;padding-top:0">
+        <h4>时间轴与依赖</h4>
+        <div class="kv2">
+          <span>位置</span><b>${s.startFrame} → ${s.endFrame} 帧 · ${(s.startFrame / fps).toFixed(2)}s → ${(s.endFrame / fps).toFixed(2)}s</b>
+          <span>时长</span><b>${s.durationFrames} 帧 · ${s.seconds.toFixed(2)}s</b>
+        </div>
+        <div class="chips" style="margin-top:6px">${deps}${dependents}</div>
       </div>
-    </div>` : ""}
-
-    <details class="sec">
-      <summary>时间轴与依赖</summary>
-      <div class="kv2">
-        <span>位置</span><b>${s.startFrame} → ${s.endFrame} 帧 · ${(s.startFrame / fps).toFixed(2)}s → ${(s.endFrame / fps).toFixed(2)}s</b>
-        <span>时长</span><b>${s.durationFrames} 帧 · ${s.seconds.toFixed(2)}s</b>
+      <div class="sec">
+        <h4>作业历史 <span>${d.jobs.length}</span></h4>
+        <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map(jobRow).join("") : `<p class="dim">还没有作业</p>`}</div>
       </div>
-      <div class="chips" style="margin-top:6px">${deps}${dependents}</div>
-    </details>
-
-    <details class="sec">
-      <summary>作业历史 <span>${d.jobs.length}</span></summary>
-      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map(jobRow).join("") : `<p class="dim">还没有作业</p>`}</div>
-    </details>
-
-    <details class="sec">
-      <summary>事件 <span>${d.events.length}</span></summary>
-      ${events || `<p class="dim">无</p>`}
-    </details>
+      <div class="sec">
+        <h4>事件 <span>${d.events.length}</span></h4>
+        ${events || `<p class="dim">无</p>`}
+      </div>
+    </div>
   `;
 
-  /* 缩略图：按需取首帧 */
+  $("dBody").querySelectorAll("[data-tab]").forEach((btn) => (btn.onclick = () => {
+    S.tab = btn.dataset.tab;
+    $("dBody").querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab));
+    $("dBody").querySelectorAll(".tpanel").forEach((p) => p.classList.toggle("on", p.dataset.panel === S.tab));
+    $("dBody").scrollTop = 0;
+  }));
   $("dBody").querySelectorAll("[data-poster]").forEach(async (img) => {
     try {
       const path = await rpc("poster", { shot: s.id, asset: img.dataset.poster });
@@ -612,6 +649,7 @@ function renderDetail(d) {
     if (asset === selected) return;
     try { await rpc("select", { shot: s.id, asset }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
   }));
+  $("dBody").querySelectorAll("[data-log]").forEach((b) => (b.onclick = () => openJobLog(b.dataset.log)));
 
   const runAction = async () => {
     if (next.disabled) {
@@ -729,6 +767,20 @@ function stepShot(delta) {
   const next = S.shots[Math.min(S.shots.length - 1, Math.max(0, i + delta))];
   if (next) openDetail(next.id);
 }
+
+/* —— 作业日志 —— */
+async function openJobLog(jobId) {
+  try {
+    const r = await rpc("job_log", { jobId });
+    $("logTitle").textContent = `${jobId} · ${PHASE_ZH[r.phase] || r.phase}`;
+    $("logBody").textContent = r.lines?.length
+      ? r.lines.join("\n")
+      : `${r.reason ? "失败原因：" + r.reason + "\n\n" : ""}（这个作业没有捕获到输出）`;
+    $("logCopy").onclick = async () => { await f.clipboardText($("logBody").textContent); toast("日志已复制"); };
+    $("logModal").classList.add("open");
+  } catch (e) { toast(e.message); }
+}
+$("logClose").onclick = () => $("logModal").classList.remove("open");
 
 /* —— 素材选择 —— */
 async function openAssetPicker(shotId) {
@@ -1036,6 +1088,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if ($("snap").classList.contains("open")) { $("snapClose").click(); return; }
+    if ($("logModal").classList.contains("open")) { $("logModal").classList.remove("open"); return; }
     if ($("assetModal").classList.contains("open")) { $("assetModal").classList.remove("open"); return; }
     if ($("modal").classList.contains("open")) { $("modal").classList.remove("open"); return; }
     if ($("drawer").classList.contains("open")) { closeDetail(); return; }
@@ -1065,7 +1118,7 @@ f.onOpenProject(async ({ project, shot }) => {
 
 load().catch((e) => toast(`加载失败：${e.message}`, 5000));
 setInterval(() => {
-  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open")) return;
+  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open") || $("logModal").classList.contains("open")) return;
   load().catch(() => {});
 }, 6000);
 

@@ -38,6 +38,7 @@ export interface JobState {
   phase: JobPhase;
   reason?: string;
   rejectCause?: "budget" | "cancelled" | "other";
+  log?: string[];
   produce?: ProduceState;
   requestedAt: number;
   updatedAt: number;
@@ -250,6 +251,11 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
             updatedAt: e.seq,
           });
         }
+        break;
+      }
+      case "job.log": {
+        const job = state.jobs.get(p.jobId);
+        if (job) job.log = p.lines as string[];
         break;
       }
       case "cost.recorded":

@@ -303,6 +303,26 @@ describe("编译与投影", () => {
     svc.close();
   });
 
+  test("确定性 provider 重跑产出同一素材时，候选按 asset 去重（不会出现两个已选）", async () => {
+    if (!hasFfmpeg) return;
+    const { svc } = project("candidate-dedupe");
+    submit(svc, registry, { shot: "shot-a" });
+    await runJobs(svc, registry);
+    const first = svc.state().shots[0].produce!;
+    svc.setSelection("shot-a", "video", first.asset);
+
+    submit(svc, registry, { shot: "shot-a" });
+    await runJobs(svc, registry);
+    const second = svc.state().shots[0].produce!;
+    expect(second.asset).toBe(first.asset); // colorcard 确定性：同输入同字节
+
+    const doc = projectStoryboard(svc, registry);
+    const cands = doc.shots[0].candidates ?? [];
+    expect(cands.length).toBe(1);
+    expect(cands.filter((c) => c.review === "selected").length).toBe(1);
+    svc.close();
+  });
+
   test("故事板投影把缺产物、未批准主体、未审阅选定算成检查项", async () => {
     const { svc } = project("projection");
     svc.proposeSubject({ id: "hero", name: "主角", revision: 1 });

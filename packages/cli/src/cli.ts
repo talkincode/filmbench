@@ -68,6 +68,7 @@ function help(): void {
   filmbench plan
   filmbench jobs submit [--shot ID] [--all]
   filmbench jobs run [--job ID]
+  filmbench jobs log --job ID
   filmbench jobs cancel --job ID | --all
   filmbench status
   filmbench select --shot ID [--asset A]
@@ -342,6 +343,8 @@ const cmdPlan = () =>
     out(`\n合计 ${totalFrames(state)} 帧（${(totalFrames(state) / state.project.format.fps).toFixed(2)}s）`);
   });
 
+const PHASE_ZH_CLI: Record<string, string> = { requested: "排队", running: "执行中", done: "完成", failed: "失败", rejected: "被拒" };
+
 const cmdJobs = (argv: string[]) =>
   withServiceAsync(async (svc) => {
     const sub = argv[0];
@@ -365,6 +368,16 @@ const cmdJobs = (argv: string[]) =>
           : fmtMoney(result.estimate.amount, result.estimate.currency);
         out(`${result.jobId} ${result.phase}${result.reason ? ` · ${result.reason}` : ` · 预估 ${price}`}`);
       }
+      return;
+    }
+    if (sub === "log") {
+      const { values } = parseArgs({ args: argv.slice(1), options: { job: { type: "string" } } });
+      if (!values.job) throw new Error("jobs log 需要 --job <id>");
+      const job = svc.state().jobs.get(values.job);
+      if (!job) throw new Error(`作业不存在: ${values.job}`);
+      out(`${job.jobId} · ${PHASE_ZH_CLI[job.phase] ?? job.phase}${job.reason ? ` · ${job.reason}` : ""}`);
+      if (!job.log?.length) out("（没有捕获到输出）");
+      else out(job.log.join("\n"));
       return;
     }
     if (sub === "cancel") {

@@ -209,15 +209,26 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
 function candidatesFor(state: ProjectState, shot: ShotState) {
   const selection = state.selections.get(shot.id);
   const selected = selection?.video ?? selection?.image ?? selection?.audio;
-  return [...state.jobs.values()]
-    .filter((j) => j.shot === shot.id && j.phase === "done" && j.produce)
-    .map((j) => {
-      const asset = j.produce!.asset;
-      const review = state.reviews.get(`${shot.id}:${asset}`);
-      const reviewed: "selected" | "candidate" | "rejected" | "unreviewed" =
-        asset === selected ? "selected" : review === "rejected" ? "rejected" : review === "approved" ? "candidate" : "unreviewed";
-      return { asset, actor: j.provider, review: reviewed };
+  // 同一份素材可能被多个作业产出（确定性 provider 重跑）；候选按 asset 去重，保留最后一次
+  const byAsset = new Map<string, { asset: string; actor: string; review: "selected" | "candidate" | "rejected" | "unreviewed" }>();
+  for (const job of state.jobs.values()) {
+    if (job.shot !== shot.id || job.phase !== "done" || !job.produce) continue;
+    const asset = job.produce.asset;
+    const review = state.reviews.get(`${shot.id}:${asset}`);
+    byAsset.set(asset, {
+      asset,
+      actor: job.provider,
+      review:
+        asset === selected
+          ? "selected"
+          : review === "rejected"
+            ? "rejected"
+            : review === "approved"
+              ? "candidate"
+              : "unreviewed",
     });
+  }
+  return [...byAsset.values()];
 }
 
 function costFor(state: ProjectState, shot: ShotState) {

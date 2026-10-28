@@ -183,6 +183,16 @@ export async function runJobs(
       continue;
     }
 
+    const logLines: string[] = [];
+    const onLog = (line: string) => {
+      for (const part of String(line).split("\n")) {
+        if (!part.trim()) continue;
+        logLines.push(part);
+        if (logLines.length > 400) logLines.shift();
+      }
+      options.onLog?.(line);
+    };
+
     service.append("job.started", { jobId: job.jobId });
     const timeoutMs = Number(process.env.FILMBENCH_JOB_TIMEOUT_MS ?? 20 * 60 * 1000);
     const controller = new AbortController();
@@ -200,12 +210,13 @@ export async function runJobs(
         format: state.project.format,
         references,
         signal: controller.signal,
-        onLog: options.onLog,
+        onLog,
       });
       if (!result.files.length) throw new Error("provider 没有产出任何文件");
 
       const main = result.files[0];
       if (!existsSync(main.path)) throw new Error(`产物不存在: ${main.path}`);
+      if (logLines.length) service.append("job.log", { jobId: job.jobId, lines: logLines.slice(-400) });
       const stored = await materialize(service, { path: main.path, mime: main.mime }, job.jobId, provider.id);
       const bytes = stored.bytes;
 
@@ -252,6 +263,7 @@ export async function runJobs(
       const reason = aborted
         ? `超时：超过 ${Math.round(timeoutMs / 1000)}s 未完成，已终止子进程（产物可能不完整）`
         : (err as Error).message;
+      if (logLines.length) service.append("job.log", { jobId: job.jobId, lines: logLines.slice(-400) });
       service.append("job.failed", { jobId: job.jobId, reason });
       outcomes.push({ jobId: job.jobId, shot: job.shot, ok: false, reason });
     } finally {

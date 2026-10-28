@@ -190,6 +190,7 @@ export const EVENT_PAYLOADS = {
     path: z.string(),
   }),
   "job.failed": z.object({ jobId: z.string(), reason: z.string() }),
+  "job.log": z.object({ jobId: z.string(), lines: z.array(z.string()).max(400) }),
   "job.rejected": z.object({
     jobId: z.string(),
     reason: z.string(),

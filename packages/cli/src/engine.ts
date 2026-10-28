@@ -226,6 +226,13 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       }
       return { path: target };
     }
+    case "job_log": {
+      const project = args.project as string | undefined;
+      const { service } = svc(project);
+      const job = service.state().jobs.get(String(args.jobId));
+      if (!job) throw new Error(`作业不存在: ${args.jobId}`);
+      return { jobId: job.jobId, phase: job.phase, reason: job.reason ?? null, lines: job.log ?? [] };
+    }
     case "save_markup": {
       const { dir } = svc(args.project as string | undefined);
       const base64 = String(args.png ?? "");
