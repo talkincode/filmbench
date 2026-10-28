@@ -191,7 +191,12 @@ async function execFile(
   const args = ["exec", "--session", session, "--file", script, "--timeout", String(timeoutSec)];
   for (const [k, v] of Object.entries(env)) args.push("--env", `${k}=${v}`);
   const r = await runColab(args, cwd, { onLog: options.onLog, timeoutMs: (timeoutSec + 60) * 1000 });
-  if (r.code !== 0) throw new Error(`colab exec ${basename(script)} 失败：${r.err.slice(-400)}`);
+  // colab exec 的退出码恒为 0（已知行为），只能靠脚本自己打的哨兵判断成功与否
+  const combined = `${r.out}\n${r.err}`;
+  if (r.code !== 0 || combined.includes("__FB_FAIL__") || !combined.includes("__FB_OK__")) {
+    const tail = combined.split("\n").filter((l) => l.trim()).slice(-8).join("\n");
+    throw new Error(`colab exec ${basename(script)} 失败：${tail}`);
+  }
 }
 
 /**
@@ -231,7 +236,8 @@ export async function colabUp(options: ColabUpOptions): Promise<ColabState> {
 
   try {
     const pkg = packWorkflow(dir);
-    const remotePkg = `${remoteDir}/pkg.tar.gz`;
+    // 传到 /content 根目录：目标子目录此时还不存在，直接传进去会 500
+    const remotePkg = "/content/fb-pkg.tar.gz";
     const up = await runColab(["upload", pkg, remotePkg, "--session", session], projectDir, { onLog });
     if (up.code !== 0) throw new Error(`上传工作流失败：${up.err.slice(-400)}`);
     rmSync(pkg, { force: true });

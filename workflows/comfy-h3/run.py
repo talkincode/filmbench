@@ -96,6 +96,7 @@ while time.time() < deadline:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         shutil.copyfile(src, out_path)
         print("[run] done", out_path, os.path.getsize(out_path))
+        print("__FB_OK__")
         sys.exit(0)
     time.sleep(3)
 

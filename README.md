@@ -142,6 +142,10 @@ filmbench colab down                     # 立即停
 
 作业里指定工作流：`--param workflow=comfy-h3`；换 GPU：`filmbench colab up --gpu A100`。
 
+> 状态（在本机实测）：会话创建、上传、解包、幂等 setup（clone ComfyUI + 模型检查 + watchdog）、心跳、状态文件、空闲停止**全部跑通**；
+> `workflows/comfy-h3` 里的 `models[].url` 还是占位地址，**没有真实权重就不会出视频**——把地址换成你的 ckpt（或先手工放进 persist 目录）后即可。
+> 另：`colab exec` 的退出码恒为 0，远端脚本必须自己打印 `__FB_OK__` / `__FB_FAIL__`，filmbench 靠这个判断成败。
+
 ## 配乐
 
 音乐不是"背景音随便垫一下"，它和画面一样是可审计的产物：

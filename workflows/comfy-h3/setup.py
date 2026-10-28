@@ -10,9 +10,15 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 
-REMOTE = os.environ.get("FILMBENCH_REMOTE", "/content/filmbench")
-spec = json.load(open(os.path.join(REMOTE, "workflow.json")))
+try:
+    REMOTE = os.environ.get("FILMBENCH_REMOTE", "/content/filmbench")
+    spec = json.load(open(os.path.join(REMOTE, "workflow.json")))
+except Exception:
+    print("__FB_FAIL__ setup 读取 workflow.json 失败")
+    traceback.print_exc()
+    sys.exit(1)
 persist = spec.get("persist") or os.path.join(REMOTE, "persist")
 os.makedirs(persist, exist_ok=True)
 
@@ -20,6 +26,7 @@ key = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()[:16]
 marker = os.path.join(persist, f".setup-{key}")
 if os.path.exists(marker):
     print(f"[setup] cached ({marker}) — 跳过安装")
+    print("__FB_OK__")
     sys.exit(0)
 
 
@@ -29,7 +36,11 @@ def run(cmd, **kw):
 
 
 print("[setup] python", sys.version.split()[0])
-run([sys.executable, "-m", "pip", "install", "-q", *spec.get("pips", [])])
+pips = spec.get("pips", [])
+if pips:
+    run([sys.executable, "-m", "pip", "install", "-q", *pips])
+else:
+    print("[setup] 没有额外 pip 依赖，跳过")
 
 for repo in spec.get("repos", []):
     path = os.path.join(REMOTE, repo["dir"])
@@ -63,7 +74,8 @@ for root, _dirs, files in os.walk(os.path.join(persist, "models")):
         if not os.path.exists(dst):
             os.symlink(src, dst)
 
-watchdog = os.path.join(os.path.dirname(os.path.abspath(__file__)), "watchdog.py")
+# colab exec 是在 kernel 里 exec 代码，没有 __file__；用解包目录
+watchdog = os.path.join(REMOTE, "watchdog.py")
 if os.path.exists(watchdog):
     log = open(os.path.join(REMOTE, "watchdog.log"), "ab")
     subprocess.Popen([sys.executable, watchdog], stdout=log, stderr=log, start_new_session=True)
@@ -71,3 +83,4 @@ if os.path.exists(watchdog):
 
 open(marker, "w").write(str(time.time()))
 print("[setup] done", marker)
+print("__FB_OK__")

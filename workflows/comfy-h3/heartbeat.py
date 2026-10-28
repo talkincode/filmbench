@@ -7,3 +7,4 @@ REMOTE = os.environ.get("FILMBENCH_REMOTE", "/content/filmbench")
 with open(os.path.join(REMOTE, "heartbeat"), "w") as f:
     f.write(str(time.time()))
 print("[heartbeat]", time.strftime("%H:%M:%S"))
+print("__FB_OK__")

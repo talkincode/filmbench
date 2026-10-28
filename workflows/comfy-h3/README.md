@@ -23,6 +23,11 @@ VM 被回收后重新开会话，`setup.py` 命中 marker 直接跳过安装。
 2. 改 `comfy/workflow.json` 的节点与 `ckpt_name`
 3. 改完 `workflow.json` 哈希变化 → 下次自动重装一次
 
+## 远端脚本的哨兵
+
+`colab exec` 的退出码**恒为 0**（即使 kernel 里抛异常）。所以每个脚本结束都要打印 `__FB_OK__`，
+失败路径打印 `__FB_FAIL__`；filmbench 的 `execFile` 只认这两个标记，否则一律视为失败并停会话。
+
 ## 生命周期
 
 ```
