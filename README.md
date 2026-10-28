@@ -4,17 +4,49 @@
 
 不做服务端、不做账号、不做协作后端。出站的只有你自己配置的生成 provider（imagine / colab / 自定义 CLI）。
 
-## 现在能跑什么
+## 运行
+
+前置：Bun ≥ 1.2、`ffmpeg` / `ffprobe`（`brew install ffmpeg`）。
 
 ```bash
+cd filmbench
 bun install
-bun test                                    # 24 例：哈希链 / 幂等 / 预算 / 真实 ffmpeg 出片 / MCP 客户端
+bun test                    # 24 例：哈希链 / 幂等 / 预算 / 真实 ffmpeg 出片 / MCP 客户端
+bun run demo                # 在 ./demo-project 造一个 4 镜项目并跑完作业
 
-bun packages/cli/src/cli.ts demo /tmp/fb-demo     # 4 镜 → 作业 → 选定 → 审阅 → IR
-cd /tmp/fb-demo
-bun <repo>/packages/cli/src/cli.ts build          # 真实 mp4（ffprobe 校验 240 帧 / 8.000s）
-bun <repo>/packages/cli/src/cli.ts storyboard     # 单文件审计故事板
-bun <repo>/packages/cli/src/cli.ts ledger         # 花费
+cd demo-project
+bun ../packages/cli/src/cli.ts status
+bun ../packages/cli/src/cli.ts build       # build/final.mp4
+bun ../packages/cli/src/cli.ts storyboard  # build/storyboard.html（直接双击打开）
+bun ../packages/cli/src/cli.ts ledger
+```
+
+桌面端（Electron）：
+
+```bash
+cd apps/desktop
+FILMBENCH_PROJECT=../../demo-project bun run dev
+```
+
+如果 `bun install` 之后 Electron 报 `Electron failed to install correctly`（二进制没下全），补一次：
+
+```bash
+cd node_modules/.bun/electron@*/node_modules/electron
+rm -rf dist path.txt
+curl -fsSL -o /tmp/electron.zip https://github.com/electron/electron/releases/download/v33.4.11/electron-v33.4.11-darwin-arm64.zip
+mkdir -p dist && unzip -q /tmp/electron.zip -d dist
+printf 'Electron.app/Contents/MacOS/Electron' > path.txt
+```
+
+内置 agent 需要 pi 核心：`bun add @earendil-works/pi-coding-agent`，然后在项目目录里
+`bun ../packages/cli/src/cli.ts agent "把第二镜改短 6 帧"`。
+
+把工具接到别的 agent（Claude Code / Codex / pi）：
+
+```json
+{ "mcpServers": { "filmbench": { "command": "bun",
+  "args": ["/Users/wangjuntao/github/filmbench/packages/cli/src/cli.ts", "mcp"],
+  "cwd": "/Users/wangjuntao/github/filmbench/demo-project" } } }
 ```
 
 ## 需求对照
