@@ -92,6 +92,11 @@ export const CHECK_REGISTRY: Record<string, { label: string; severity: Severity;
     severity: "note",
     action: "补充该 provider 的报价版本，否则账本无法归属花费",
   },
+  "selection.stale": {
+    label: "选定落后于产物",
+    severity: "warning",
+    action: "重新生成后重新选定（filmbench select --shot …）",
+  },
   "review.pending": {
     label: "选定未审阅",
     severity: "warning",

@@ -679,7 +679,8 @@ td.sev { white-space: nowrap; font-family: var(--mono); font-size: 10px; letter-
 td.sev[data-sev="blocker"] { color: var(--block); }
 td.sev[data-sev="warning"] { color: var(--warn); }
 td.sev[data-sev="note"] { color: var(--ink-3); }
-td.check { font-family: var(--mono); font-size: 11px; color: var(--ink); width: 190px; }
+td.check { font-family: var(--mono); font-size: 11px; color: var(--ink); width: 200px; }
+td.check .cid { display: block; font-size: 9px; color: var(--ink-3); margin-top: 2px; }
 td.shot a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11px; }
 td.shot a:hover { border-color: var(--accent); color: var(--accent); }
 td.action { color: var(--ink-3); font-size: 12.5px; }

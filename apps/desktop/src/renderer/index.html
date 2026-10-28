@@ -118,6 +118,7 @@
   .pe textarea{width:100%;font-family:var(--mono);font-size:11px;line-height:1.55;padding:7px 9px;border:1px solid var(--rule);
     border-radius:6px;background:var(--paper);color:var(--ink);resize:vertical;min-height:52px}
   .pe textarea:focus{outline:none;border-color:var(--ink-2);background:var(--paper-hi)}
+  .cid{font-family:var(--mono);font-size:9px;color:var(--ink-3);opacity:.8}
   .ev{display:grid;grid-template-columns:44px 1fr;gap:8px;font-family:var(--mono);font-size:10px;color:var(--ink-2);padding:3px 0}
   .ev .s{color:var(--ink-3)}
   .ev .a{color:var(--ink-3);font-size:9px}
@@ -170,7 +171,7 @@
   <aside class="rail">
     <div class="brand">
       <h1>filmbench</h1>
-      <div class="sub">local video studio</div>
+      <div class="sub">本地视频工作站</div>
     </div>
     <div class="proj" id="projBtn" title="切换项目">
       <div class="name"><span id="projName">…</span><span id="projSwap">切换 ⇄</span></div>
@@ -285,6 +286,12 @@ const S = {
   snap: { img: null, tool: "select", color: "#ad3a20", shapes: [], sel: null, drag: null, path: null },
 };
 const COLORS = ["#ad3a20", "#191610", "#2b5f50", "#d9a03c"];
+const ROLE_ZH = {
+  identity: "身份", wardrobe: "服装", prop: "道具", environment: "环境", layout: "布局",
+  first_frame: "首帧", last_frame: "尾帧", style: "风格", other: "未分类",
+};
+const PHASE_ZH = { requested: "排队", running: "执行中", done: "完成", failed: "失败", rejected: "被拒" };
+const REVIEW_ZH = { approved: "已批准", rejected: "已否决" };
 
 function toast(msg, ms = 2000) {
   const t = $("toast");
@@ -346,7 +353,7 @@ function render() {
   posters().catch(() => {});
 
   $("jobList").innerHTML = (st.jobs || []).slice(-14).map((j) =>
-    `<div class="job ${esc(j.phase)}"><span class="dot"></span><span>${esc(j.shot)} · ${esc(j.phase)}</span></div>`
+    `<div class="job ${esc(j.phase)}"><span class="dot"></span><span>${esc(j.shot)} · ${PHASE_ZH[j.phase] || esc(j.phase)}</span></div>`
   ).join("") || `<div class="job"><span class="dot"></span><span>队列为空</span></div>`;
 }
 
@@ -399,7 +406,7 @@ function renderDetail(d) {
     ? s.references.map((r, i) => `<div class="slot">
         <span class="n">${i + 1}</span>
         <span class="id" title="${esc(r.absPath || r.asset)}">${esc(r.asset)}</span>
-        <select data-role="${esc(r.asset)}">${ROLES.map((x) => `<option${x === r.role ? " selected" : ""}>${x}</option>`).join("")}</select>
+        <select data-role="${esc(r.asset)}">${ROLES.map((x) => `<option value="${x}"${x === r.role ? " selected" : ""}>${ROLE_ZH[x]}</option>`).join("")}</select>
         <button class="sm ghost" data-unref="${esc(r.asset)}" title="移除">✕</button>
       </div>`).join("")
     : `<div class="slot empty">还没有参考图</div>`;
@@ -413,9 +420,13 @@ function renderDetail(d) {
     : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">还没有候选</p>`;
 
   const checks = (s.checks || []).map((c) =>
-    `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status] || "○"}</span><span><b>${esc(c.id)}</b>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`
+    `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status] || "○"}</span><span><b>${esc(c.label || c.id)}</b> <span class="cid">${esc(c.id)}</span>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`
   ).join("");
 
+  const jobRow = (j) => `<div class="item">
+        <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${PHASE_ZH[j.phase] || esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
+        ${j.asset ? `<button class="sm ghost" data-select="${esc(j.asset)}">选定</button>` : ""}
+      </div>`;
   const events = d.events.slice(-12).reverse().map((e) =>
     `<div class="ev"><span class="s">#${e.seq}</span><span>${esc(e.summary)}<div class="a">${esc(e.actor)} · ${esc(e.at.slice(5, 19).replace("T", " "))}</div></span></div>`
   ).join("");
@@ -449,9 +460,9 @@ function renderDetail(d) {
     <div class="sec"><h4>意图</h4>
       <p>${esc(s.intent.description) || "<span style='color:var(--ink-3)'>未填写描述</span>"}</p>
       ${s.intent.action ? `<p style="font-size:13px">${esc(s.intent.action)}</p>` : ""}
-      <div class="pe"><div class="lbl"><span>image prompt</span><span>${s.binder.provider === "imagine" ? "当前 provider" : ""}</span></div>
-        <textarea data-pe="image" placeholder="主体 · 动作 · 机位 · 光线 · no text">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
-      <div class="pe"><div class="lbl"><span>video prompt</span><span>${s.binder.provider === "colab" ? "当前 provider" : ""}</span></div>
+      <div class="pe"><div class="lbl"><span>图片提示词</span><span>${s.binder.provider === "imagine" ? "当前生成器" : ""}</span></div>
+        <textarea data-pe="image" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
+      <div class="pe"><div class="lbl"><span>视频提示词</span><span>${s.binder.provider === "colab" ? "当前生成器" : ""}</span></div>
         <textarea data-pe="video" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
     </div>
 
@@ -468,7 +479,7 @@ function renderDetail(d) {
     <div class="sec"><h4>候选与选定</h4>${cands}
       <dl class="kv" style="margin-top:8px">
         <dt>当前选定</dt><dd>${s.selected ? esc(s.selected) : "—"}</dd>
-        <dt>审阅</dt><dd>${s.reviewed ?? "未审阅"}</dd>
+        <dt>审阅</dt><dd>${REVIEW_ZH[s.reviewed] || "未审阅"}</dd>
       </dl>
     </div>
 
@@ -504,10 +515,7 @@ function renderDetail(d) {
     </div>
 
     <div class="sec"><h4>作业历史</h4>
-      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map((j) => `<div class="item">
-        <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
-        ${j.asset ? `<button class="sm ghost" data-select="${esc(j.asset)}">选定</button>` : ""}
-      </div>`).join("") : "<p style='color:var(--ink-3);font-family:var(--mono);font-size:10px'>还没有作业</p>"}</div>
+      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map(jobRow).join("") : "<p style='color:var(--ink-3);font-family:var(--mono);font-size:10px'>还没有作业</p>"}</div>
     </div>
 
     <div class="sec"><h4>事件</h4>${events || "<p>无</p>"}</div>
@@ -532,7 +540,7 @@ function renderDetail(d) {
     catch (e) { toast(e.message); }
   }));
   $("dBody").querySelectorAll("[data-pe]").forEach((ta) => (ta.onchange = async () => {
-    try { await rpc("prompt_set", { shot: d.shot.id, [ta.dataset.pe]: ta.value }); toast("prompt 已保存"); }
+    try { await rpc("prompt_set", { shot: d.shot.id, [ta.dataset.pe]: ta.value }); toast("提示词已保存"); }
     catch (e) { toast(e.message); }
   }));
   const addRef = $("dAddRef");
@@ -602,7 +610,7 @@ async function openAssetPicker(shotId) {
       try {
         await rpc("ref_add", { shot: shotId, asset, role: "other" });
         $("assetModal").classList.remove("open");
-        toast("已添加参考，记得改用途");
+        toast("已添加参考，记得选用途");
         await refreshAndDetail();
       } catch (e) { toast(e.message); }
     };

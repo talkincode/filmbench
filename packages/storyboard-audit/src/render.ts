@@ -168,7 +168,7 @@ ${s.intent.prompt}` : ""}`)}" aria-label="镜头 ${s.order} ${esc(s.title)}，�
       <span class="idx">${pad2(s.order)}</span>
       <span class="badge">${STATE_LABEL[s.state]}</span>
       <div class="guides" aria-hidden="true"></div>
-      ${s.hasPreview ? "" : `<div class="missing" aria-hidden="true"><span>no artifact</span></div>`}
+      ${s.hasPreview ? "" : `<div class="missing" aria-hidden="true"><span>暂无产物</span></div>`}
       ${
         main && main.exists
           ? `<div class="rec"><span>sha ${esc((main.sha256 ?? "—").slice(0, 7))}</span><span><b>${bytes(main.bytes)}</b></span></div>`
@@ -232,7 +232,7 @@ function ledger(findings: Finding[]): string {
     .map(
       (f) => `<tr>
       <td class="sev" data-sev="${f.severity}">${SEV_MARK[f.severity]} ${f.severity}</td>
-      <td class="check">${esc(f.check)}</td>
+      <td class="check">${esc(f.label)}<span class="cid">${esc(f.check)}</span></td>
       <td class="shot">${f.shot ? `<a href="#${esc(f.shot)}" data-jump="${esc(f.shot)}">${esc(f.shot)}</a>` : "<span>全片</span>"}</td>
       <td>${esc(f.detail ?? f.label)}</td>
       <td class="action">${esc(f.action)}</td>

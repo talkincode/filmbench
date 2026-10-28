@@ -27,12 +27,24 @@ export interface RenderIR {
 }
 
 export interface CompileIssue {
-  code: "no-project" | "no-shots" | "missing-output" | "asset-file-missing" | "spec-mismatch" | "no-selection" | "selection-not-produced";
+  code:
+    | "no-project"
+    | "no-shots"
+    | "missing-output"
+    | "stale-output"
+    | "asset-file-missing"
+    | "spec-mismatch"
+    | "no-selection"
+    | "selection-not-produced";
   shot?: string;
   detail: string;
 }
 
-export function compile(state: ProjectState, baseDir = "."): { ir: RenderIR | null; issues: CompileIssue[] } {
+export function compile(
+  state: ProjectState,
+  baseDir = ".",
+  options: { allowStale?: boolean } = {},
+): { ir: RenderIR | null; issues: CompileIssue[] } {
   const issues: CompileIssue[] = [];
   if (!state.project) return { ir: null, issues: [{ code: "no-project", detail: "项目尚未创建" }] };
   if (state.shots.length === 0) issues.push({ code: "no-shots", detail: "没有任何镜头" });
@@ -58,6 +70,13 @@ export function compile(state: ProjectState, baseDir = "."): { ir: RenderIR | nu
       continue;
     }
     const p = shot.produce;
+    if (!options.allowStale && shot.mutatedAt > p.atSeq) {
+      issues.push({
+        code: "stale-output",
+        shot: shot.id,
+        detail: `意图/参考在事件 #${shot.mutatedAt} 改过，产物停在 #${p.atSeq}：重新生成，或 build --force 强行出片`,
+      });
+    }
     if (p.kind === "video" && (p.width !== state.project.format.width || p.height !== state.project.format.height)) {
       issues.push({
         code: "spec-mismatch",
@@ -160,9 +179,12 @@ export interface BuildResult {
 }
 
 /** 出片：写 IR → 调 ffmpeg → 记 render.completed。失败不留半成品。 */
-export async function build(service: Service, options: { out?: string; irOnly?: boolean } = {}): Promise<BuildResult> {
+export async function build(
+  service: Service,
+  options: { out?: string; irOnly?: boolean; force?: boolean } = {},
+): Promise<BuildResult> {
   const state = service.state();
-  const { ir, issues } = compile(state, service.dir);
+  const { ir, issues } = compile(state, service.dir, { allowStale: Boolean(options.force) });
   if (!ir) {
     throw new ValidationError(`无法编译：\n${issues.map((i) => `  - [${i.code}] ${i.shot ?? "-"} ${i.detail}`).join("\n")}`);
   }

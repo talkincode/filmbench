@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ProviderRegistry } from "./providers.ts";
+import { CHECK_REGISTRY } from "@filmbench/storyboard-audit";
 import { projectStoryboard } from "./storyboard.ts";
 import { totalFrames, type ProjectState } from "./state.ts";
 import type { Service } from "./service.ts";
@@ -148,7 +149,10 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
       selected: selected ?? null,
       reviewed: selected ? (state.reviews.get(`${shotId}:${selected}`) ?? null) : null,
       produces: projection.produces,
-      checks: projection.checks,
+      checks: projection.checks.map((c) => ({
+        ...c,
+        label: CHECK_REGISTRY[c.id]?.label ?? c.id,
+      })),
       candidates: projection.candidates,
     },
     produce,

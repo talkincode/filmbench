@@ -70,7 +70,7 @@ function help(): void {
   filmbench status
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
-  filmbench build [--ir] [--out path]
+  filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
   filmbench storyboard [--out path]
   filmbench ledger [--json]
   filmbench export [--out film.yaml]
@@ -329,9 +329,11 @@ const cmdPlan = () =>
           ? `filmbench jobs submit --shot ${shot.id}`
           : !selected
             ? `filmbench select --shot ${shot.id}`
-            : !approved
-              ? `filmbench review --shot ${shot.id}`
-              : "—";
+            : selected !== produce.asset
+              ? `filmbench select --shot ${shot.id}（新产物未选定）`
+              : !approved
+                ? `filmbench review --shot ${shot.id}`
+                : "—";
       return [shot.id, `${shot.durationFrames}f`, shot.binder.provider, status, next];
     });
     out(table(rows, ["镜头", "时长", "provider", "状态", "下一步"]));
@@ -428,8 +430,11 @@ const cmdStatus = () =>
 
 const cmdBuild = (argv: string[]) =>
   withServiceAsync(async (svc) => {
-    const { values } = parseArgs({ args: argv, options: { ir: { type: "boolean" }, out: { type: "string" } } });
-    const result = await build(svc, { irOnly: values.ir, out: values.out });
+    const { values } = parseArgs({
+      args: argv,
+      options: { ir: { type: "boolean" }, out: { type: "string" }, force: { type: "boolean" } },
+    });
+    const result = await build(svc, { irOnly: values.ir, out: values.out, force: values.force });
     if (values.ir) out(`IR 已写出：build/render.ir.json（${result.ir.clips.length} 段）`);
     else out(`成片 ${result.out}\n  ${result.durationFrames} 帧 · ${result.bytes} 字节 · sha256 ${result.sha256.slice(0, 12)}`);
   });

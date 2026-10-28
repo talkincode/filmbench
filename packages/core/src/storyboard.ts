@@ -83,6 +83,13 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
 
     const selection = state.selections.get(shot.id);
     const selectedAsset = selection?.video ?? selection?.image ?? selection?.audio;
+    if (selectedAsset && produce && selectedAsset !== produce.asset) {
+      checks.push({
+        id: "selection.stale",
+        status: "warn",
+        detail: `选定的是 ${selectedAsset}，最新产物是 ${produce.asset}：重新生成后要重新选定`,
+      });
+    }
     if (selectedAsset && state.reviews.get(`${shot.id}:${selectedAsset}`) !== "approved") {
       checks.push({ id: "review.pending", status: "warn", detail: `${selectedAsset} 被选定但未经审阅批准` });
     }
