@@ -82,6 +82,8 @@
     transition:transform .22s cubic-bezier(.2,.8,.3,1);z-index:30}
   .drawer.open{transform:none}
   .dhead{display:flex;align-items:center;gap:10px;padding:44px 18px 12px;border-bottom:1px solid var(--rule);-webkit-app-region:drag}
+  /* 拖拽区域会吞掉鼠标事件：里面所有可点的东西必须显式排除 */
+  .dhead button,.dhead .n{-webkit-app-region:no-drag}
   .dhead .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);-webkit-app-region:no-drag}
   .dhead h2{margin:0;font-size:17px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-app-region:no-drag}
   .dbody{overflow:auto;padding:14px 18px 40px;display:flex;flex-direction:column;gap:16px}
@@ -202,7 +204,7 @@
     <h2 id="dTitle"></h2>
     <button class="sm ghost" id="dPrev">↑</button>
     <button class="sm ghost" id="dNext">↓</button>
-    <button class="sm" id="dClose">关闭</button>
+    <button class="sm" id="dClose" title="关闭（Esc）">关闭 ✕</button>
   </div>
   <div class="dbody" id="dBody"></div>
 </aside>
@@ -347,6 +349,8 @@ function closeDetail() {
   S.detail = null;
   $("drawer").classList.remove("open");
   $("drawer").setAttribute("aria-hidden", "true");
+  $("dBody").innerHTML = "";
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   render();
 }
 
