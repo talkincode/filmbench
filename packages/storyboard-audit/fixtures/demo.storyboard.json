@@ -1,0 +1,323 @@
+{
+  "apiVersion": "filmbench/storyboard-audit/v1",
+  "project": {
+    "name": "demo-nightwalk",
+    "title": "夜行 · 城市夜跑品牌片",
+    "fps": 30,
+    "output": { "width": 1920, "height": 1080, "durationFrames": 1620, "container": "mp4" },
+    "budget": { "currency": "USD", "limit": 6 }
+  },
+  "revision": { "ref": "main", "seq": 42, "hash": "9f3c1ab7d4e05826c1b0f7a2d9e34c58b7a1d0e6" },
+  "provenance": {
+    "engine": "filmbench-engine/0.1.0",
+    "irHash": "6d1f0c9a4b8e27d3a5c6f0b1e2d3c4b5a6f7e8d9",
+    "lockHash": "1a2b3c4d5e6f70819a2b3c4d5e6f7081a2b3c4d5"
+  },
+  "shots": [
+    {
+      "id": "shot-001",
+      "title": "空镜 · 江面灯带",
+      "durationFrames": 120,
+      "intent": {
+        "description": "开场空镜，江面倒影里城市灯带被风吹散",
+        "action": "缓慢横移，水面波纹为主，无人",
+        "prompt": "empty riverside at night, city light bands reflected, slow lateral dolly"
+      },
+      "binder": { "provider": "imagine", "task": "generate", "params": { "model": "seedream-4", "ratio": "16:9" } },
+      "subjects": [],
+      "references": [{ "kind": "image", "asset": "asset-8f21c0", "role": "framing" }],
+      "candidates": [{ "asset": "asset-8f21c0", "actor": "agent-storyboard", "review": "selected" }],
+      "selected": { "video": "asset-8f21c0" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-001/clip.mp4", "exists": true, "sha256": "a1b2c3", "bytes": 8421193, "width": 1920, "height": 1080, "durationFrames": 120 }
+      ],
+      "checks": [
+        { "id": "artifact.spec", "status": "pass" },
+        { "id": "intent.empty", "status": "pass" },
+        { "id": "provenance.missing", "status": "pass" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.18, "actual": 0.18 },
+      "provenance": { "revisionSeq": 41, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-002",
+      "title": "人物入画 · 主人公",
+      "durationFrames": 90,
+      "intent": {
+        "description": "主人公从右侧入画，冷白路灯扫过侧脸",
+        "action": "跟随镜头滞后半拍，背景虚化成光斑",
+        "prompt": "runner enters frame right, cold streetlight sweep, shallow depth of field"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [{ "id": "char-nightwalker", "name": "夜行者", "revision": 3, "variant": "cold", "approved": true }],
+      "references": [
+        { "kind": "image", "asset": "asset-3c77a1", "role": "identity", "approved": true },
+        { "kind": "image", "asset": "asset-3c77a2", "role": "costume", "approved": true }
+      ],
+      "candidates": [
+        { "asset": "asset-51aa02", "actor": "colab-comfy", "review": "selected" },
+        { "asset": "asset-51aa03", "actor": "colab-comfy", "review": "candidate" }
+      ],
+      "selected": { "video": "asset-51aa02" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-002/clip.mp4", "exists": true, "sha256": "b2c3d4", "bytes": 6011221, "width": 1920, "height": 1080, "durationFrames": 90 }
+      ],
+      "checks": [
+        { "id": "reference.unapproved", "status": "pass" },
+        { "id": "reference.limit", "status": "pass" },
+        { "id": "review.pending", "status": "pass" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.8, "actual": 0.8, "cu": 0.82 },
+      "provenance": { "revisionSeq": 41, "approvedBy": "human", "proposal": "proposal-7" }
+    },
+    {
+      "id": "shot-003",
+      "title": "低角度跟拍 · 脚步",
+      "durationFrames": 150,
+      "intent": {
+        "description": "雨后半干路面，脚步节奏与鼓点同步",
+        "action": "手持低角度跟拍，落地水花，浅景深",
+        "prompt": "low angle tracking shot of running shoes on wet asphalt, splash on impact"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [],
+      "references": [{ "kind": "image", "asset": "asset-77bb10", "role": "location" }],
+      "candidates": [{ "asset": "asset-77bb11", "actor": "colab-comfy", "review": "unreviewed" }],
+      "selected": { "video": "asset-77bb11" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-003/clip.mp4", "exists": true, "sha256": "c3d4e5", "bytes": 9988776, "width": 1920, "height": 1080, "durationFrames": 150 }
+      ],
+      "checks": [
+        { "id": "review.pending", "status": "warn", "detail": "asset-77bb11 被选定但未审阅" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.9, "actual": 1.05, "cu": 1.04 },
+      "provenance": { "revisionSeq": 40, "approvedBy": null, "proposal": null }
+    },
+    {
+      "id": "shot-004",
+      "title": "过肩 · 城市天际线",
+      "durationFrames": 105,
+      "intent": {
+        "description": "越过肩膀看远处楼群，雾气压低对比度",
+        "action": "轻微呼吸式推拉，无人物特写",
+        "prompt": "over-the-shoulder skyline in fog, low contrast, subtle breath push"
+      },
+      "binder": { "provider": "imagine", "task": "generate", "params": { "model": "seedream-4", "ratio": "16:9" } },
+      "subjects": [{ "id": "char-nightwalker", "name": "夜行者", "revision": 3, "variant": "cold", "approved": true }],
+      "references": [{ "kind": "image", "asset": "asset-3c77a1", "role": "identity", "approved": true }],
+      "candidates": [{ "asset": "asset-9021fe", "actor": "imagine", "review": "selected" }],
+      "selected": { "video": "asset-9021fe" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-004/clip.mp4", "exists": true, "stale": true, "sha256": "d4e5f6", "bytes": 7022334, "width": 1920, "height": 1080, "durationFrames": 90 }
+      ],
+      "checks": [
+        { "id": "artifact.stale", "status": "fail", "detail": "意图在 revision 42 改动后未重生成；现存产物 90 帧 ≠ 期望 105 帧" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.18, "actual": 0.18 },
+      "provenance": { "revisionSeq": 39, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-005",
+      "title": "转场镜头 · 隧道",
+      "durationFrames": 135,
+      "intent": {
+        "description": "进入隧道，灯带节奏加快，作为中段转场",
+        "action": "正向推进，中心对称，结尾切黑 6 帧",
+        "prompt": "entering a tunnel, symmetric dolly forward, rhythmic light bands, black tail 6 frames"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [],
+      "references": [],
+      "candidates": [],
+      "selected": { "video": null },
+      "produces": [
+        { "kind": "video", "path": "build/shot-005/clip.mp4", "exists": false }
+      ],
+      "checks": [
+        { "id": "artifact.missing", "status": "fail", "detail": "作业未提交：队列为空，预估 0.86 CU" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.85, "actual": 0, "cu": 0 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-006",
+      "title": "特写 · 呼吸与汗",
+      "durationFrames": 120,
+      "intent": {
+        "description": "面部特写，冷光下一层薄汗，眼神向画右",
+        "action": "极浅景深，焦点从睫毛移到瞳孔",
+        "prompt": "extreme close-up of runner face, cold light, thin sweat, focus shift to pupil"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [
+        { "id": "char-nightwalker", "name": "夜行者", "revision": 4, "variant": "heated", "approved": false }
+      ],
+      "references": [{ "kind": "image", "asset": "asset-3c77b8", "role": "identity", "approved": false }],
+      "candidates": [],
+      "selected": { "video": null },
+      "produces": [
+        { "kind": "video", "path": "build/shot-006/clip.mp4", "exists": false }
+      ],
+      "checks": [
+        {
+          "id": "reference.unapproved",
+          "status": "fail",
+          "detail": "char-nightwalker@4 仍是 candidate 修订；引用图 asset-3c77b8 未批准"
+        }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.86, "actual": 0 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": "proposal-11" }
+    },
+    {
+      "id": "shot-007",
+      "title": "大全景 · 桥下穿行",
+      "durationFrames": 180,
+      "intent": {
+        "description": "桥墩阴影穿过画面，人物只占很小比例",
+        "action": "极慢升降，保持画面三分线",
+        "prompt": "wide shot, runner under bridge piers, shadows sweeping, slow crane"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [{ "id": "char-nightwalker", "name": "夜行者", "revision": 3, "variant": "cold", "approved": true }],
+      "references": [{ "kind": "image", "asset": "asset-3c77a1", "role": "identity", "approved": true }],
+      "candidates": [{ "asset": "asset-a7310c", "actor": "colab-comfy", "review": "selected" }],
+      "selected": { "video": "asset-a7310c" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-007/clip.mp4", "exists": true, "sha256": "e5f6a7", "bytes": 12003321, "width": 1920, "height": 1080, "durationFrames": 180 }
+      ],
+      "checks": [{ "id": "artifact.spec", "status": "pass" }],
+      "cost": { "currency": "USD", "estimated": 1.0, "actual": 1.02, "cu": 1.01 },
+      "provenance": { "revisionSeq": 41, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-008",
+      "title": "穿插 · 城市节奏蒙太奇",
+      "durationFrames": 150,
+      "intent": {
+        "description": "四个短切：地铁口、便利店、红绿灯、天桥",
+        "action": "每 1.2 秒硬切，节奏与鼓点对齐",
+        "prompt": "montage: subway entrance, convenience store, traffic light, footbridge — hard cuts on beat"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [],
+      "references": [
+        { "kind": "image", "asset": "asset-c001", "role": "location" },
+        { "kind": "image", "asset": "asset-c002", "role": "location" },
+        { "kind": "image", "asset": "asset-c003", "role": "location" },
+        { "kind": "image", "asset": "asset-c004", "role": "location" },
+        { "kind": "image", "asset": "asset-c005", "role": "style" }
+      ],
+      "candidates": [],
+      "selected": { "video": null },
+      "produces": [{ "kind": "video", "path": "build/shot-008/clip.mp4", "exists": false }],
+      "checks": [
+        {
+          "id": "reference.limit",
+          "status": "fail",
+          "detail": "5 张参考图，但 h3-ref2va 最多接受 3 张；需人工决定保留哪三张"
+        }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.86, "actual": 0 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-009",
+      "title": "慢镜 · 水滴离地",
+      "durationFrames": 90,
+      "intent": {
+        "description": "脚步落地瞬间的慢镜，水滴悬停后碎裂",
+        "action": "升格 120fps 录制，回放到 30fps 时间基",
+        "prompt": "slow motion water droplets suspended, breaking on impact"
+      },
+      "binder": { "provider": "seedance", "task": "generate", "params": { "model": "seedance-1.0-pro", "duration": 3 } },
+      "subjects": [],
+      "references": [],
+      "candidates": [{ "asset": "asset-d10aa1", "actor": "seedance", "review": "selected" }],
+      "selected": { "video": "asset-d10aa1" },
+      "produces": [
+        { "kind": "video", "path": "build/shot-009/clip.mp4", "exists": true, "sha256": "f6a7b8", "bytes": 4400122, "width": 1920, "height": 1080, "durationFrames": 90 }
+      ],
+      "checks": [
+        { "id": "cost.unknown", "status": "unknown", "detail": "seedance 该模型未登记报价版本，账本未计入" }
+      ],
+      "cost": { "currency": "USD", "priceUnknown": true },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-010",
+      "title": "回望 · 收尾前停顿",
+      "durationFrames": 165,
+      "intent": {
+        "description": "人物停下回望，城市在身后虚焦",
+        "action": "固定机位，轻微呼吸，结尾留 12 帧静止",
+        "prompt": "runner stops and looks back, city bokeh behind, 12-frame hold at tail"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [{ "id": "char-nightwalker", "name": "夜行者", "revision": 3, "variant": "cold", "approved": true }],
+      "references": [{ "kind": "image", "asset": "asset-3c77a1", "role": "identity", "approved": true }],
+      "candidates": [],
+      "selected": { "video": null },
+      "produces": [{ "kind": "video", "path": "build/shot-010/clip.mp4", "exists": false }],
+      "checks": [
+        { "id": "artifact.missing", "status": "fail", "detail": "作业被预算闸门拒绝：剩余 0.42 / 预估 0.95" },
+        { "id": "budget.estimate", "status": "warn", "detail": "超出剩余预算 0.53 USD" }
+      ],
+      "cost": { "currency": "USD", "estimated": 0.95, "actual": 0, "cu": 0 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-011",
+      "title": "字幕卡 · 品牌落版",
+      "durationFrames": 120,
+      "intent": {
+        "description": "品牌主张上屏，字重跟随鼓点收尾",
+        "action": "纯文字层，透明 PNG 叠加到背景板上",
+        "prompt": "brand line, heavy weight, thin underline, transparent PNG"
+      },
+      "binder": { "provider": "imagine", "task": "text", "params": { "font": "Source Han Sans Heavy", "size": 168 } },
+      "subjects": [],
+      "references": [],
+      "candidates": [{ "asset": "asset-e2201b", "actor": "imagine", "review": "selected" }],
+      "selected": { "image": "asset-e2201b" },
+      "produces": [
+        { "kind": "image", "path": "build/shot-011/overlay.png", "exists": true, "sha256": "0a1b2c", "bytes": 92011, "width": 1920, "height": 1080 }
+      ],
+      "checks": [
+        {
+          "id": "provenance.missing",
+          "status": "unknown",
+          "detail": "该图文层由人工放置，缺少作业记录与内容摘要"
+        }
+      ],
+      "cost": { "currency": "USD", "estimated": 0, "actual": 0 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": null }
+    },
+    {
+      "id": "shot-012",
+      "title": "尾镜 · 隧道尽头的光",
+      "durationFrames": 210,
+      "intent": {
+        "description": "隧道尽头透出晨光，接回开场江面",
+        "action": "与 shot-005 的机位与光向连续，末帧淡出",
+        "prompt": "tunnel exit with dawn light, continuous with shot-005 camera and light direction"
+      },
+      "binder": { "provider": "colab-comfy", "task": "h3-ref2va", "params": { "template": "minimax-h3-ref2va", "gpu": "L4" } },
+      "subjects": [],
+      "references": [{ "kind": "video", "asset": "asset-5c0aa2", "role": "motion" }],
+      "candidates": [{ "asset": "asset-5c0aa9", "actor": "colab-comfy", "review": "selected" }],
+      "selected": { "video": "asset-5c0aa9" },
+      "dependsOn": [{ "shot": "shot-005", "kind": "continuity" }, { "shot": "shot-001", "kind": "derived" }],
+      "produces": [
+        { "kind": "video", "path": "build/shot-012/clip.mp4", "exists": true, "sha256": "1b2c3d", "bytes": 14440021, "width": 1920, "height": 1080, "durationFrames": 210 }
+      ],
+      "checks": [{ "id": "artifact.spec", "status": "pass" }],
+      "cost": { "currency": "USD", "estimated": 1.1, "actual": 1.14, "cu": 1.12 },
+      "provenance": { "revisionSeq": 42, "approvedBy": "human", "proposal": "proposal-13" }
+    }
+  ],
+  "audioTracks": [
+    { "id": "bgm-main", "role": "bgm", "asset": "asset-bgm-01", "startFrame": 0, "durationFrames": 1620, "approved": true },
+    { "id": "vo-open", "role": "voiceover", "asset": "asset-vo-01", "startFrame": 90, "durationFrames": 780, "approved": true },
+    { "id": "sfx-impact", "role": "sfx", "asset": "asset-sfx-04", "startFrame": 1500, "durationFrames": 200, "approved": false }
+  ]
+}

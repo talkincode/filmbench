@@ -1,0 +1,5 @@
+node_modules/
+**/out/*.html
+!**/out/.gitkeep
+!out/.gitkeep
+*.tmp

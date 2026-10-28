@@ -1,0 +1,18 @@
+{
+  "name": "filmbench",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "本地视频编排工作台：设计、生成、审阅、编译在一个项目里",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "storyboard": "bun packages/storyboard-audit/src/cli.ts",
+    "storyboard:demo": "bun packages/storyboard-audit/src/cli.ts --in packages/storyboard-audit/fixtures/demo.storyboard.json --out out/storyboard.html",
+    "test": "bun test"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}
