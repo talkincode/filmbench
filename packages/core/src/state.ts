@@ -96,6 +96,8 @@ export interface ScriptState {
 
 export interface ProjectState {
   ref: string;
+  /** 项目根目录：用于把"被引用的文件"也算进输入哈希 */
+  dir?: string;
   head: { seq: number; hash: string };
   project?: { name: string; title: string; format: Format; budget?: { currency: string; limit: number } };
   script?: ScriptState;
@@ -138,9 +140,15 @@ export function mergeShotPatch(shot: Shot, patch: ShotPatch): Shot {
   return next;
 }
 
-export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash: "" }): ProjectState {
+export function fold(
+  events: StoredEvent[],
+  ref = "main",
+  head = { seq: 0, hash: "" },
+  dir?: string,
+): ProjectState {
   const state: ProjectState = {
     ref,
+    dir,
     head,
     events: events.filter((e) => e.ref === ref),
     project: undefined,

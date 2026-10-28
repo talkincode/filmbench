@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { basename, join, relative } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { canonical, promptFor } from "@filmbench/protocol";
 import { remainingBudget, type ShotState } from "./state.ts";
 import { PATHS, ValidationError, type Actor, type Service } from "./service.ts";
@@ -10,12 +10,27 @@ import { blockedBy, lintPrompt } from "./prompt.ts";
 
 const sha256 = (buf: Uint8Array) => createHash("sha256").update(buf).digest("hex");
 
+/** params 里指向本地文件的参数（scene/cues/script…）：内容的哈希也要进输入，改文件才算改输入 */
+export function hashReferencedFiles(projectDir: string, params: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value !== "string" || !/\.(ya?ml|json|md|txt)$/i.test(value)) continue;
+    const path = resolve(projectDir, value);
+    if (!existsSync(path)) continue;
+    try {
+      out[key] = sha256(readFileSync(path));
+    } catch {}
+  }
+  return out;
+}
+
 export function inputsHash(
   shot: ShotState,
   fps: number,
   params: Record<string, string | number | boolean> = shot.binder.params,
   modality: "image" | "video" | null = null,
   includeDuration = modality !== "image",
+  extras: Record<string, string> = {},
 ): string {
   // 只哈希"实际生效"的 prompt：改了通用兜底但专用 prompt 已存在时，不该判过期
   return sha256(
@@ -33,6 +48,8 @@ export function inputsHash(
         params,
         subjects: shot.subjects,
         references: shot.references,
+        // 只有真的引用了本地文件才加这个字段：老作业的哈希里没有它
+        ...(Object.keys(extras).length ? { files: extras } : {}),
         format: { fps },
       }),
     ),
@@ -86,7 +103,14 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
     const violation = policyViolation(readPolicy(service.dir), provider, estimate);
     if (violation) throw new ValidationError(`${shot.id} 被渠道策略拦下：${violation}`);
   }
-  const hash = inputsHash(shot, state.project.format.fps, params, provider.modality ?? null);
+  const hash = inputsHash(
+    shot,
+    state.project.format.fps,
+    params,
+    provider.modality ?? null,
+    undefined,
+    hashReferencedFiles(service.dir, params),
+  );
 
   const pendingSame = [...state.jobs.values()].find(
     (j) => j.shot === shot.id && j.phase === "requested" && j.inputsHash === hash,

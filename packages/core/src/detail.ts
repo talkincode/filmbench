@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ProviderRegistry } from "./providers.ts";
 import { CHECK_REGISTRY } from "@filmbench/storyboard-audit";
-import { inputsHash } from "./jobs.ts";
+import { hashReferencedFiles, inputsHash } from "./jobs.ts";
 import { projectStoryboard } from "./storyboard.ts";
 import { totalFrames, type ProjectState } from "./state.ts";
 import type { Service } from "./service.ts";
@@ -33,7 +33,14 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
   const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
 
   const provider = registry.get(shot.binder.provider);
-  const currentHash = inputsHash(shot, state.project?.format.fps ?? 30, shot.binder.params, provider?.modality ?? null);
+  const currentHash = inputsHash(
+    shot,
+    state.project?.format.fps ?? 30,
+    shot.binder.params,
+    provider?.modality ?? null,
+    undefined,
+    hashReferencedFiles(service.dir, shot.binder.params),
+  );
   const produceJob = shot.produce ? state.jobs.get(shot.produce.jobId) : undefined;
 
   const jobs = [...state.jobs.values()]

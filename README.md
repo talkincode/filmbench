@@ -155,7 +155,8 @@ filmbench select --shot score && filmbench review --shot score
 filmbench build      # 混入成片：AAC 48kHz 立体声
 ```
 
-- `scene.yaml` 用 [scorekit](https://github.com/talkincode/scorekit) 的场景 DSL（key/tempo/bars/harmony/tracks）；
+- `scene.yaml` 用 [scorekit](https://github.com/talkincode/scorekit) 的场景 DSL（key/tempo/bars/harmony/tracks/story/performance）；
+- **改了 scene.yaml 会让音轨过期**：被引用文件（scene / cues / 脚本）的内容哈希也算进输入，改文件必须重跑；
 - 音轨镜头 `role: music` **不占画面时间**，帧数统计与故事板卡片都会把它排除，只出现在音轨泳道；
 - 混音链：`loudnorm(I=-18,TP=-2)` → `volume` → 淡入/淡出，多个音轨走 `amix`；
 - 产物同样走内容寻址、选定、审阅，`filmbench check` 会把它算进"每镜有产物"。

@@ -1,5 +1,5 @@
 import type { ProjectState, ShotState } from "./state.ts";
-import { inputsHash } from "./jobs.ts";
+import { hashReferencedFiles, inputsHash } from "./jobs.ts";
 
 /**
  * 过期判定不再看"改过没有"，而看"输入是否变了"：
@@ -14,12 +14,13 @@ export function shotStale(state: ProjectState, shot: ShotState): boolean {
   const modality = job.modality === undefined ? shot.produce.kind : job.modality;
   const fps = state.project?.format.fps ?? 30;
   // 图片产物的时长不参与生成，历史上算过含时长与不含时长两种哈希，两种都认
+  const files = hashReferencedFiles(state.dir ?? process.cwd(), shot.binder.params);
   const candidates =
     modality === "image"
       ? [
-          inputsHash(shot, fps, shot.binder.params, modality, false),
-          inputsHash(shot, fps, shot.binder.params, modality, true),
+          inputsHash(shot, fps, shot.binder.params, modality, false, files),
+          inputsHash(shot, fps, shot.binder.params, modality, true, files),
         ]
-      : [inputsHash(shot, fps, shot.binder.params, modality, true)];
+      : [inputsHash(shot, fps, shot.binder.params, modality, true, files)];
   return !candidates.includes(job.inputsHash);
 }

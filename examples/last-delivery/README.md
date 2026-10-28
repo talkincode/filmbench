@@ -24,7 +24,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 05 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
 | 06 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
 | 07 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
-| ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调 2/4、10 小节，段落边界与剪辑点对齐（`fit: exact`），淡入 2s / 淡出 3s（不进画面） |
+| ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调 2/4、10 小节，弦乐 + 低音提琴 + 音盒 + 竖琴，pp–p；段落边界与剪辑点对齐（`fit: exact`），淡入 2s / 淡出 3s（不进画面） |
 
 依赖：courier/hall → door（continuity）。封面取自 `door`；剧本在 `script.md`（`filmbench script set --file`）。
 

@@ -87,7 +87,7 @@ export class Service {
   }
 
   state(ref = "main"): ProjectState {
-    return fold(this.journal.events(), ref, this.head(ref));
+    return fold(this.journal.events(), ref, this.head(ref), this.dir);
   }
 
   append(op: EventOp, payload: unknown, options: AppendOptions = {}): AppendResult {

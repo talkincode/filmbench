@@ -1,4 +1,8 @@
 title: 最后一单 · 雨夜铺底
+story: >-
+  雨夜、待拆的旧楼、最后一单。弦乐几乎不动，像潮气贴在墙上；
+  低音只给出房间的尺寸；音盒每隔两小节响一次，像楼上有人轻轻放下一件东西。
+  整段保持在 pp–p，给雨声和脚步留出空间。
 tempo: 60
 key: A_minor
 time_signature: 2/4
@@ -6,15 +10,16 @@ bars: 10
 loop: false
 harmony: [i, VI, III, VII]
 performance:
-  humanize: { timing_ms: 12, velocity: 6, seed: 7 }
-  dynamics: { start: pp, peak: mp }
+  humanize: { timing_ms: 14, velocity: 6, seed: 9 }
+  dynamics: { start: pp, peak: p }
 motifs:
   bell:
-    - { degree: 5, beats: 2 }
-    - { degree: 3, beats: 2 }
-    - { degree: 8, beats: 2 }
-    - { degree: 5, beats: 2 }
+    - { degree: 5, beats: 1 }
+    - { degree: 3, beats: 1 }
+    - { degree: 8, beats: 1 }
+    - { degree: 5, beats: 1 }
 tracks:
-  - { id: pad, instrument: slow_strings, pattern: sustain, intensity: 0.35 }
-  - { id: drone, instrument: contrabass, pattern: bass, intensity: 0.3 }
-  - { id: bell, instrument: music_box, pattern: melody, motif: bell, intensity: 0.2 }
+  - { id: strings, instrument: slow_strings, pattern: sustain, intensity: 0.32 }
+  - { id: bass, instrument: contrabass, pattern: bass, intensity: 0.26 }
+  - { id: bell, instrument: music_box, pattern: melody, motif: bell, intensity: 0.16 }
+  - { id: air, instrument: harp, pattern: arpeggio, intensity: 0.1 }

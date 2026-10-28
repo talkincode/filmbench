@@ -190,7 +190,7 @@ shots:
     role: music
     durationFrames: 600
     intent:
-      description: "A 小调 2/4：慢速弦乐垫底 + 低音提琴 + 稀疏音盒。每 2 秒一小节，段落边界与剪辑点对齐（fit: exact）"
+      description: A 小调 2/4：弦乐铺底 + 低音提琴 + 音盒（每两小节一次）+ 竖琴空气声；pp–p，段落边界与剪辑点对齐
       action: ""
       prompt: ""
       prompts:
