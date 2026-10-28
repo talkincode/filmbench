@@ -11,9 +11,31 @@ budget:
   currency: USD
   limit: 3
 shots:
+  - id: title
+    title: 片名卡
+    durationFrames: 60
+    intent:
+      description: 黑底片名，细红线，副标题
+      action: ""
+      prompt: ""
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: filmbench/title
+      task: title
+      params:
+        text: 最后一单
+        subtitle: A FILMBENCH SHORT
+        bg: 0d1114
+        size: 170
+        accent: ad3a20
+    subjects: []
+    references: []
+    dependsOn: []
   - id: door
     title: 门厅 · 雨夜
-    durationFrames: 150
+    durationFrames: 90
     intent:
       description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
       action: 静止，雨声，灯管轻微频闪
@@ -22,7 +44,7 @@ shots:
       prompts:
         image: 废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm
           电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印
-        video: ""
+        video: 镜头极缓慢向前推进，雨丝持续落下，顶灯轻微频闪两次，地面水洼里的倒影随之晃动
     binder:
       provider: imagine
       task: image
@@ -44,7 +66,7 @@ shots:
       prompts:
         image: 穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm
           电影剧照，浅景深，画面里没有文字，没有水印
-        video: ""
+        video: 镜头保持不动，快递员弯腰放下包裹后直起身，雨衣上的水珠滑落，肩头滴下一串水
     binder:
       provider: imagine
       task: image
@@ -68,7 +90,7 @@ shots:
       prompt: empty elevator car, doors opening, flickering tube
       prompts:
         image: ""
-        video: ""
+        video: 电梯门向两侧滑开，轿厢里空无一人，顶灯闪三次后稳定，门保持开启
     binder:
       provider: filmbench/colorcard
       task: clip
@@ -90,7 +112,7 @@ shots:
       prompts:
         image: 老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm
           变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
-        video: ""
+        video: 镜头沿走廊缓慢向前推进，尽头门缝的暖光轻微呼吸，地上的湿脚印在光里反光
     binder:
       provider: imagine
       task: image
@@ -98,9 +120,10 @@ shots:
         model: MAI-Image-2.6-Flash
         width: 1344
         height: 768
+        duration: 4
     subjects: []
     references:
-      - asset: asset-7d0a95eafcf8
+      - asset: asset-e83deb1f57d4
         role: environment
     dependsOn:
       - shot: lift
@@ -114,7 +137,7 @@ shots:
       prompt: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
       prompts:
         image: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
-        video: ""
+        video: 镜头轻微推近门牌，焦点从表面划痕移到数字 14，灯光在黄铜上移动
     binder:
       provider: imagine
       task: image
@@ -136,7 +159,7 @@ shots:
       prompt: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
       prompts:
         image: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
-        video: ""
+        video: 镜头静止，脚垫上的水圈轻微晃动，门缝的光慢慢暗下去，最后切黑
     binder:
       provider: imagine
       task: image

@@ -114,6 +114,23 @@
   .tab.on{background:var(--paper-hi);border-color:var(--rule);color:var(--ink);font-weight:600}
   .tpanel{display:none;flex-direction:column;gap:10px}
   .tpanel.on{display:flex}
+  .ov{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}
+  .ov .cover img{width:100%;border-radius:6px;border:1px solid var(--rule);display:block}
+  .ov h4{margin:0 0 6px;font-family:var(--serif);font-size:15px;font-weight:600}
+  .ov .logline{font-size:13px;color:var(--ink-2);margin:0 0 8px}
+  .ov .syn{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin:0 0 10px}
+  .ov .script{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.65;white-space:pre-wrap;
+    background:var(--paper);border:1px solid var(--rule-hi);border-radius:6px;padding:10px 12px;max-height:300px;overflow:auto}
+  .ov .shots{margin-top:12px}
+  .ov .shot-row{display:grid;grid-template-columns:34px 1fr 60px 1fr;gap:8px;font-family:var(--mono);font-size:11px;
+    padding:4px 0;border-bottom:1px solid var(--rule-hi);color:var(--ink-2)}
+  .ov .flow{margin-top:14px;font-size:12px;color:var(--ink-2);line-height:1.7}
+  .ov .flow b{color:var(--ink)}
+  .ck-row{display:grid;grid-template-columns:20px 120px 1fr;gap:8px;font-family:var(--mono);font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--rule-hi)}
+  .ck-row .m{font-weight:700}
+  .ck-row[data-ok="1"] .m{color:var(--ok)}.ck-row[data-ok="0"] .m{color:var(--block)}
+  .ck-row[data-ok="warn"] .m{color:var(--warn)}
+  .pv-media{width:100%;max-height:72vh;display:block;background:#12100b}
   .log-pre{font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
     background:#141109;color:#d8d0bd;padding:12px 14px;border-radius:6px;max-height:58vh;overflow:auto;margin:0}
   .hintline{margin:-3px 0 2px;font-family:var(--mono);font-size:11.5px;line-height:1.45;color:var(--ink-3)}
@@ -251,9 +268,11 @@
       </div>
       <span class="spacer"></span>
       <div class="actions">
-        <button id="bSubmit">提交待办</button>
-        <button id="bRun" class="primary">执行队列</button>
-        <button id="bBuild">出片</button>
+        <button id="bSubmit" title="把「缺产物 / 过期」的镜头排进队列——只排队，不花钱">提交待办</button>
+        <button id="bRun" class="primary" title="按顺序真正调用模型生成（会花钱）">执行队列</button>
+        <button id="bBuild" title="本地 ffmpeg 合成 mp4——不调用模型，不花钱">出片</button>
+        <button id="bCheck" class="ghost" title="一键验收：事件链 / 产物 / 选定 / 审阅 / 编译 / 预算">验收</button>
+        <button id="bOverview" class="ghost" title="剧本、封面、镜头表与流程说明">总览</button>
         <button id="bStory">审计故事板</button>
         <button id="bSnap" class="ghost" title="⌘⇧S">截图</button>
       </div>
@@ -272,6 +291,38 @@
   </div>
   <div class="dbody" id="dBody"></div>
 </aside>
+
+<div class="modal" id="overviewModal">
+  <div class="panel" style="width:min(920px,94vw)">
+    <header><h3 id="ovTitle">总览</h3>
+      <div style="display:flex;gap:6px">
+        <button class="sm" id="ovScriptEdit">编辑剧本</button>
+        <button class="sm" id="ovClose">关闭</button>
+      </div>
+    </header>
+    <div class="list" id="ovBody" style="padding:14px"></div>
+  </div>
+</div>
+
+<div class="modal" id="previewModal">
+  <div class="panel" style="width:min(1000px,96vw)">
+    <header><h3 id="pvTitle">预览</h3>
+      <div style="display:flex;gap:6px">
+        <button class="sm" id="pvSnap">截图标注</button>
+        <button class="sm" id="pvOpen">用系统程序打开</button>
+        <button class="sm" id="pvClose">关闭</button>
+      </div>
+    </header>
+    <div class="list" id="pvBody" style="padding:0;background:#12100b"></div>
+  </div>
+</div>
+
+<div class="modal" id="checkModal">
+  <div class="panel" style="width:min(760px,94vw)">
+    <header><h3>验收</h3><button class="sm" id="ckClose">关闭</button></header>
+    <div class="list" id="ckBody" style="padding:14px"></div>
+  </div>
+</div>
 
 <div class="modal" id="logModal">
   <div class="panel" style="width:min(860px,94vw)">
@@ -557,6 +608,7 @@ function renderDetail(d) {
       <button class="primary" id="dAction"${next.disabled ? " disabled" : ""}>${next.label}</button>
       <button id="dApprove" ${selected ? "" : "disabled"}>批准</button>
       <button id="dReject" ${selected ? "" : "disabled"}>否决</button>
+      <button class="ghost" id="dPreview" ${produce ? "" : "disabled"}>内置预览</button>
       <button class="ghost" id="dSnap">截图标注</button>
       ${produce ? `<button class="ghost" data-open="${esc(produce.absPath)}">打开</button>
         <button class="ghost" data-reveal="${esc(produce.absPath)}">显示</button>` : ""}
@@ -644,11 +696,14 @@ function renderDetail(d) {
       img.src = fileUrl(path.path) + `?v=${img.dataset.poster}`;
     } catch {}
   });
-  $("dBody").querySelectorAll(".thumb[data-asset]").forEach((btn) => (btn.onclick = async () => {
-    const asset = btn.dataset.asset;
-    if (asset === selected) return;
-    try { await rpc("select", { shot: s.id, asset }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
-  }));
+  $("dBody").querySelectorAll(".thumb[data-asset]").forEach((btn) => {
+    btn.onclick = async () => {
+      const asset = btn.dataset.asset;
+      if (asset === selected) return;
+      try { await rpc("select", { shot: s.id, asset }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
+    };
+    btn.ondblclick = (e) => { e.preventDefault(); openPreview(); };
+  });
   $("dBody").querySelectorAll("[data-log]").forEach((b) => (b.onclick = () => openJobLog(b.dataset.log)));
 
   const runAction = async () => {
@@ -673,6 +728,7 @@ function renderDetail(d) {
   $("dApprove").onclick = async () => { try { await rpc("review", { shot: s.id }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
   $("dReject").onclick = async () => { try { await rpc("review", { shot: s.id, reject: true }); toast("已否决"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
   $("dSnap").onclick = () => startCapture();
+  $("dPreview").onclick = () => openPreview();
   $("dBody").querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => f.reveal(b.dataset.reveal)));
   $("dBody").querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => f.openPath(b.dataset.open)));
   $("dBody").querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
@@ -767,6 +823,90 @@ function stepShot(delta) {
   const next = S.shots[Math.min(S.shots.length - 1, Math.max(0, i + delta))];
   if (next) openDetail(next.id);
 }
+
+/* —— 总览（剧本/封面/流程） —— */
+async function openOverview() {
+  try {
+    const o = await rpc("overview");
+    if (!o.project) { toast("项目尚未创建"); return; }
+    $("ovTitle").textContent = o.project.title;
+    const shots = o.shots.map((s) => `<div class="shot-row">
+        <span>${String(s.order).padStart(2, "0")}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span>
+        <span>${(s.durationFrames / o.project.format.fps).toFixed(2)}s</span>
+        <span style="color:var(--ink-3)">${esc(s.provider)}${s.hasOutput ? "" : " · 缺产物"}</span>
+      </div>`).join("");
+    $("ovBody").innerHTML = `<div class="ov">
+      <div>
+        <div class="cover">${o.cover?.absPath ? `<img src="${fileUrl(o.cover.absPath)}?v=${o.cover.asset}" alt="封面">` : `<div class="slot empty">还没有封面（filmbench cover --shot <id>）</div>`}</div>
+        <div class="flow">
+          <b>这支片子怎么跑</b><br>
+          ① <b>提交待办</b>：把缺产物/过期的镜头排进队列，不花钱<br>
+          ② <b>执行队列</b>：按顺序真正调用模型生成，<b>会花钱</b><br>
+          ③ <b>出片</b>：本地 ffmpeg 合成 mp4，不花钱
+        </div>
+        <div class="flow" style="margin-top:10px">
+          <b>渠道策略</b><br>
+          agent 可用：${o.policy.allowedProviders.join(" / ")}<br>
+          视频渠道：${o.policy.allowVideo ? "允许" : "禁止（需人工 --approve）"}<br>
+          价格未知：${o.policy.allowUnknownPrice ? "允许" : "禁止"}
+        </div>
+      </div>
+      <div>
+        <h4>${esc(o.project.title)}</h4>
+        <p class="logline">${esc(o.script?.logline ?? "还没有一句话简介")}</p>
+        <p class="syn">${esc(o.script?.synopsis ?? "还没有梗概")}</p>
+        <pre class="script">${esc(o.script?.body ?? "还没有剧本。filmbench script set --file script.md")}</pre>
+        <div class="shots">
+          <h4 style="font-size:13px">镜头 ${o.shots.length} · ${o.totalFrames} 帧 / ${(o.totalFrames / o.project.format.fps).toFixed(2)}s</h4>
+          ${shots}
+        </div>
+      </div>
+    </div>`;
+    $("ovScriptEdit").onclick = async () => {
+      const body = window.prompt("剧本正文（Markdown/纯文本）", o.script?.body ?? "");
+      if (body === null) return;
+      const logline = window.prompt("一句话简介", o.script?.logline ?? "");
+      if (logline === null) return;
+      try { await rpc("script_set", { body, logline, title: o.project.title }); toast("剧本已保存"); await openOverview(); }
+      catch (e) { toast(e.message); }
+    };
+    $("overviewModal").classList.add("open");
+  } catch (e) { toast(e.message); }
+}
+$("ovClose").onclick = () => $("overviewModal").classList.remove("open");
+$("bOverview").onclick = openOverview;
+
+/* —— 内置预览 —— */
+function openPreview() {
+  const d = S.detail;
+  const p = d?.produce;
+  if (!p) { toast("这一镜还没有产物"); return; }
+  $("pvTitle").textContent = `${d.shot.id} · ${p.width}×${p.height} · ${p.durationFrames}f`;
+  $("pvBody").innerHTML = p.kind === "video"
+    ? `<video class="pv-media" src="${fileUrl(p.absPath)}" controls autoplay loop muted></video>`
+    : `<img class="pv-media" src="${fileUrl(p.absPath)}" alt="">`;
+  $("pvSnap").onclick = () => { $("previewModal").classList.remove("open"); startCapture(); };
+  $("pvOpen").onclick = () => f.openPath(p.absPath);
+  $("previewModal").classList.add("open");
+}
+$("pvClose").onclick = () => $("previewModal").classList.remove("open");
+
+/* —— 一键验收 —— */
+async function openCheck() {
+  try {
+    const r = await rpc("check");
+    $("ckBody").innerHTML = r.items.map((i) => `<div class="ck-row" data-ok="${i.ok ? 1 : i.blocking ? 0 : "warn"}">
+        <span class="m">${i.ok ? "✓" : i.blocking ? "✗" : "!"}</span>
+        <span>${esc(i.id)}</span>
+        <span style="color:var(--ink-2)">${esc(i.detail)}</span>
+      </div>`).join("") + `<p style="margin:12px 0 0;font-family:var(--mono);font-size:11.5px">
+      ${r.ok ? "验收通过" : "验收未通过"} · ${r.shots} 镜 / ${r.frames} 帧</p>`;
+    $("checkModal").classList.add("open");
+  } catch (e) { toast(e.message); }
+}
+$("ckClose").onclick = () => $("checkModal").classList.remove("open");
+$("bCheck").onclick = openCheck;
 
 /* —— 作业日志 —— */
 async function openJobLog(jobId) {
@@ -1088,6 +1228,9 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if ($("snap").classList.contains("open")) { $("snapClose").click(); return; }
+    if ($("previewModal").classList.contains("open")) { $("previewModal").classList.remove("open"); $("pvBody").innerHTML = ""; return; }
+    if ($("overviewModal").classList.contains("open")) { $("overviewModal").classList.remove("open"); return; }
+    if ($("checkModal").classList.contains("open")) { $("checkModal").classList.remove("open"); return; }
     if ($("logModal").classList.contains("open")) { $("logModal").classList.remove("open"); return; }
     if ($("assetModal").classList.contains("open")) { $("assetModal").classList.remove("open"); return; }
     if ($("modal").classList.contains("open")) { $("modal").classList.remove("open"); return; }
@@ -1118,7 +1261,9 @@ f.onOpenProject(async ({ project, shot }) => {
 
 load().catch((e) => toast(`加载失败：${e.message}`, 5000));
 setInterval(() => {
-  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open") || $("logModal").classList.contains("open")) return;
+  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open") || $("logModal").classList.contains("open")
+    || $("overviewModal").classList.contains("open") || $("checkModal").classList.contains("open")
+    || $("previewModal").classList.contains("open")) return;
   load().catch(() => {});
 }, 6000);
 

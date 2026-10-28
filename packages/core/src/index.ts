@@ -11,3 +11,5 @@ export * from "./detail.ts";
 export * from "./prompt.ts";
 export * from "./stale.ts";
 export * from "./posters.ts";
+export * from "./policy.ts";
+export * from "./check.ts";

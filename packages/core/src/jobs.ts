@@ -5,6 +5,7 @@ import { canonical, promptFor } from "@filmbench/protocol";
 import { remainingBudget, type ShotState } from "./state.ts";
 import { PATHS, ValidationError, type Actor, type Service } from "./service.ts";
 import { requireProvider, type ProviderRegistry, type ProviderRunResult } from "./providers.ts";
+import { policyViolation, readPolicy } from "./policy.ts";
 import { blockedBy, lintPrompt } from "./prompt.ts";
 
 const sha256 = (buf: Uint8Array) => createHash("sha256").update(buf).digest("hex");
@@ -14,13 +15,15 @@ export function inputsHash(
   fps: number,
   params: Record<string, string | number | boolean> = shot.binder.params,
   modality: "image" | "video" | null = null,
+  includeDuration = modality !== "image",
 ): string {
   // 只哈希"实际生效"的 prompt：改了通用兜底但专用 prompt 已存在时，不该判过期
   return sha256(
     Buffer.from(
       canonical({
         id: shot.id,
-        durationFrames: shot.durationFrames,
+        // 图片的时长只是"放多久"，不参与生成；改时长不该让静帧过期
+        durationFrames: includeDuration ? shot.durationFrames : 0,
         intent: {
           description: shot.intent.description,
           action: shot.intent.action,
@@ -41,6 +44,8 @@ export interface SubmitInput {
   params?: Record<string, string | number | boolean>;
   actor?: Actor;
   opid?: string;
+  /** 人工确认：跳过 agent 渠道策略 */
+  approve?: boolean;
 }
 
 export interface SubmitResult {
@@ -75,6 +80,12 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
 
   const params = { ...shot.binder.params, ...(input.params ?? {}) };
   const estimate = provider.estimate({ shot, format: state.project.format });
+
+  const actorKind = input.actor?.kind ?? "system";
+  if ((actorKind === "agent" || actorKind === "mcp") && !input.approve) {
+    const violation = policyViolation(readPolicy(service.dir), provider, estimate);
+    if (violation) throw new ValidationError(`${shot.id} 被渠道策略拦下：${violation}`);
+  }
   const hash = inputsHash(shot, state.project.format.fps, params, provider.modality ?? null);
 
   const pendingSame = [...state.jobs.values()].find(

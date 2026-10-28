@@ -85,7 +85,7 @@ export function compile(
         detail: `产物 ${p.width}×${p.height} ≠ 成片 ${state.project.format.width}×${state.project.format.height}`,
       });
     }
-    if (p.durationFrames !== shot.durationFrames) {
+    if (p.kind === "video" && p.durationFrames !== shot.durationFrames) {
       issues.push({
         code: "spec-mismatch",
         shot: shot.id,

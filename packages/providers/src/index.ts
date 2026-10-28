@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Provider, ProviderRegistry, ProviderRunInput } from "@filmbench/core";
 import { colabRunJob } from "./colab.ts";
@@ -326,6 +326,95 @@ export function imagineVideo(): Provider {
   };
 }
 
+/**
+ * filmbench/title：本地渲染标题卡 / 封面（SVG → PNG，rsvg-convert 或 resvg）。
+ * 支持纯色背景或"参考图 + 压暗"，图里只有标题与副标题，不依赖 drawtext。
+ */
+export function titleCard(): Provider {
+  return {
+    id: "filmbench/title",
+    tasks: ["title"],
+    determinism: "deterministic",
+    modality: "image",
+    requiresPrompt: false,
+    maxReferences: 1,
+    estimate: () => ({ amount: 0, currency: "USD", units: "card", priceUnknown: false }),
+    health: () =>
+      has("rsvg-convert") || has("resvg")
+        ? { ok: true, detail: `本地渲染：${has("rsvg-convert") ? "rsvg-convert" : "resvg"}` }
+        : { ok: false, detail: "需要 rsvg-convert 或 resvg" },
+    async run(input: ProviderRunInput) {
+      const { shot, params, projectDir, format } = input;
+      const W = format.width;
+      const H = format.height;
+      const bg = String(params.bg ?? "0d1114");
+      const fg = String(params.fg ?? "ece5d7");
+      const accent = String(params.accent ?? "ad3a20");
+      const title = String(params.text ?? shot.title);
+      const subtitle = String(params.subtitle ?? shot.intent.description ?? "");
+      const size = Number(params.size ?? Math.round(W / 12));
+      const scrim = Number(params.scrim ?? 0.55);
+      const bgRef = (shot.references ?? [])[0];
+      const bgPath = bgRef ? input.references?.[bgRef.asset] : undefined;
+
+      const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const wrap = (text: string, perLine: number) => {
+        const lines: string[] = [];
+        for (const raw of text.split("\n")) {
+          let line = "";
+          for (const ch of raw) {
+            if ([...line].length >= perLine) { lines.push(line); line = ""; }
+            line += ch;
+          }
+          lines.push(line);
+        }
+        return lines.filter((l) => l.length > 0);
+      };
+
+      const perLine = Math.max(4, Math.floor((W * 0.82) / size));
+      const lines = wrap(title, perLine);
+      const lineHeight = size * 1.25;
+      const blockH = lines.length * lineHeight;
+      const startY = H / 2 - blockH / 2 + size * 0.8;
+      let bgLayer = `<rect width="${W}" height="${H}" fill="#${bg}"/>`;
+      if (bgPath && existsSync(bgPath)) {
+        const b64 = readFileSync(bgPath).toString("base64");
+        const mime = bgPath.endsWith(".png") ? "image/png" : "image/jpeg";
+        bgLayer = `<image href="data:${mime};base64,${b64}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>
+          <rect width="${W}" height="${H}" fill="#0a0805" opacity="${scrim}"/>`;
+      }
+
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+        ${bgLayer}
+        <g font-family="Songti SC, PingFang SC, Iowan Old Style, serif" fill="#${fg}" text-anchor="middle">
+          ${lines
+            .map((line, i) => `<text x="${W / 2}" y="${startY + i * lineHeight}" font-size="${size}" letter-spacing="${Math.round(size * 0.06)}">${esc(line)}</text>`)
+            .join("")}
+          <rect x="${W / 2 - size * 1.6}" y="${startY + blockH - size * 0.9}" width="${size * 3.2}" height="2" fill="#${accent}"/>
+          ${subtitle ? `<text x="${W / 2}" y="${startY + blockH + size * 0.9}" font-size="${Math.round(size * 0.34)}" opacity="0.72" letter-spacing="${Math.round(size * 0.1)}">${esc(subtitle)}</text>` : ""}
+        </g>
+      </svg>`;
+
+      const tmp = join(projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const svgPath = join(tmp, `${shot.id}.svg`);
+      const out = join(tmp, `${shot.id}.png`);
+      writeFileSync(svgPath, svg);
+      const cmd = has("rsvg-convert")
+        ? ["rsvg-convert", "-w", String(W), "-h", String(H), "-o", out, svgPath]
+        : ["resvg", "--width", String(W), "--height", String(H), svgPath, out];
+      const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+      const code = await proc.exited;
+      if (code !== 0) throw new Error(`标题卡渲染失败：${(await new Response(proc.stderr).text()).slice(-300)}`);
+
+      return {
+        files: [{ kind: "image" as const, path: out, mime: "image/png", width: W, height: H, durationFrames: shot.durationFrames }],
+        cost: { kind: "local" as const, units: "card", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
 /** 通用本地命令：把任意 CLI（qwentts / scorekit / hyperframes / remotion）接成 provider */
 export function localProc(config: {
   id: string;
@@ -382,6 +471,6 @@ export function localProc(config: {
 
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
-  for (const p of [colorcard(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
+  for (const p of [colorcard(), titleCard(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
   return registry;
 }

@@ -69,7 +69,11 @@ filmbench build             # 1344×768 / 210 帧 / 7.000s
 内置 agent 已可用（`pi 1.4.0`）：`filmbench agent "读一下 project_state，告诉我还能不能出片"`。
 它会通过同一张工具表调用引擎，写操作以 `actor=agent` 落事件。
 
-`filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC) / imagine（已配置模型数、凭据来源）。
+`filmbench script set --file script.md [--logline …] | show
+filmbench cover --shot ID
+filmbench info
+filmbench check
+filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC) / imagine（已配置模型数、凭据来源）。
 
 把工具接到别的 agent（Claude Code / Codex / pi）：
 
@@ -87,7 +91,11 @@ filmbench build             # 1344×768 / 210 帧 / 7.000s
 | 去掉网络性质（服务端形态） | ✅ 无 Worker / 无 D1 / 无 R2 / 无 SSO；项目目录即全部。出站只剩 provider | `docs/architecture.md` |
 | Electron | ✅ 主进程 → Bun engine 子进程 → 渲染层（IPC，contextIsolation），单实例 | `apps/desktop` |
 | 界面支持编排 | ✅ 缩略图网格 · 项目切换 · 分镜详情抽屉 · 一键提交/执行/出片/故事板；⚠ 拖拽排时间轴未做 | `apps/desktop/src/renderer` |
-| 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件 | `packages/core/src/detail.ts` |
+| 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件；**内置预览**（视频/图片直接播，可接着截图标注） | `packages/core/src/detail.ts` |
+| 影片总览与剧本 | ✅ `filmbench script set/info`，界面「总览」看封面、剧本、镜头表、渠道策略与三步流程 | `packages/core` · `apps/desktop` |
+| 片名卡 / 封面 | ✅ `filmbench/title` 本地渲染（SVG→PNG，宋体标题），`filmbench cover --shot` 设封面 | `packages/providers` |
+| 渠道策略 | ✅ `.filmbench/policy.json` 限制 agent 只能用白名单 provider；视频渠道默认需人工 `--approve` | `packages/core/src/policy.ts` |
+| 一键验收 | ✅ `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面，`exit 1` 即不通过 | `packages/core/src/check.ts` |
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
 | 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
 | 调用 imagine 生成素材 | ✅ 图片：MAI-Image-2.6-Flash 真跑通；🎬 视频：provider + 首帧 + 视频提示词已接好，付费云视频需显式 `IMAGINE_SPEND_OK=1` 授权 | `packages/providers` |
@@ -147,6 +155,10 @@ filmbench storyboard [--embed]     # 审计故事板 HTML（--embed 内联预览
 filmbench ledger --json
 filmbench colab up|status|down|reap
 filmbench ui [--shot ID]           # 打开桌面界面（单实例）
+filmbench script set --file script.md [--logline …] | show
+filmbench cover --shot ID
+filmbench info
+filmbench check
 filmbench doctor
 filmbench status | verify | reindex | export
 filmbench mcp                      # stdio MCP（给外部 agent）

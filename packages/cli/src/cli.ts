@@ -8,10 +8,14 @@ import { parseArgs } from "node:util";
 import { stringify as toYaml } from "yaml";
 import {
   ConflictError,
+  DEFAULT_POLICY,
   Service,
   ValidationError,
   ensurePosters,
+  readPolicy,
+  runChecks,
   shotStale,
+  writePolicy,
   lintPrompt,
   build,
   compile,
@@ -65,6 +69,7 @@ function help(): void {
   filmbench shot patch --id [--title] [--frames] [--prompt] [--provider] [--task]
   filmbench shot param --id [--set k=v]... [--unset k]...
   filmbench shot remove --id
+  filmbench shot move --id <id> (--before <id> | --after <id>)
   filmbench ref add --shot ID --asset A [--role identity|wardrobe|environment|first_frame|...]
   filmbench ref list|remove --shot ID [--asset A]
   filmbench prompt set --shot ID [--image "…"] [--video "…"] [--text "…"]
@@ -86,6 +91,10 @@ function help(): void {
   filmbench reindex
   filmbench colab up [--workflow comfy-h3] [--gpu L4]   # 建/复用会话（装一次环境）
   filmbench colab status | down | reap [--idle 30]
+  filmbench script set --file script.md [--logline …] [--synopsis …] | show
+  filmbench cover --shot ID
+  filmbench info
+  filmbench check                     # 一键验收（exit 1 = 不通过）
   filmbench doctor
   filmbench ui [--shot ID]
   filmbench mcp
@@ -143,7 +152,11 @@ const cmdInit = (argv: string[]) => {
       },
       { actor: { kind: "human", id: "cli" } },
     );
-    out(`已创建 ${dir}\n  ${name} · ${values.width}×${values.height}@${values.fps}fps${values.budget ? ` · 预算 ${values.budget} USD` : ""}`);
+    writePolicy(dir, DEFAULT_POLICY);
+    out(
+      `已创建 ${dir}\n  ${name} · ${values.width}×${values.height}@${values.fps}fps${values.budget ? ` · 预算 ${values.budget} USD` : ""}\n` +
+        `  渠道策略 .filmbench/policy.json：agent 只能用 ${DEFAULT_POLICY.allowedProviders.join(" / ")}${DEFAULT_POLICY.allowVideo ? "" : "，禁止自动用视频渠道"}`,
+    );
   } finally {
     svc.close();
   }
@@ -211,6 +224,22 @@ const cmdShot = (argv: string[]) => {
     });
     return;
   }
+  if (sub === "move") {
+    const { values } = parseArgs({
+      args: argv.slice(1),
+      options: { id: { type: "string" }, before: { type: "string" }, after: { type: "string" } },
+    });
+    if (!values.id) throw new Error("shot move 需要 --id");
+    withService((svc) => {
+      const { event } = svc.moveShot(
+        values.id!,
+        values.before ? { before: values.before } : { after: values.after! },
+        { actor: { kind: "human", id: "cli" } },
+      );
+      out(`已移动 ${values.id}${values.before ? ` 到 ${values.before} 之前` : ` 到 ${values.after} 之后`}（事件 #${event.seq}）`);
+    });
+    return;
+  }
   if (sub === "param") {
     const { values } = parseArgs({
       args: argv.slice(1),
@@ -273,6 +302,90 @@ const cmdShot = (argv: string[]) => {
   }
   throw new Error(`未知子命令 shot ${sub ?? ""}`);
 };
+
+const cmdScript = (argv: string[]) =>
+  withService((svc) => {
+    const sub = argv[0];
+    if (sub !== "set") throw new Error("用法: filmbench script set --file script.md [--logline …] [--synopsis …]");
+    const { values } = parseArgs({
+      args: argv.slice(1),
+      options: {
+        file: { type: "string" },
+        logline: { type: "string" },
+        synopsis: { type: "string" },
+        title: { type: "string" },
+        text: { type: "string" },
+      },
+    });
+    const body = values.file ? readFileSync(resolve(values.file), "utf8") : (values.text ?? "");
+    if (!body.trim() && !values.logline) throw new Error("给 --file、--text 或 --logline");
+    const { event } = svc.setScript(
+      { body: body || undefined, logline: values.logline, synopsis: values.synopsis, title: values.title },
+      { actor: { kind: "human", id: "cli" } },
+    );
+    out(`剧本已写入（事件 #${event.seq}，${body.length} 字）`);
+  });
+
+const cmdCover = (argv: string[]) =>
+  withService((svc) => {
+    const { values } = parseArgs({ args: argv, options: { shot: { type: "string" } } });
+    if (!values.shot) throw new Error("cover 需要 --shot <id>");
+    const { event } = svc.setCover(values.shot, { actor: { kind: "human", id: "cli" } });
+    out(`封面取自 ${values.shot}（事件 #${event.seq}）`);
+  });
+
+const cmdInfo = () =>
+  withService((svc, dir) => {
+    const state = svc.state();
+    if (!state.project) throw new Error("项目尚未创建");
+    const fps = state.project.format.fps;
+    out(`${state.project.title}  ·  ${state.project.name}`);
+    if (state.script?.logline) out(`一句话：${state.script.logline}`);
+    if (state.script?.synopsis) out(`梗概：${state.script.synopsis}`);
+    out(
+      `${state.shots.length} 镜 · ${state.shots.reduce((n, s) => n + s.durationFrames, 0)} 帧 / ${(
+        state.shots.reduce((n, s) => n + s.durationFrames, 0) / fps
+      ).toFixed(2)}s · 封面 ${state.cover ? state.cover.shot : "未设置"}`,
+    );
+    out("");
+    out(table(
+      state.shots.map((s, i) => [
+        String(i + 1).padStart(2, "0"),
+        s.id,
+        `${(s.durationFrames / fps).toFixed(2)}s`,
+        s.binder.provider,
+        !s.produce ? "缺产物" : shotStale(state, s) ? "过期" : "就位",
+        s.title,
+      ]),
+      ["#", "id", "时长", "provider", "状态", "标题"],
+    ));
+    if (state.script?.body) {
+      out("");
+      out(`剧本 ${state.script.body.length} 字（filmbench info 只摘要；完整内容在 filmbench script show）`);
+    }
+    void dir;
+  });
+
+const cmdScriptShow = () =>
+  withService((svc) => {
+    const s = svc.state().script;
+    if (!s) return out("还没有剧本（filmbench script set --file script.md）");
+    if (s.title) out(`# ${s.title}`);
+    if (s.logline) out(`一句话：${s.logline}`);
+    if (s.synopsis) out(`梗概：${s.synopsis}`);
+    if (s.body) out(`\n${s.body}`);
+  });
+
+const cmdCheck = () =>
+  withService((svc) => {
+    const report = runChecks(svc, builtinProviders());
+    for (const item of report.items) {
+      const mark = item.ok ? "✓" : item.blocking ? "✗" : "!";
+      out(`${mark} ${item.id.padEnd(12)} ${item.detail}`);
+    }
+    out(`\n${report.ok ? "验收通过" : "验收未通过"} · ${report.shots} 镜 / ${report.frames} 帧`);
+    if (!report.ok) process.exitCode = 1;
+  });
 
 const cmdRef = (argv: string[]) =>
   withService((svc) => {
@@ -400,7 +513,7 @@ const cmdJobs = (argv: string[]) =>
     if (sub === "submit") {
       const { values } = parseArgs({
         args: argv.slice(1),
-        options: { shot: { type: "string" }, all: { type: "boolean" } },
+        options: { shot: { type: "string" }, all: { type: "boolean" }, approve: { type: "boolean" } },
       });
       const state = svc.state();
       const targets = values.all
@@ -412,7 +525,11 @@ const cmdJobs = (argv: string[]) =>
           : [];
       if (!targets.length) throw new Error("用 --shot <id> 或 --all 指定要提交的镜头");
       for (const shot of targets) {
-        const result = submit(svc, registry, { shot, actor: { kind: "human", id: "cli" } });
+        const result = submit(svc, registry, {
+          shot,
+          actor: { kind: "human", id: "cli" },
+          approve: Boolean(values.approve),
+        });
         const price = result.estimate.priceUnknown
           ? "价格未知"
           : fmtMoney(result.estimate.amount, result.estimate.currency);
@@ -824,6 +941,14 @@ async function main(): Promise<void> {
         return await cmdInit(rest);
       case "shot":
         return await cmdShot(rest);
+      case "script":
+        return await (rest[0] === "show" ? cmdScriptShow() : cmdScript(rest));
+      case "cover":
+        return await cmdCover(rest);
+      case "info":
+        return await cmdInfo();
+      case "check":
+        return await cmdCheck();
       case "ref":
         return await cmdRef(rest);
       case "prompt":

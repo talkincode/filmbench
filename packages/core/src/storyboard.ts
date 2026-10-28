@@ -51,7 +51,7 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
           detail: `产物 ${produce.width}×${produce.height} ≠ 成片 ${format.width}×${format.height}`,
         });
       }
-      if (produce.durationFrames !== shot.durationFrames) {
+      if (produce.kind === "video" && produce.durationFrames !== shot.durationFrames) {
         checks.push({
           id: "artifact.spec",
           status: "fail",

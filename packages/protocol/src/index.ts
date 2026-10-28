@@ -141,6 +141,16 @@ export const EVENT_PAYLOADS = {
   "shot.added": z.object({ shot: SHOT }),
   "shot.patched": z.object({ id: ident, patch: SHOT_PATCH }),
   "shot.removed": z.object({ id: ident }),
+  "shot.moved": z
+    .object({ id: ident, before: ident.optional(), after: ident.optional() })
+    .refine((v) => Boolean(v.before) !== Boolean(v.after), { message: "before / after 二选一" }),
+  "script.set": z.object({
+    title: z.string().optional(),
+    logline: z.string().optional(),
+    synopsis: z.string().optional(),
+    body: z.string().optional(),
+  }),
+  "cover.set": z.object({ shot: ident }),
   "asset.registered": z.object({
     asset: ident,
     sha256: sha,

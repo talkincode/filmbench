@@ -86,10 +86,20 @@ export interface RenderState {
   atSeq: number;
 }
 
+export interface ScriptState {
+  title?: string;
+  logline?: string;
+  synopsis?: string;
+  body?: string;
+  atSeq?: number;
+}
+
 export interface ProjectState {
   ref: string;
   head: { seq: number; hash: string };
   project?: { name: string; title: string; format: Format; budget?: { currency: string; limit: number } };
+  script?: ScriptState;
+  cover?: { shot: string; asset: string; atSeq: number };
   shots: ShotState[];
   subjects: Map<string, SubjectState>;
   assets: Map<string, AssetState>;
@@ -166,9 +176,27 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
         Object.assign(shot, mergeShotPatch(shot, p.patch as ShotPatch), { mutatedAt: e.seq });
         break;
       }
+      case "shot.moved": {
+        const from = state.shots.findIndex((s) => s.id === p.id);
+        if (from < 0) break;
+        const [moved] = state.shots.splice(from, 1);
+        const at = p.before
+          ? state.shots.findIndex((s) => s.id === p.before)
+          : state.shots.findIndex((s) => s.id === p.after) + 1;
+        state.shots.splice(at < 0 ? state.shots.length : at, 0, moved);
+        break;
+      }
       case "shot.removed":
         state.shots = state.shots.filter((s) => s.id !== p.id);
         break;
+      case "script.set":
+        state.script = { ...(state.script ?? {}), ...p, atSeq: e.seq };
+        break;
+      case "cover.set": {
+        const shot = state.shots.find((s) => s.id === p.shot);
+        if (shot?.produce) state.cover = { shot: p.shot, asset: shot.produce.asset, atSeq: e.seq };
+        break;
+      }
       case "asset.registered":
         state.assets.set(p.asset, {
           asset: p.asset,

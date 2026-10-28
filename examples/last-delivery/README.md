@@ -1,6 +1,6 @@
 # 最后一单 · 20 秒短片（filmbench 端到端样例）
 
-一支用 filmbench 从零做出来的 20 秒短片：**6 个镜头 / 600 帧 / 1344×768@30fps**，
+一支用 filmbench 从零做出来的 20 秒短片：**7 个镜头 / 600 帧 / 1344×768@30fps**（含本地渲染的片名卡），
 其中 5 镜是 imagine（Azure MAI-Image-2.6-Flash）真实生成，**提示词全部用中文**，1 镜是本地 colorcard 占位。
 
 剧本：雨夜，快递员把最后一单放在一栋待拆公寓的门口；电梯是空的；走廊尽头那扇门缝亮着；
@@ -17,14 +17,15 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 
 | # | id | 时长 | provider | 说明 |
 | --- | --- | --- | --- | --- |
-| 01 | `door` | 150f / 5.0s | imagine | 雨夜门厅空镜；后续两镜把它当 `environment` 参考 |
-| 02 | `courier` | 120f / 4.0s | imagine | 快递员放下包裹（参考 01） |
-| 03 | `lift` | 90f / 3.0s | colorcard | 电梯空轿厢，纯色占位（零成本、确定性） |
-| 04 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
-| 05 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
-| 06 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
+| 01 | `title` | 60f / 2.0s | filmbench/title | 片名卡：黑底、宋体标题、红线、副标题（本地 SVG 渲染，零成本） |
+| 02 | `door` | 90f / 3.0s | imagine | 雨夜门厅空镜；后续两镜把它当 `environment` 参考 |
+| 03 | `courier` | 120f / 4.0s | imagine | 快递员放下包裹（参考 01） |
+| 04 | `lift` | 90f / 3.0s | colorcard | 电梯空轿厢，纯色占位（零成本、确定性） |
+| 05 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
+| 06 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
+| 07 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
 
-依赖：02→01、04→01（continuity），06 接在 05 后。
+依赖：courier/hall → door（continuity）。封面取自 `door`；剧本在 `script.md`（`filmbench script set --file`）。
 
 ## 这个样例覆盖了什么
 
@@ -41,6 +42,9 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 预算 / 账本 | 5 次 imagine 记为 `priceUnknown`（不记 0），colorcard 记 0 |
 | 编译 | 图片 `-loop 1 -t`、视频 trim、统一 scale/pad/fps 后 concat，600 帧整 |
 | 审计故事板 | `0 镜有阻塞`，底账为空 |
+| 标题卡 | `filmbench/title` 本地渲染 SVG→PNG（宋体标题 + 红线），不依赖 drawtext |
+| 封面 | `filmbench cover --shot door`，总览与故事板都用它 |
+| 一键验收 | `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面 12 项 |
 
 ## 复现命令（要真实凭据）
 

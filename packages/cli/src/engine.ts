@@ -11,6 +11,8 @@ import {
   Service,
   build,
   ensurePosters,
+  readPolicy,
+  runChecks,
   projectStoryboard,
   reconcileOrphans,
   runJobs,
@@ -74,6 +76,55 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
         jobs: [...state.jobs.values()],
         cost: summarize(state),
       };
+    }
+    case "overview": {
+      const { service, dir } = svc(args.project as string | undefined);
+      const state = service.state();
+      const coverAsset = state.cover ? state.assets.get(state.cover.asset) : null;
+      return {
+        dir,
+        project: state.project,
+        script: state.script ?? null,
+        cover: state.cover
+          ? {
+              shot: state.cover.shot,
+              asset: state.cover.asset,
+              absPath: coverAsset ? join(dir, coverAsset.path) : null,
+            }
+          : null,
+        policy: readPolicy(dir),
+        head: state.head,
+        totalFrames: state.shots.reduce((n, s) => n + s.durationFrames, 0),
+        shots: state.shots.map((s, i) => ({
+          id: s.id,
+          order: i + 1,
+          title: s.title,
+          durationFrames: s.durationFrames,
+          provider: s.binder.provider,
+          hasOutput: Boolean(s.produce),
+        })),
+        cost: summarize(state),
+      };
+    }
+    case "script_set": {
+      const { service } = svc(args.project as string | undefined);
+      return service.setScript(
+        {
+          title: args.title as string | undefined,
+          logline: args.logline as string | undefined,
+          synopsis: args.synopsis as string | undefined,
+          body: args.body as string | undefined,
+        },
+        { actor: { kind: "human", id: "desktop" } },
+      ).event.seq;
+    }
+    case "cover_set": {
+      const { service } = svc(args.project as string | undefined);
+      return service.setCover(String(args.shot), { actor: { kind: "human", id: "desktop" } }).event.seq;
+    }
+    case "check": {
+      const { service } = svc(args.project as string | undefined);
+      return runChecks(service, registry);
     }
     case "shot_detail": {
       const { service } = svc(args.project as string | undefined);

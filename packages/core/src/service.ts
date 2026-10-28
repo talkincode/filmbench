@@ -192,6 +192,15 @@ export class Service {
     return this.append("shot.patched", { id, patch }, options);
   }
 
+  moveShot(id: string, anchor: { before?: string; after?: string }, options?: AppendOptions) {
+    const state = this.state();
+    if (!state.shots.some((s) => s.id === id)) throw new ValidationError(`镜头不存在: ${id}`);
+    const other = anchor.before ?? anchor.after;
+    if (!other || !state.shots.some((s) => s.id === other)) throw new ValidationError(`锚点镜头不存在: ${other}`);
+    if (other === id) throw new ValidationError("不能相对自己移动");
+    return this.append("shot.moved", { id, ...anchor }, options);
+  }
+
   removeShot(id: string, options?: AppendOptions) {
     const state = this.state();
     const used = state.shots.some((s) => s.dependsOn.some((d) => d.shot === id));
@@ -204,6 +213,18 @@ export class Service {
     options?: AppendOptions,
   ) {
     return this.append("asset.registered", input, options);
+  }
+
+  setScript(input: { title?: string; logline?: string; synopsis?: string; body?: string }, options?: AppendOptions) {
+    return this.append("script.set", input, options);
+  }
+
+  setCover(shot: string, options?: AppendOptions) {
+    const state = this.state();
+    const target = state.shots.find((s) => s.id === shot);
+    if (!target) throw new ValidationError(`镜头不存在: ${shot}`);
+    if (!target.produce) throw new ValidationError(`${shot} 还没有产物，不能当封面`);
+    return this.append("cover.set", { shot }, options);
   }
 
   setSelection(shot: string, kind: "video" | "image" | "audio", asset: string, options?: AppendOptions) {
