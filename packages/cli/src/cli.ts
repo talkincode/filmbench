@@ -14,6 +14,9 @@ import {
   ensurePosters,
   readPolicy,
   runChecks,
+  alignCues,
+  cueTimes,
+  loadCues,
   shotStale,
   writePolicy,
   lintPrompt,
@@ -66,7 +69,7 @@ function help(): void {
 用法:
   filmbench init <dir> [--name] [--title] [--width 1920] [--height 1080] [--fps 30] [--budget 0]
   filmbench shot add --id --title --frames --provider --task [--role picture|music|voice] [--prompt] [--desc] [--action] [--after]
-  filmbench shot patch --id [--title] [--frames] [--prompt] [--provider] [--task]
+  filmbench shot patch --id [--title] [--frames] [--prompt] [--desc] [--action] [--provider] [--task]
   filmbench shot param --id [--set k=v]... [--unset k]...
   filmbench shot remove --id
   filmbench shot move --id <id> (--before <id> | --after <id>)
@@ -93,6 +96,7 @@ function help(): void {
   filmbench colab status | down | reap [--idle 30]
   filmbench script set --file script.md [--logline …] [--synopsis …] | show
   filmbench cover --shot ID
+  filmbench cues [--shot ID] [--tolerance 0.06]
   filmbench info
   filmbench check                     # 一键验收（exit 1 = 不通过）
   filmbench doctor
@@ -281,6 +285,8 @@ const cmdShot = (argv: string[]) => {
         title: { type: "string" },
         frames: { type: "string" },
         prompt: { type: "string" },
+        desc: { type: "string" },
+        action: { type: "string" },
         provider: { type: "string" },
         task: { type: "string" },
       },
@@ -290,7 +296,11 @@ const cmdShot = (argv: string[]) => {
       const patch: Record<string, unknown> = {};
       if (values.title) patch.title = values.title;
       if (values.frames) patch.durationFrames = Number(values.frames);
-      if (values.prompt) patch.intent = { prompt: values.prompt };
+      const intent: Record<string, string> = {};
+      if (values.prompt) intent.prompt = values.prompt;
+      if (values.desc !== undefined) intent.description = values.desc;
+      if (values.action !== undefined) intent.action = values.action;
+      if (Object.keys(intent).length) patch.intent = intent;
       if (values.provider || values.task) {
         patch.binder = {
           ...(values.provider ? { provider: values.provider } : {}),
@@ -334,6 +344,34 @@ const cmdCover = (argv: string[]) =>
     if (!values.shot) throw new Error("cover 需要 --shot <id>");
     const { event } = svc.setCover(values.shot, { actor: { kind: "human", id: "cli" } });
     out(`封面取自 ${values.shot}（事件 #${event.seq}）`);
+  });
+
+const cmdCues = (argv: string[]) =>
+  withService((svc, dir) => {
+    const { values } = parseArgs({ args: argv, options: { shot: { type: "string" }, tolerance: { type: "string" } } });
+    const state = svc.state();
+    const track = values.shot
+      ? state.shots.find((s) => s.id === values.shot)
+      : state.shots.find((s) => s.binder.params.fit === "exact");
+    if (!track) throw new Error("没有 fit: exact 的音轨镜头（用 --shot 指定）");
+    const cuesPath = join(dir, String(track.binder.params.cues ?? ""));
+    const cues = cueTimes(loadCues(cuesPath));
+    const tolerance = Number(values.tolerance ?? track.binder.params.tolerance ?? 0.06);
+    const rows = alignCues(state, cues, tolerance);
+    out(`${track.id} · 卡点文件 ${track.binder.params.cues} · 容差 ${tolerance}s`);
+    out(table(
+      rows.map((r) => [
+        r.ok ? "✓" : "✗",
+        `${r.cut.toFixed(3)}s`,
+        r.cue === null ? "—" : `${r.cue.toFixed(3)}s`,
+        r.label ?? "",
+        `${r.delta >= 0 ? "+" : ""}${r.delta.toFixed(3)}s`,
+      ]),
+      ["", "剪辑点", "最近段落", "段落", "偏差"],
+    ));
+    const bad = rows.filter((r) => !r.ok).length;
+    out(bad ? `\n${bad} 个剪辑点没卡上` : `\n全部卡上（${rows.length} 个剪辑点）`);
+    if (bad) process.exitCode = 1;
   });
 
 const cmdInfo = () =>
@@ -948,6 +986,8 @@ async function main(): Promise<void> {
         return await (rest[0] === "show" ? cmdScriptShow() : cmdScript(rest));
       case "cover":
         return await cmdCover(rest);
+      case "cues":
+        return await cmdCues(rest);
       case "info":
         return await cmdInfo();
       case "check":

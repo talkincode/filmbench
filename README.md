@@ -160,6 +160,26 @@ filmbench build      # 混入成片：AAC 48kHz 立体声
 - 混音链：`loudnorm(I=-18,TP=-2)` → `volume` → 淡入/淡出，多个音轨走 `amix`；
 - 产物同样走内容寻址、选定、审阅，`filmbench check` 会把它算进"每镜有产物"。
 
+### 音轨卡点（fit: exact）
+
+音乐不是"铺上去就行"，剪辑点要落在乐句边界上：
+
+```jsonc
+// music/score.cues.json —— 中立卡点文件，和哪家音乐工具无关
+{ "apiVersion": "filmbench/cues-v1", "kind": "Cues",
+  "tempo": 60, "beatsPerBar": 2, "cues": [{ "bar": 0 }, { "bar": 1 }, …] }
+```
+
+```bash
+filmbench shot param --id score --set fit=exact \
+  --set cues=music/score.cues.json --set tolerance=0.06
+filmbench cues            # 打印每个剪辑点最近的小节边界与偏差
+```
+
+- 校验对象是**每个画面剪辑点**：必须在容差内落在某个段落边界，否则 `build` 直接拒绝（`cues-misaligned`）；
+- `filmbench check` 里也有一项「音乐卡点」，能过就说明音画同步是可证明的，不是听感；
+- 小节的秒数由 `tempo × beatsPerBar` 算出，所以改 tempo/bars 或改镜头时长都会立刻被这项检查抓出来。
+
 ## 命令
 
 ```bash

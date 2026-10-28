@@ -1,8 +1,8 @@
 title: 最后一单 · 雨夜铺底
 tempo: 60
 key: A_minor
-time_signature: 4/4
-bars: 5
+time_signature: 2/4
+bars: 10
 loop: false
 harmony: [i, VI, III, VII]
 performance:

@@ -5,6 +5,7 @@ import type { Format } from "@filmbench/protocol";
 import { PATHS, ValidationError, type Service } from "./service.ts";
 import { pictureShots, totalFrames, type ProjectState } from "./state.ts";
 import { shotStale } from "./stale.ts";
+import { alignCues, cueTimes, loadCues } from "./cues.ts";
 
 /**
  * Render IR：编译的唯一产物。声明式、逐字节确定、可 diff。
@@ -71,6 +72,31 @@ export function compile(
       if (!existsSync(file)) {
         issues.push({ code: "asset-file-missing", shot: shot.id, detail: `音频不存在: ${shot.produce.path}` });
         continue;
+      }
+      if (shot.binder.params.fit === "exact") {
+        const cuesPath = String(shot.binder.params.cues ?? "");
+        if (!cuesPath) {
+          issues.push({ code: "cues-misaligned", shot: shot.id, detail: "fit: exact 需要 params.cues（filmbench/cues-v1）" });
+        } else {
+          try {
+            const cues = cueTimes(loadCues(join(baseDir, cuesPath)));
+            const tolerance = Number(shot.binder.params.tolerance ?? 0.06);
+            const rows = alignCues(state, cues, tolerance);
+            const bad = rows.filter((r) => !r.ok);
+            if (bad.length) {
+              issues.push({
+                code: "cues-misaligned",
+                shot: shot.id,
+                detail: `${bad.length}/${rows.length} 个剪辑点没卡上（容差 ${tolerance}s）：${bad
+                  .slice(0, 3)
+                  .map((r) => `${r.cut.toFixed(2)}s→${r.cue?.toFixed(2) ?? "-"}s Δ${r.delta.toFixed(2)}`)
+                  .join("，")}`,
+              });
+            }
+          } catch (e) {
+            issues.push({ code: "cues-misaligned", shot: shot.id, detail: (e as Error).message });
+          }
+        }
       }
       const fadeIn = Number(shot.binder.params.fadeIn ?? 1.5);
       const fadeOut = Number(shot.binder.params.fadeOut ?? 2);

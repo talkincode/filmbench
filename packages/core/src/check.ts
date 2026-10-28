@@ -4,7 +4,9 @@ import { compile } from "./compile.ts";
 import { lintPrompt } from "./prompt.ts";
 import { shotStale } from "./stale.ts";
 import { totalFrames } from "./state.ts";
+import { alignCues, cueTimes, loadCues } from "./cues.ts";
 import type { Service } from "./service.ts";
+import { join } from "node:path";
 
 export interface CheckItem {
   id: string;
@@ -76,6 +78,27 @@ export function runChecks(service: Service, registry: ProviderRegistry): CheckRe
 
   const { ir, issues } = compile(state, service.dir);
   add("可编译", Boolean(ir), ir ? `${ir.clips.length} 段 · ${ir.totalFrames} 帧` : issues.map((i) => `${i.shot ?? "-"} ${i.code}`).join("; "));
+
+  const exactTracks = state.shots.filter((s) => (s.role ?? "picture") !== "picture" && s.binder.params.fit === "exact");
+  for (const track of exactTracks) {
+    try {
+      const cuesPath = String(track.binder.params.cues ?? "");
+      if (!cuesPath) throw new Error("缺少 params.cues");
+      const cues = cueTimes(loadCues(join(service.dir, cuesPath)));
+      const tolerance = Number(track.binder.params.tolerance ?? 0.06);
+      const rows = alignCues(state, cues, tolerance);
+      const bad = rows.filter((r) => !r.ok);
+      add(
+        "音乐卡点",
+        bad.length === 0,
+        bad.length
+          ? `${bad.length} 个剪辑点没卡上：${bad.slice(0, 3).map((r) => `${r.cut.toFixed(2)}s Δ${r.delta.toFixed(2)}`).join("，")}`
+          : `${rows.length} 个剪辑点全部落在段落边界（容差 ${tolerance}s）`,
+      );
+    } catch (e) {
+      add("音乐卡点", false, (e as Error).message);
+    }
+  }
 
   const projection = projectStoryboard(service, registry);
   const blockers = projection.shots.flatMap((s) => (s.checks ?? []).filter((c) => c.status === "fail").map(() => s.id));

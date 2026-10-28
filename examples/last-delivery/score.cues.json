@@ -1,0 +1,52 @@
+{
+  "apiVersion": "filmbench/cues-v1",
+  "kind": "Cues",
+  "tempo": 60,
+  "beatsPerBar": 2,
+  "cues": [
+    {
+      "bar": 0,
+      "label": "bar 0"
+    },
+    {
+      "bar": 1,
+      "label": "bar 1"
+    },
+    {
+      "bar": 2,
+      "label": "bar 2"
+    },
+    {
+      "bar": 3,
+      "label": "bar 3"
+    },
+    {
+      "bar": 4,
+      "label": "bar 4"
+    },
+    {
+      "bar": 5,
+      "label": "bar 5"
+    },
+    {
+      "bar": 6,
+      "label": "bar 6"
+    },
+    {
+      "bar": 7,
+      "label": "bar 7"
+    },
+    {
+      "bar": 8,
+      "label": "bar 8"
+    },
+    {
+      "bar": 9,
+      "label": "bar 9"
+    },
+    {
+      "bar": 10,
+      "label": "bar 10"
+    }
+  ]
+}

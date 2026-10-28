@@ -43,7 +43,7 @@ shots:
   - id: door
     title: 门厅 · 雨夜
     role: picture
-    durationFrames: 90
+    durationFrames: 120
     intent:
       description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
       action: 静止，雨声，灯管轻微频闪
@@ -93,7 +93,7 @@ shots:
   - id: lift
     title: 电梯 · 空轿厢
     role: picture
-    durationFrames: 90
+    durationFrames: 60
     intent:
       description: 电梯门打开，里面是空的，灯管在闪
       action: 门开、停顿、灯闪三次
@@ -190,7 +190,7 @@ shots:
     role: music
     durationFrames: 600
     intent:
-      description: A 小调、慢速弦乐垫底 + 低音提琴 + 稀疏音盒；只用 5 小节循环，避免盖过雨声
+      description: "A 小调 2/4：慢速弦乐垫底 + 低音提琴 + 稀疏音盒。每 2 秒一小节，段落边界与剪辑点对齐（fit: exact）"
       action: ""
       prompt: ""
       prompts:
@@ -204,6 +204,9 @@ shots:
         volume: 0.9
         fadeIn: 2
         fadeOut: 3
+        fit: exact
+        cues: music/score.cues.json
+        tolerance: 0.06
     subjects: []
     references: []
     dependsOn: []
