@@ -170,6 +170,8 @@ filmbench shot add --id vo-open --title "旁白 · 没有地址" --frames 90 --r
 ```
 
 - 本地 Qwen3-TTS 生成（qwentts skill），产物是音频，**时长以实际生成为准**；
+- 男声独白走 base 克隆：`--param model=base --param referenceAudio=<speaker.mp3>`（默认用 skill 里的「锅哥男声」），
+  不传则走 CustomVoice 预置音色（`--param voice=Serena`）；
 - `startFrame` 决定入点，**必须在剪辑点上**（与音乐卡点同一套校验），否则 `build` 拒绝；
 - 有旁白时音乐自动避让：`sidechaincompress` 用旁白做侧链压音乐，旁白 -16 LUFS / 音乐 -18 LUFS；
 - `build` 会顺带写出 `build/narration.srt`（按句切分、按字数分配时间，近似字幕，不做强制对齐）。

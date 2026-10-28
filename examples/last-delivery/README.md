@@ -24,7 +24,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 05 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
 | 06 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
 | 07 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
-| ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调 2/4、10 小节；钢琴主题在 6s / 14s 两次模进，定音鼓在 0s / 10s / 16s 各一下，弦乐 + 低音提琴 + 竖琴垫底；`fit: exact` 卡点，淡入 2s / 淡出 3s（不进画面） |
+| ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调 2/4、10 小节；钢琴主题在 6s / 14s 两次模进，定音鼓在 0s / 10s / 16s 各一下，合成低音托底，**无弦乐**；`fit: exact` 卡点 |
 
 依赖：courier/hall → door（continuity）。封面取自 `door`；剧本在 `script.md`（`filmbench script set --file`）。
 
@@ -45,8 +45,8 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 审计故事板 | `0 镜有阻塞`，底账为空 |
 | 标题卡 | `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits），剧照压暗 + 暗角 + 颗粒 |
 | 封面 | 标题卡本身就是封面（`filmbench cover --shot title`），与片头同一套设计语言 |
-| 配乐 | `music/score.yaml` 用 scorekit 场景 DSL 写；产物作为音轨混入，成片 AAC 48kHz 立体声 |
-| 旁白 | 两条（`vo-open` @2s、`vo-door` @12s），qwentts 本地生成，入点都落在剪辑点；音乐自动避让旁白；build 顺带产出 `narration.srt` |
+| 配乐 | `music/score.yaml`：**不用弦乐**，只留钢琴（两次模进）+ 合成低音 + 定音鼓；产物作为音轨混入，成片 AAC 48kHz 立体声 |
+| 旁白 | 两条（`vo-open` @2s、`vo-door` @12s），**男声独白**（base 克隆，参考 `锅哥男声.mp3`），入点都落在剪辑点；音乐自动避让旁白；build 顺带产出 `narration.srt` |
 | 音轨卡点 | `music/score.cues.json`（2/4、60bpm、10 小节）+ `fit: exact`；`filmbench cues` 显示 8 个剪辑点全部 0 偏差 |
 | 一键验收 | `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面 12 项 |
 

@@ -565,13 +565,23 @@ export function qwentts(): Provider {
       const tmp = join(input.projectDir, ".filmbench", "tmp");
       mkdirSync(tmp, { recursive: true });
       const out = join(tmp, `${input.shot.id}.wav`);
-      const args = [
-        bin, "-t", text, "-o", out,
-        "--model", String(input.params.model ?? "customvoice"),
-        "--voice", String(input.params.voice ?? "Serena"),
-        "--emotion-intensity", String(input.params.emotion ?? "low"),
-        "--speed", String(input.params.speed ?? 1),
-      ];
+      // 有参考音频就走 base 克隆（男声/女声由参考决定），否则用 CustomVoice 预置音色
+      const referenceAudio = String(input.params.referenceAudio ?? "");
+      const args =
+        referenceAudio && referenceAudio !== "false"
+          ? [
+              bin, "-t", text, "-o", out,
+              "--model", "base",
+              "--reference-audio", referenceAudio,
+              "--speed", String(input.params.speed ?? 1),
+            ]
+          : [
+              bin, "-t", text, "-o", out,
+              "--model", String(input.params.model ?? "customvoice"),
+              "--voice", String(input.params.voice ?? "Serena"),
+              "--emotion-intensity", String(input.params.emotion ?? "low"),
+              "--speed", String(input.params.speed ?? 1),
+            ];
       const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`qwentts 失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error("qwentts 没有写出音频");

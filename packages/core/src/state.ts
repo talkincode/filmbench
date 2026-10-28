@@ -36,6 +36,7 @@ export interface JobState {
   params: Record<string, string | number | boolean>;
   estimate: { amount: number; currency: string; units: string; priceUnknown: boolean };
   inputsHash: string;
+  inputsVersion?: number;
   phase: JobPhase;
   reason?: string;
   rejectCause?: "budget" | "cancelled" | "other";
@@ -133,7 +134,8 @@ export function mergeShotPatch(shot: Shot, patch: ShotPatch): Shot {
       ? ({
           provider: patch.binder.provider ?? shot.binder.provider,
           task: patch.binder.task ?? shot.binder.task,
-          params: { ...shot.binder.params, ...(patch.binder.params ?? {}) },
+          // params 是完整映射：给了就整体替换，否则 --unset 会被合并逻辑加回来
+          params: patch.binder.params ?? shot.binder.params,
         } satisfies Binder)
       : shot.binder,
   };
@@ -252,6 +254,7 @@ export function fold(
           params: p.params,
           estimate: p.estimate,
           inputsHash: p.inputsHash,
+          inputsVersion: p.inputsVersion,
           phase: "requested",
           requestedAt: e.seq,
           updatedAt: e.seq,

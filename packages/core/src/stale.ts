@@ -10,6 +10,8 @@ export function shotStale(state: ProjectState, shot: ShotState): boolean {
   if (!shot.produce) return false;
   const job = state.jobs.get(shot.produce.jobId);
   if (!job) return shot.mutatedAt > shot.produce.atSeq;
+  // 老作业（没有版本号）沿用时间戳判定，避免算法迭代把历史产物全部判成过期
+  if (job.inputsVersion === undefined) return shot.mutatedAt > shot.produce.atSeq;
   // 用作业当时记录的 provider 模态；老作业没有该字段时退回产物类型
   const modality = job.modality === undefined ? shot.produce.kind : job.modality;
   const fps = state.project?.format.fps ?? 30;

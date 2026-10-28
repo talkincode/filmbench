@@ -145,6 +145,7 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
       params,
       estimate,
       inputsHash: hash,
+      inputsVersion: 2,
     },
     { actor: input.actor, opid: input.opid },
   );

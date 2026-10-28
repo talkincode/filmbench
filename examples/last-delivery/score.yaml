@@ -1,6 +1,6 @@
 title: 最后一单 · 雨夜铺底
 story: >-
-  雨夜、待拆的旧楼、最后一单。弦乐几乎不动，像潮气贴在墙上；低音只给出房间的尺寸。
+  雨夜、待拆的旧楼、最后一单。没有弦乐铺底，只留钢琴、合成低音与定音鼓。
   钢琴在第 2 秒进入，两次模进分别在 6s 与 14s 抬起；10s 与 16s 用定音鼓各砸一下，
   标记他放下包裹、以及门里那只手。
 tempo: 60
@@ -40,8 +40,6 @@ clips:
       h1: { at: 10, pitch: A2, duration: 2.0, velocity: 88 }
       h2: { at: 16, pitch: E2, duration: 2.0, velocity: 82 }
 tracks:
-  - { id: strings, instrument: slow_strings, pattern: sustain, intensity: 0.22 }
-  - { id: bass, instrument: contrabass, pattern: bass, intensity: 0.22 }
-  - { id: line, instrument: piano, pattern: clip, clip: line, intensity: 0.8 }
+  - { id: bass, instrument: synth_bass, pattern: bass, intensity: 0.3 }
+  - { id: line, instrument: piano, pattern: clip, clip: line, intensity: 0.85 }
   - { id: hits, instrument: timpani, pattern: clip, clip: hits, intensity: 0.85 }
-  - { id: air, instrument: harp, pattern: arpeggio, intensity: 0.06 }

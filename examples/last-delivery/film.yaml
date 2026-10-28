@@ -38,7 +38,7 @@ shots:
         scrim: 0.7
     subjects: []
     references:
-      - asset: asset-884065adcf66
+      - asset: asset-afc915f044bb
         role: environment
     dependsOn: []
   - id: door
@@ -136,7 +136,6 @@ shots:
         model: MAI-Image-2.6-Flash
         width: 1344
         height: 768
-        duration: 4
     subjects: []
     references:
       - asset: asset-e83deb1f57d4
@@ -210,7 +209,7 @@ shots:
       task: music
       params:
         scene: music/score.yaml
-        volume: 0.8
+        volume: 0.55
         fadeIn: 2
         fadeOut: 3
         fit: exact
@@ -224,7 +223,7 @@ shots:
     role: voice
     durationFrames: 90
     intent:
-      description: ""
+      description: 男声独白，低声、几乎贴着话筒；不要播音腔
       action: ""
       narration: ""
       prompt: ""
@@ -236,9 +235,9 @@ shots:
       task: voice
       params:
         startFrame: 60
-        voice: Serena
-        emotion: low
-        volume: 1.15
+        volume: 1.25
+        model: base
+        referenceAudio: /Users/wangjuntao/.agents/skills/qwentts/speakers/锅哥男声.mp3
     subjects: []
     references: []
     dependsOn: []
@@ -247,7 +246,7 @@ shots:
     role: voice
     durationFrames: 90
     intent:
-      description: ""
+      description: 男声独白，第二句稍微抬眼
       action: ""
       narration: ""
       prompt: ""
@@ -259,9 +258,9 @@ shots:
       task: voice
       params:
         startFrame: 360
-        voice: Serena
-        emotion: low
-        volume: 1.2
+        volume: 1.25
+        model: base
+        referenceAudio: /Users/wangjuntao/.agents/skills/qwentts/speakers/锅哥男声.mp3
     subjects: []
     references: []
     dependsOn: []

@@ -193,6 +193,8 @@ export const EVENT_PAYLOADS = {
     params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
     estimate: z.object({ amount: money, currency: z.string().length(3), units: z.string(), priceUnknown: z.boolean() }),
     inputsHash: sha,
+    /** 输入哈希算法版本；老作业没有这个字段，按旧规则（时间戳）判过期 */
+    inputsVersion: z.number().int().optional(),
   }),
   "job.started": z.object({ jobId: z.string() }),
   "job.completed": z.object({
