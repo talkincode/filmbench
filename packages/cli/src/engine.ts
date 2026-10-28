@@ -75,6 +75,18 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
           })(),
         })),
         jobs: [...state.jobs.values()],
+        renders: state.renders.slice(-5).map((r) => {
+          const abs = r.out.startsWith("/") ? r.out : join(dir, r.out);
+          return {
+            out: r.out,
+            absPath: abs,
+            exists: existsSync(abs),
+            bytes: r.bytes,
+            sha256: r.sha256,
+            durationFrames: r.durationFrames,
+            atSeq: r.atSeq,
+          };
+        }),
         cost: summarize(state),
       };
     }

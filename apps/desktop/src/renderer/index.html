@@ -307,6 +307,7 @@
         <button id="bSubmit" title="把「缺产物 / 过期」的镜头排进队列——只排队，不花钱">① 提交待办</button>
         <button id="bRun" class="primary" title="按顺序真正调用模型生成（会花钱）">② 执行队列</button>
         <button id="bBuild" title="本地 ffmpeg 合成 mp4——不调用模型，不花钱">③ 出片</button>
+        <button id="bFilm" class="ghost" title="播放最近一次渲染的成片">成片预览</button>
         <button id="bCheck" class="ghost" title="一键验收：事件链 / 产物 / 选定 / 审阅 / 编译 / 预算">验收</button>
         <button id="bOverview" class="ghost" title="剧本、封面、镜头表与流程说明">总览</button>
         <button id="bStory">审计故事板</button>
@@ -342,6 +343,23 @@
       </div>
     </header>
     <div id="ovBody" style="padding:14px;min-height:0;flex:1"></div>
+  </div>
+</div>
+
+<div class="modal" id="filmModal">
+  <div class="panel" style="width:min(1100px,96vw)">
+    <header>
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+        <h3>成片预览</h3>
+        <span id="fmMeta" style="font-family:var(--mono);font-size:11px;color:var(--ink-3)"></span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="sm" id="fmOpen">用系统播放器打开</button>
+        <button class="sm" id="fmReveal">显示文件</button>
+        <button class="sm" id="fmClose">关闭</button>
+      </div>
+    </header>
+    <div class="list" id="fmBody" style="padding:0;background:#12100b"></div>
   </div>
 </div>
 
@@ -868,7 +886,12 @@ async function runQueue() {
   }
 }
 $("bRun").onclick = runQueue;
-$("bBuild").onclick = () => act("出片", () => rpc("build", {})).catch(() => {});
+$("bBuild").onclick = () =>
+  act("出片", async () => {
+    const r = await rpc("build", {});
+    await load();
+    await openFilm({ ...r, exists: true, sha256: r.sha256, bytes: r.bytes, durationFrames: r.durationFrames, absPath: r.out, out: r.out });
+  }).catch(() => {});
 $("bStory").onclick = async () => {
   try {
     const r = await rpc("storyboard", {});
@@ -980,7 +1003,14 @@ async function openOverview(tab) {
           agent：${o.policy.allowedProviders.join(" / ")}<br>
           视频：${o.policy.allowVideo ? "允许" : "禁止（需 --approve）"} · 价格未知：${o.policy.allowUnknownPrice ? "允许" : "禁止"}</div>
         <div class="flow" style="margin-top:8px"><b>成片</b><br>
-          ${o.renders.length ? o.renders.map((r) => `<div>${(r.durationFrames / fps).toFixed(2)}s · ${(r.bytes / 1024 / 1024).toFixed(1)}MB · ${esc(r.sha256.slice(0, 10))}</div>`).join("") : "还没有渲染过"}</div>
+          ${o.renders.length
+            ? o.renders
+                .map(
+                  (r) =>
+                    `<div style="cursor:pointer" data-render="${esc(r.out)}">${(r.durationFrames / fps).toFixed(2)}s · ${(r.bytes / 1024 / 1024).toFixed(1)}MB · ${esc(r.sha256.slice(0, 10))}</div>`,
+                )
+                .join("")
+            : "还没有渲染过"}</div>
       </div>
       <div class="film-right">
         <div class="film-tabs">${tabs.map(([id, label]) => `<button class="film-tab${ovTab === id ? " on" : ""}" data-otab="${id}">${label}</button>`).join("")}</div>
@@ -989,6 +1019,10 @@ async function openOverview(tab) {
     </div>`;
 
     $("ovBody").querySelectorAll("[data-otab]").forEach((b) => (b.onclick = () => openOverview(b.dataset.otab)));
+    $("ovBody").querySelectorAll("[data-render]").forEach((el) => (el.onclick = () => {
+      $("overviewModal").classList.remove("open");
+      openFilm(o.renders.find((r) => r.out === el.dataset.render));
+    }));
     $("ovScriptEdit").onclick = async () => {
       const body = window.prompt("剧本正文（Markdown/纯文本）", o.script?.body ?? "");
       if (body === null) return;
@@ -1017,6 +1051,27 @@ function openPreview() {
   $("previewModal").classList.add("open");
 }
 $("pvClose").onclick = () => $("previewModal").classList.remove("open");
+
+/* —— 成片预览 —— */
+async function openFilm(specific) {
+  try {
+    const st = await rpc("state");
+    const render = specific ?? (st.renders || []).filter((r) => r.exists).at(-1);
+    if (!render || !render.exists) {
+      toast("还没有成片。先点 ③ 出片（本地合成，不花钱）");
+      return;
+    }
+    const fps = st.project?.format?.fps || 30;
+    const mb = (render.bytes / 1024 / 1024).toFixed(2);
+    $("fmMeta").textContent = `${(render.durationFrames / fps).toFixed(2)}s · ${fps}fps · ${mb}MB · ${render.sha256.slice(0, 10)}`;
+    $("fmBody").innerHTML = `<video class="pv-media" src="${fileUrl(render.absPath)}?v=${encodeURIComponent(render.sha256)}" controls autoplay loop></video>`;
+    $("fmOpen").onclick = () => f.openPath(render.absPath);
+    $("fmReveal").onclick = () => f.reveal(render.absPath);
+    $("filmModal").classList.add("open");
+  } catch (e) { toast(e.message); }
+}
+$("fmClose").onclick = () => { $("filmModal").classList.remove("open"); $("fmBody").innerHTML = ""; };
+$("bFilm").onclick = () => openFilm();
 
 /* —— 一键验收 —— */
 async function openCheck() {
@@ -1354,6 +1409,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if ($("snap").classList.contains("open")) { $("snapClose").click(); return; }
+    if ($("filmModal").classList.contains("open")) { $("filmModal").classList.remove("open"); $("fmBody").innerHTML = ""; return; }
     if ($("previewModal").classList.contains("open")) { $("previewModal").classList.remove("open"); $("pvBody").innerHTML = ""; return; }
     if ($("overviewModal").classList.contains("open")) { $("overviewModal").classList.remove("open"); return; }
     if ($("checkModal").classList.contains("open")) { $("checkModal").classList.remove("open"); return; }
@@ -1389,7 +1445,7 @@ load().catch((e) => toast(`加载失败：${e.message}`, 5000));
 setInterval(() => {
   if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open") || $("logModal").classList.contains("open")
     || $("overviewModal").classList.contains("open") || $("checkModal").classList.contains("open")
-    || $("previewModal").classList.contains("open")) return;
+    || $("previewModal").classList.contains("open") || $("filmModal").classList.contains("open")) return;
   load().catch(() => {});
 }, 6000);
 
