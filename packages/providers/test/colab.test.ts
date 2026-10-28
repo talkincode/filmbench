@@ -97,9 +97,14 @@ describe("Colab 会话复用与空闲回收", () => {
     expect(calls().filter((l) => l.startsWith("new ")).length).toBe(1);
   });
 
-  test("工作流改了才重建会话", async () => {
+  test("改 run.py 不重建会话；改 setup.py 才重建", async () => {
     writeFileSync(logFile, "");
-    writeFileSync(join(project, "workflows/comfy-h3/heartbeat.py"), "# touched\n", { flag: "a" });
+    writeFileSync(join(project, "workflows/comfy-h3/run.py"), "# touched\n", { flag: "a" });
+    await colabUp({ projectDir: project, workflow: "comfy-h3" });
+    expect(calls().filter((l) => l.startsWith("new ")).length).toBe(0);
+    expect(calls().filter((l) => l.startsWith("stop ")).length).toBe(0);
+
+    writeFileSync(join(project, "workflows/comfy-h3/setup.py"), "# touched\n", { flag: "a" });
     const next = await colabUp({ projectDir: project, workflow: "comfy-h3" });
     expect(calls().filter((l) => l.startsWith("stop ")).length).toBeGreaterThanOrEqual(1);
     expect(calls().filter((l) => l.startsWith("new ")).length).toBe(1);
