@@ -25,8 +25,10 @@ bun ../packages/cli/src/cli.ts ledger
 桌面端（Electron）：
 
 ```bash
-cd apps/desktop
-FILMBENCH_PROJECT=../../demo-project bun run dev
+bun run dev                     # = bash scripts/dev.sh：自检依赖 → 备好 demo 项目 → 起界面
+bash scripts/dev.sh --check     # 只做环境自检
+bash scripts/dev.sh --reset     # 重建 demo 项目
+bash scripts/dev.sh --project /path/to/project
 ```
 
 如果 `bun install` 之后 Electron 报 `Electron failed to install correctly`（二进制没下全），补一次：
@@ -56,8 +58,11 @@ printf 'Electron.app/Contents/MacOS/Electron' > path.txt
 | --- | --- | --- |
 | 一个项目，两套协议合并 | ✅ 单一命名空间 `filmbench/v1`：Film 意图 / Event 历史 / Ledger 账本，共用一个 schema 包与一个时间基 | `packages/protocol` |
 | 去掉网络性质（服务端形态） | ✅ 无 Worker / 无 D1 / 无 R2 / 无 SSO；项目目录即全部。出站只剩 provider | `docs/architecture.md` |
-| Electron | ✅ 主进程 → Bun engine 子进程 → 渲染层（IPC，contextIsolation） | `apps/desktop` |
-| 界面支持编排 | ✅ 镜头网格 + 状态 + 作业队列 + 一键出片 + 故事板；⚠ 拖拽时间轴未做 | `apps/desktop/src/renderer` |
+| Electron | ✅ 主进程 → Bun engine 子进程 → 渲染层（IPC，contextIsolation），单实例 | `apps/desktop` |
+| 界面支持编排 | ✅ 缩略图网格 · 项目切换 · 分镜详情抽屉 · 一键提交/执行/出片/故事板；⚠ 拖拽排时间轴未做 | `apps/desktop/src/renderer` |
+| 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件 | `packages/core/src/detail.ts` |
+| agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
+| 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
 | 调用 imagine 生成素材 | ✅ provider（`imagine generate`，`--authorize-spend`，价格可配） | `packages/providers` |
 | 调用 colab | ✅ 会话适配器：new → exec → download → **finally 无条件 stop** | 同上 |
 | 内置 pi agent 核心 | ✅ pi SDK 会话 + 同源工具注入（需 `bun add @earendil-works/pi-coding-agent`） | `packages/agent` |
@@ -73,6 +78,17 @@ printf 'Electron.app/Contents/MacOS/Electron' > path.txt
 3. **时间基只有整数帧。** 秒只在展示与 ffmpeg 参数边界出现；产物帧数与镜头声明不一致，编译阶段就拒绝。
 4. **选片与审阅是独立的一步。** 有产物不等于能出片：`select` 之后还要 `review` 批准，未经审阅的候选进不了成片。
 
+## 界面
+
+`bun run dev` 打开后：
+
+- **左栏**：项目卡（点开切换项目 / 打开目录，非项目可直接初始化）、镜头数/帧数/就位/花费、作业队列、快捷键提示
+- **中间**：镜头网格，作业完成后自动抽首帧做缩略图；点任意卡打开右侧详情
+- **详情抽屉**：视频/图片直放 + 意图、prompt、provider 与参数、主体版本与批准状态、参考、候选（可选定/批准）、产物（sha/体积/路径，可在 Finder 显示或复制路径）、依赖入出、检查项、花费、时间轴位置、作业历史、事件流；`↑`/`↓` 直接切上下镜
+- **顶部动作**：提交待办 / 执行队列 / 出片 / 审计故事板 / 截图
+- **截图标注**：`⌘⇧S` → 框选（可裁剪）、矩形、箭头、文字，四种颜色，撤销；「复制图片」进剪贴板，「保存到项目」落到 `<project>/review/markup-*.png` 并把路径复制到剪贴板，可以直接甩给 agent
+- **从 agent 唤起**：`filmbench ui --shot shot-003`，或让 agent 调 `open_ui` 工具；已在运行时不会开第二个窗口，而是聚焦并跳到该镜头
+
 ## 命令
 
 ```bash
@@ -86,6 +102,7 @@ filmbench review --shot s1         # 批准；--reject 否决
 filmbench build                    # 编译 + ffmpeg 出片
 filmbench storyboard               # 审计故事板 HTML
 filmbench ledger --json
+filmbench ui [--shot ID]           # 打开桌面界面（单实例）
 filmbench status | verify | reindex | export
 filmbench mcp                      # stdio MCP（给外部 agent）
 filmbench agent "<任务描述>"        # 内置 pi agent

@@ -6,172 +6,864 @@
 <title>filmbench</title>
 <style>
   :root{
-    --paper:#ece5d7;--paper-hi:#f7f2e7;--ink:#191610;--ink-2:#4f4838;--ink-3:#7d7460;
-    --rule:#c9bfa9;--accent:#ad3a20;--ok:#2b5f50;--warn:#8a6413;--block:#a3291a;
-    --mono:"SF Mono","Menlo",monospace;--serif:"Iowan Old Style","Songti SC",Georgia,serif;
+    --paper:#ece5d7;--paper-2:#e3dbc9;--paper-hi:#f8f3e8;--ink:#191610;--ink-2:#4f4838;--ink-3:#7d7460;
+    --rule:#c9bfa9;--rule-hi:#ddd4c0;--accent:#ad3a20;--ok:#2b5f50;--warn:#8a6413;--block:#a3291a;
+    --mono:"SF Mono","JetBrains Mono","Menlo",monospace;--serif:"Iowan Old Style","Palatino","Songti SC",Georgia,serif;
+    --shadow:0 1px 0 rgba(255,255,255,.6),0 18px 40px -28px rgba(40,30,10,.7);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:15px}
-  header{display:flex;align-items:baseline;gap:18px;padding:18px 26px 14px;border-bottom:2px solid var(--ink)}
-  header h1{margin:0;font-size:22px;font-weight:600}
-  header .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em}
-  header .spacer{flex:1}
+  html,body{height:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:14px;overflow:hidden}
   button{font-family:var(--mono);font-size:11.5px;padding:6px 12px;border:1px solid var(--rule);background:var(--paper-hi);
-    color:var(--ink);border-radius:999px;cursor:pointer}
-  button:hover{border-color:var(--ink-2)}
+    color:var(--ink);border-radius:8px;cursor:pointer;transition:all .13s ease;white-space:nowrap}
+  button:hover{border-color:var(--ink-2);transform:translateY(-1px)}
+  button:active{transform:none}
   button.primary{background:var(--ink);color:var(--paper-hi);border-color:var(--ink)}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px;padding:22px 26px 60px;align-items:start}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-  .card{background:var(--paper-hi);border:1px solid var(--rule);box-shadow:0 10px 24px -20px rgba(40,30,10,.6)}
-  .card .frame{aspect-ratio:16/9;background:linear-gradient(160deg,#221f19,#12100b);position:relative;border-bottom:1px solid var(--ink)}
-  .card .idx{position:absolute;left:9px;top:7px;font-family:var(--mono);font-size:18px;color:#e9e2d2;letter-spacing:-.03em}
-  .card .badge{position:absolute;right:8px;top:8px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;
-    text-transform:uppercase;padding:2px 6px;border:1px solid currentColor;border-radius:2px}
-  .ready{color:#86bda9}.stale{color:#d9ac57}.missing{color:#bbae93}
-  .card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
-  .card h3{margin:0;font-size:15.5px;font-weight:600}
-  .card .sub{font-family:var(--mono);font-size:10px;color:var(--ink-3);display:flex;justify-content:space-between}
-  .card .intent{font-size:12.5px;color:var(--ink-2);line-height:1.45;max-height:3.9em;overflow:hidden}
-  aside{position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
-  .panel{background:var(--paper-hi);border:1px solid var(--rule);padding:12px 14px}
-  .panel h2{margin:0 0 8px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
-  .kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;padding:3px 0}
-  .kv b{font-weight:500}
-  .jobs{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto}
-  .log{font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:pre-wrap;max-height:120px;overflow:auto}
-  .empty{font-family:var(--mono);font-size:11px;color:var(--ink-3);padding:6px 0}
-  #overlay{position:fixed;inset:0;background:rgba(25,22,16,.55);display:none;padding:24px;z-index:50}
-  #overlay.open{display:block}
-  #overlay .box{background:var(--paper);width:100%;height:100%;display:flex;flex-direction:column;border:1px solid var(--ink)}
-  #overlay .bar{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:11px}
-  #overlay iframe{flex:1;border:0;width:100%;background:var(--paper)}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper-hi);
-    font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:3px;opacity:0;transition:opacity .2s;pointer-events:none}
-  .toast.show{opacity:1}
+  button.ghost{background:transparent}
+  button.sm{padding:3px 8px;font-size:10.5px;border-radius:6px}
+  button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+  .app{display:grid;grid-template-columns:264px minmax(0,1fr);height:100vh}
+  /* —— 左栏 —— */
+  .rail{background:var(--paper-2);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden}
+  .rail .brand{padding:44px 18px 14px;-webkit-app-region:drag}
+  .brand h1{margin:0;font-size:19px;font-weight:600;letter-spacing:.01em}
+  .brand .sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+  .proj{margin:10px 14px 14px;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--paper-hi);cursor:pointer;-webkit-app-region:no-drag}
+  .proj:hover{border-color:var(--ink-2)}
+  .proj .name{font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .proj .name span:last-child{font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+  .proj .path{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule-hi);border-top:1px solid var(--rule-hi);border-bottom:1px solid var(--rule-hi)}
+  .stat{background:var(--paper-2);padding:9px 14px}
+  .stat .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .stat .v{font-family:var(--mono);font-size:15px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .rail h2{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:500;margin:16px 18px 6px}
+  .jobs{padding:0 12px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:4px}
+  .job{font-family:var(--mono);font-size:10px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
+  .job .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);flex:0 0 auto}
+  .job.done .dot{background:var(--ok)}.job.failed .dot,.job.rejected .dot{background:var(--block)}
+  .job.running .dot{background:var(--warn)}
+  .hints{padding:10px 18px 16px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);line-height:1.7;border-top:1px solid var(--rule-hi)}
+  kbd{font-family:var(--mono);font-size:9px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper-hi)}
+
+  /* —— 主区 —— */
+  .main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+  .topbar{-webkit-app-region:drag;padding:40px 26px 12px;display:flex;align-items:flex-end;gap:14px;border-bottom:1px solid transparent;transition:border-color .2s}
+  .main.scrolled .topbar{border-color:var(--rule-hi)}
+  .topbar h2{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em;-webkit-app-region:no-drag}
+  .topbar .meta{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-bottom:4px;-webkit-app-region:no-drag}
+  .topbar .spacer{flex:1}
+  .topbar .actions{display:flex;gap:8px;-webkit-app-region:no-drag}
+
+  .scroll{overflow:auto;padding:18px 26px 40px;flex:1}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:18px}
+  .card{position:relative;background:var(--paper-hi);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);
+    cursor:pointer;text-align:left;padding:0;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease,border-color .16s}
+  .card:hover{transform:translateY(-3px);border-color:var(--ink-2)}
+  .card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(173,58,32,.18),var(--shadow)}
+  .card .frame{aspect-ratio:16/9;position:relative;background:linear-gradient(160deg,#221f19,#12100b);overflow:hidden}
+  .card .frame img,.card .frame video{width:100%;height:100%;object-fit:cover;opacity:.92}
+  .card .idx{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:20px;color:#e9e2d2;letter-spacing:-.03em;text-shadow:0 1px 6px rgba(0,0,0,.4)}
+  .card .badge{position:absolute;right:8px;top:8px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;
+    padding:2px 6px;border:1px solid currentColor;border-radius:3px;background:rgba(16,14,10,.55);backdrop-filter:blur(2px)}
+  .card .badge.ready{color:#8fc7b2}.card .badge.stale{color:#e0b563}.card .badge.missing{color:#c3b79c}
+  .card .body{padding:10px 12px 11px}
+  .card h3{margin:0 0 5px;font-size:15px;font-weight:600;line-height:1.3}
+  .card .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);gap:8px}
+  .card .row .provider{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .empty{font-family:var(--mono);font-size:12px;color:var(--ink-3);padding:40px 4px;line-height:1.9}
+  .empty code{background:rgba(25,22,16,.06);padding:1px 5px;border-radius:3px}
+
+  /* —— 详情抽屉 —— */
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,92vw);background:var(--paper-hi);border-left:1px solid var(--rule);
+    box-shadow:-24px 0 60px -40px rgba(30,22,8,.8);display:flex;flex-direction:column;transform:translateX(100%);
+    transition:transform .22s cubic-bezier(.2,.8,.3,1);z-index:30}
+  .drawer.open{transform:none}
+  .dhead{display:flex;align-items:center;gap:10px;padding:44px 18px 12px;border-bottom:1px solid var(--rule);-webkit-app-region:drag}
+  .dhead .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);-webkit-app-region:no-drag}
+  .dhead h2{margin:0;font-size:17px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-app-region:no-drag}
+  .dbody{overflow:auto;padding:14px 18px 40px;display:flex;flex-direction:column;gap:16px}
+  .sec{border-top:1px solid var(--rule-hi);padding-top:12px}
+  .sec:first-child{border-top:0;padding-top:0}
+  .sec h4{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:500;
+    display:flex;justify-content:space-between;align-items:center}
+  .sec p{margin:0 0 7px;line-height:1.55;color:var(--ink-2)}
+  .prompt{font-family:var(--mono);font-size:11px;line-height:1.6;background:rgba(25,22,16,.045);border:1px solid var(--rule-hi);
+    border-radius:6px;padding:8px 10px;color:var(--ink-2);word-break:break-word}
+  .preview{background:#12100b;border-radius:6px;overflow:hidden;border:1px solid var(--rule)}
+  .preview video,.preview img{width:100%;display:block;max-height:280px;object-fit:contain;background:#12100b}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .tag{font-family:var(--mono);font-size:10px;padding:2px 7px;border:1px solid var(--rule);border-radius:4px;color:var(--ink-2);background:var(--paper)}
+  .tag.bad{border-color:rgba(163,41,26,.45);color:var(--block)}
+  .tag.ok{border-color:rgba(43,95,80,.4);color:var(--ok)}
+  .kv{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;font-size:12.5px}
+  .kv dt{font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-top:2px}
+  .kv dd{margin:0;font-family:var(--mono);font-size:11px;color:var(--ink);word-break:break-all}
+  .check{display:flex;gap:8px;font-family:var(--mono);font-size:10.5px;padding:3px 0;color:var(--ink-2)}
+  .check .m{width:10px;flex:0 0 auto}
+  .check[data-s="fail"] .m{color:var(--block)}.check[data-s="warn"] .m{color:var(--warn)}.check[data-s="pass"] .m{color:var(--ok)}.check[data-s="unknown"] .m{color:var(--ink-3)}
+  .ev{display:grid;grid-template-columns:44px 1fr;gap:8px;font-family:var(--mono);font-size:10px;color:var(--ink-2);padding:3px 0}
+  .ev .s{color:var(--ink-3)}
+  .ev .a{color:var(--ink-3);font-size:9px}
+  .list{display:flex;flex-direction:column;gap:6px}
+  .item{border:1px solid var(--rule-hi);border-radius:6px;padding:7px 9px;background:var(--paper);display:flex;gap:8px;align-items:center}
+  .item .grow{flex:1;min-width:0}
+  .item .id{font-family:var(--mono);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .meta{font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-top:2px}
+  .actions-row{display:flex;gap:6px;flex-wrap:wrap}
+
+  /* —— 项目选择 —— */
+  .modal{position:fixed;inset:0;background:rgba(25,22,16,.45);display:none;place-items:center;z-index:60}
+  .modal.open{display:grid}
+  .modal .panel{width:min(620px,92vw);max-height:76vh;background:var(--paper-hi);border:1px solid var(--ink);border-radius:6px;
+    display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.6)}
+  .modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--rule)}
+  .modal header h3{margin:0;font-size:16px}
+  .modal .list{overflow:auto;padding:10px 12px}
+  .pick{display:flex;align-items:center;gap:10px;padding:10px 10px;border:1px solid transparent;border-radius:6px;cursor:pointer}
+  .pick:hover{background:var(--paper);border-color:var(--rule)}
+  .pick .t{font-family:var(--mono);font-size:11.5px}
+  .pick .d{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:2px}
+  .pick .now{font-family:var(--mono);font-size:8.5px;color:var(--ok);border:1px solid;border-radius:3px;padding:1px 4px}
+
+  /* —— 截图标注 —— */
+  .snap{position:fixed;inset:0;background:rgba(16,14,10,.86);display:none;flex-direction:column;z-index:80}
+  .snap.open{display:flex}
+  .snapbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--paper-hi);border-bottom:1px solid var(--ink)}
+  .snapbar .grp{display:flex;gap:4px;padding-right:8px;margin-right:8px;border-right:1px solid var(--rule-hi)}
+  .snapbar button.on{background:var(--ink);color:var(--paper-hi);border-color:var(--ink)}
+  .swatch{width:18px;height:18px;border-radius:50%;border:2px solid var(--paper-hi);outline:1px solid var(--rule);cursor:pointer}
+  .swatch.on{outline:2px solid var(--ink)}
+  .snapstage{flex:1;overflow:auto;display:grid;place-items:center;padding:22px}
+  .snapwrap{position:relative;line-height:0;box-shadow:0 30px 60px -20px rgba(0,0,0,.7)}
+  .snapwrap canvas{max-width:100%;max-height:calc(100vh - 160px);cursor:crosshair}
+  .snapfoot{display:flex;gap:10px;align-items:center;padding:8px 14px;background:var(--paper-hi);border-top:1px solid var(--ink);font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+  .snapfoot .p{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+  #txtInput{position:absolute;display:none;font:600 18px/1.3 var(--serif);padding:3px 6px;border:1px solid var(--ink);background:rgba(248,243,232,.96);color:var(--ink);min-width:80px;outline:none}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper-hi);
+    font-family:var(--mono);font-size:11px;padding:9px 16px;border-radius:7px;opacity:0;transition:.18s;z-index:100;pointer-events:none;max-width:70vw;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(120,108,84,.35);border-radius:6px;border:3px solid transparent;background-clip:padding-box}
 </style>
 </head>
 <body>
-<header>
-  <h1 id="title">filmbench</h1>
-  <span class="meta" id="meta">连接 engine…</span>
-  <span class="spacer"></span>
-  <button id="submit">提交待办</button>
-  <button id="run" class="primary">执行队列</button>
-  <button id="build">出片</button>
-  <button id="storyboard">审计故事板</button>
-</header>
-<main>
-  <section>
-    <div class="grid" id="grid"></div>
-  </section>
-  <aside>
-    <div class="panel">
-      <h2>项目</h2>
-      <div class="kv"><span>修订</span><b id="head">—</b></div>
-      <div class="kv"><span>帧数</span><b id="frames">—</b></div>
-      <div class="kv"><span>就位</span><b id="ready">—</b></div>
-      <div class="kv"><span>花费</span><b id="spent">—</b></div>
-      <div class="kv"><span>预算</span><b id="budget">—</b></div>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <h1>filmbench</h1>
+      <div class="sub">local video studio</div>
     </div>
-    <div class="panel">
-      <h2>作业队列</h2>
-      <div class="jobs" id="jobs"></div>
+    <div class="proj" id="projBtn" title="切换项目">
+      <div class="name"><span id="projName">…</span><span id="projSwap">切换 ⇄</span></div>
+      <div class="path" id="projPath"></div>
     </div>
-    <div class="panel">
-      <h2>日志</h2>
-      <div class="log" id="log">就绪。</div>
+    <div class="stats">
+      <div class="stat"><div class="k">镜头</div><div class="v" id="sShots">—</div></div>
+      <div class="stat"><div class="k">帧数</div><div class="v" id="sFrames">—</div></div>
+      <div class="stat"><div class="k">就位</div><div class="v" id="sReady">—</div></div>
+      <div class="stat"><div class="k">花费</div><div class="v" id="sCost">—</div></div>
+    </div>
+    <h2>作业队列</h2>
+    <div class="jobs" id="jobList"></div>
+    <div class="hints">
+      <div><kbd>⌘⇧S</kbd> 截图标注</div>
+      <div><kbd>↑</kbd><kbd>↓</kbd> 切换分镜</div>
+      <div><kbd>Esc</kbd> 关闭面板</div>
     </div>
   </aside>
-</main>
-<div id="overlay"><div class="box">
-  <div class="bar"><span id="sbTitle">审计故事板</span><span class="spacer" style="flex:1"></span>
-    <button id="close">关闭</button></div>
-  <iframe id="sbFrame"></iframe>
-</div></div>
+
+  <main class="main" id="main">
+    <div class="topbar">
+      <div>
+        <h2 id="title">—</h2>
+        <div class="meta" id="meta"></div>
+      </div>
+      <span class="spacer"></span>
+      <div class="actions">
+        <button id="bSubmit">提交待办</button>
+        <button id="bRun" class="primary">执行队列</button>
+        <button id="bBuild">出片</button>
+        <button id="bStory">审计故事板</button>
+        <button id="bSnap" class="ghost" title="⌘⇧S">截图</button>
+      </div>
+    </div>
+    <div class="scroll" id="scroll"><div class="grid" id="grid"></div></div>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dhead">
+    <span class="n" id="dNum"></span>
+    <h2 id="dTitle"></h2>
+    <button class="sm ghost" id="dPrev">↑</button>
+    <button class="sm ghost" id="dNext">↓</button>
+    <button class="sm" id="dClose">关闭</button>
+  </div>
+  <div class="dbody" id="dBody"></div>
+</aside>
+
+<div class="modal" id="modal">
+  <div class="panel">
+    <header><h3>打开项目</h3><button class="sm" id="mClose">关闭</button></header>
+    <div class="list" id="pickList"></div>
+    <div style="padding:10px 12px;border-top:1px solid var(--rule);display:flex;gap:8px">
+      <button class="primary" id="pickDir">打开目录…</button>
+      <span style="font-family:var(--mono);font-size:9.5px;color:var(--ink-3);align-self:center">选择包含 journal/ 的目录；不是项目可以选择初始化</span>
+    </div>
+  </div>
+</div>
+
+<div class="snap" id="snap">
+  <div class="snapbar">
+    <div class="grp">
+      <button data-tool="select" class="on" title="框选（可裁剪）">框选</button>
+      <button data-tool="rect">矩形</button>
+      <button data-tool="arrow">箭头</button>
+      <button data-tool="text">文字</button>
+    </div>
+    <div class="grp" id="colors"></div>
+    <button id="snapUndo">撤销</button>
+    <button id="snapCrop">裁剪</button>
+    <span style="flex:1"></span>
+    <button id="snapCopy" class="primary">复制图片</button>
+    <button id="snapSave">保存到项目</button>
+    <button id="snapClose">关闭</button>
+  </div>
+  <div class="snapstage" id="snapStage">
+    <div class="snapwrap" id="snapWrap">
+      <canvas id="snapCanvas"></canvas>
+      <input id="txtInput" spellcheck="false">
+    </div>
+  </div>
+  <div class="snapfoot">
+    <span>拖拽框选 · 选工具后直接画 · 保存后自动复制路径</span>
+    <span class="p" id="snapPath"></span>
+    <button class="sm ghost" id="snapCopyPath" disabled>复制路径</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const log = (msg) => { $("log").textContent = `${msg}\n` + $("log").textContent; };
-const toast = (msg) => { const t = $("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); };
+const f = window.filmbench;
+const S = {
+  project: null,
+  state: null,
+  shots: [],
+  detail: null,
+  shotId: null,
+  snap: { img: null, tool: "select", color: "#ad3a20", shapes: [], sel: null, drag: null, path: null },
+};
+const COLORS = ["#ad3a20", "#191610", "#2b5f50", "#d9a03c"];
 
-async function rpc(cmd, args) {
-  if (!window.filmbench) throw new Error("preload 未加载");
-  return window.filmbench.rpc(cmd, args);
+function toast(msg, ms = 2000) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fileUrl = (p) => "file://" + encodeURI(p).replace(/#/g, "%23");
+const stateChip = (s) => (!s.hasOutput ? ["缺产物", "missing"] : s.stale ? ["过期", "stale"] : ["就位", "ready"]);
+
+async function rpc(cmd, args = {}) {
+  return f.rpc(cmd, args);
 }
 
-function stateChip(shot) {
-  if (!shot.hasOutput) return ["缺产物", "missing"];
-  if (shot.stale) return ["过期", "stale"];
-  return ["就位", "ready"];
+async function load() {
+  const p = await f.project();
+  S.project = p;
+  const st = await rpc("state");
+  S.state = st;
+  S.shots = st.shots;
+  render();
+  if (S.shotId && !S.shots.some((s) => s.id === S.shotId)) closeDetail();
 }
 
-function render(state) {
-  const p = state.project;
-  $("title").textContent = p ? p.title : "（尚未创建项目）";
-  $("meta").textContent = p ? `${p.name} · ${p.format.width}×${p.format.height}@${p.format.fps}fps` : "";
-  $("head").textContent = `#${state.head.seq}`;
-  const frames = state.shots.reduce((n, s) => n + s.durationFrames, 0);
-  $("frames").textContent = `${frames}`;
-  $("ready").textContent = `${state.shots.filter((s) => s.hasOutput && !s.stale).length}/${state.shots.length}`;
-  const c = state.cost || {};
-  $("spent").textContent = `${(c.spent ?? 0).toFixed(2)} ${c.currency ?? "USD"}`;
-  $("budget").textContent = c.budget ? `${(c.budget.remaining ?? 0).toFixed(2)} 余` : "未设";
+function render() {
+  const st = S.state;
+  $("projName").textContent = st.project?.title || st.project?.name || "（尚未创建项目）";
+  $("projPath").textContent = st.dir || "";
+  $("title").textContent = st.project?.title || "—";
+  $("meta").textContent = st.project
+    ? `${st.project.name} · ${st.project.format.width}×${st.project.format.height}@${st.project.format.fps}fps · 修订 #${st.head.seq}`
+    : "";
+  $("sShots").textContent = st.shots.length;
+  $("sFrames").textContent = st.totalFrames;
+  $("sReady").textContent = `${st.shots.filter((s) => s.hasOutput && !s.stale).length}/${st.shots.length}`;
+  $("sCost").textContent = `${(st.cost?.spent ?? 0).toFixed(2)}`;
 
-  $("grid").innerHTML = state.shots.map((s, i) => {
+  $("grid").innerHTML = st.shots.map((s) => {
     const [label, cls] = stateChip(s);
-    return `<article class="card">
-      <div class="frame"><span class="idx">${String(i + 1).padStart(2, "0")}</span>
-        <span class="badge ${cls}">${label}</span></div>
+    const sel = s.selected && s.selected === s.asset;
+    return `<button class="card${S.shotId === s.id ? " active" : ""}" data-shot="${esc(s.id)}">
+      <div class="frame">
+        <span class="idx">${String(s.order).padStart(2, "0")}</span>
+        <span class="badge ${cls}">${label}</span>
+      </div>
       <div class="body">
-        <h3>${escapeHtml(s.title)}</h3>
-        <div class="sub"><span>${s.durationFrames}f</span><span>${escapeHtml(s.provider)} · ${escapeHtml(s.task)}</span></div>
-        <p class="intent">${escapeHtml(s.intent?.description || s.intent?.prompt || "")}</p>
-      </div></article>`;
-  }).join("") || `<div class="empty">还没有镜头。用 agent 或 CLI 加一个。</div>`;
+        <h3>${esc(s.title)}</h3>
+        <div class="row"><span>${s.durationFrames}f · ${(s.durationFrames / (st.project?.format.fps || 30)).toFixed(2)}s</span>
+          <span class="provider">${esc(s.provider)}${sel ? " · 已选" : ""}</span></div>
+      </div></button>`;
+  }).join("") || `<div class="empty">还没有镜头。<br>用 agent / CLI 加一个：<code>filmbench shot add …</code></div>`;
 
-  $("jobs").innerHTML = (state.jobs || []).map((j) =>
-    `<div>${escapeHtml(j.jobId)} · ${escapeHtml(j.shot)} · ${escapeHtml(j.phase)}${j.reason ? ` · ${escapeHtml(j.reason)}` : ""}</div>`
-  ).join("") || `<div class="empty">队列为空</div>`;
+  $("grid").querySelectorAll(".card").forEach((el) => {
+    el.onclick = () => openDetail(el.dataset.shot);
+  });
+
+  posters().catch(() => {});
+
+  $("jobList").innerHTML = (st.jobs || []).slice(-14).map((j) =>
+    `<div class="job ${esc(j.phase)}"><span class="dot"></span><span>${esc(j.shot)} · ${esc(j.phase)}</span></div>`
+  ).join("") || `<div class="job"><span class="dot"></span><span>队列为空</span></div>`;
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+/* —— 详情 —— */
+async function openDetail(id, opts = {}) {
+  try {
+    const d = await rpc("shot_detail", { shot: id });
+    S.detail = d;
+    S.shotId = id;
+    render();
+    renderDetail(d);
+    $("drawer").classList.add("open");
+    $("drawer").setAttribute("aria-hidden", "false");
+    if (!opts.keepScroll) $("dBody").scrollTop = 0;
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
-async function refresh() {
-  try { render(await rpc("state")); }
-  catch (e) { log(`state 失败：${e.message}`); }
+function closeDetail() {
+  S.shotId = null;
+  S.detail = null;
+  $("drawer").classList.remove("open");
+  $("drawer").setAttribute("aria-hidden", "true");
+  render();
 }
 
-async function act(label, fn) {
-  try { log(`${label}…`); await fn(); await refresh(); toast(`${label} 完成`); }
-  catch (e) { log(`${label} 失败：${e.message}`); toast(`${label} 失败`); }
+const MARK = { pass: "●", fail: "■", warn: "▲", unknown: "○" };
+
+function renderDetail(d) {
+  const s = d.shot;
+  $("dNum").textContent = `${String(s.order).padStart(2, "0")}/${String(s.count).padStart(2, "0")}`;
+  $("dTitle").textContent = s.title;
+
+  const produce = d.produce;
+  const preview = produce && produce.exists
+    ? produce.kind === "video"
+      ? `<video src="${fileUrl(produce.absPath)}" controls muted preload="metadata"></video>`
+      : `<img src="${fileUrl(produce.absPath)}" alt="">`
+    : `<div style="padding:26px;text-align:center;color:#8d8570;font-family:var(--mono);font-size:10px;letter-spacing:.2em">NO ARTIFACT</div>`;
+
+  const subjectChips = s.subjects.length
+    ? s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("")
+    : `<span class="tag">无主体绑定</span>`;
+
+  const refs = s.references.length
+    ? `<div class="list">${s.references.map((r) => `<div class="item">
+        <div class="grow"><div class="id">${esc(r.asset)}</div><div class="meta">${esc(r.role)} · ${r.registered ? (r.exists ? "已登记" : "文件缺失") : "未登记"}</div></div>
+        ${r.absPath ? `<button class="sm ghost" data-open="${esc(r.absPath)}">打开</button>` : ""}</div>`).join("")}</div>`
+    : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">无参考素材</p>`;
+
+  const cands = s.candidates?.length
+    ? `<div class="list">${s.candidates.map((c) => `<div class="item">
+        <div class="grow"><div class="id">${esc(c.asset)}</div><div class="meta">${esc(c.actor)} · ${c.review === "selected" ? "已选" : c.review === "rejected" ? "已否决" : c.review === "candidate" ? "已批准" : "未审阅"}</div></div>
+        <button class="sm ghost" data-select="${esc(c.asset)}">选定</button>
+        <button class="sm ghost" data-review="${esc(c.asset)}">批准</button>
+      </div>`).join("")}</div>`
+    : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">还没有候选</p>`;
+
+  const checks = (s.checks || []).map((c) =>
+    `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status] || "○"}</span><span><b>${esc(c.id)}</b>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`
+  ).join("");
+
+  const events = d.events.slice(-12).reverse().map((e) =>
+    `<div class="ev"><span class="s">#${e.seq}</span><span>${esc(e.summary)}<div class="a">${esc(e.actor)} · ${esc(e.at.slice(5, 19).replace("T", " "))}</div></span></div>`
+  ).join("");
+
+  const deps = s.dependsOn.length
+    ? s.dependsOn.map((x) => `<span class="tag">← ${esc(x.shot)} ${esc(x.kind)}</span>`).join("")
+    : `<span class="tag">无</span>`;
+  const dependents = s.dependents.length
+    ? s.dependents.map((x) => `<span class="tag">→ ${esc(x.shot)} ${esc(x.kind)}</span>`).join("")
+    : `<span class="tag">无</span>`;
+
+  const cost = d.cost;
+
+  $("dBody").innerHTML = `
+    <div class="sec">
+      <div class="preview">${preview}</div>
+      <div class="actions-row" style="margin-top:8px">
+        <button id="dSubmit">提交作业</button>
+        <button id="dSelect" ${produce ? "" : "disabled"}>选定产物</button>
+        <button id="dApprove" ${s.selected ? "" : "disabled"}>批准</button>
+        <button id="dReject" ${s.selected ? "" : "disabled"}>否决</button>
+        <button class="ghost" id="dSnap">截图标注</button>
+        ${produce ? `<button class="ghost" data-reveal="${esc(produce.absPath)}">在 Finder 中显示</button>` : ""}
+      </div>
+      <div class="actions-row" style="margin-top:6px">
+        ${produce && produce.exists ? `<button class="sm ghost" data-copy="${esc(produce.absPath)}">复制产物路径</button>
+        <button class="sm ghost" data-open="${esc(produce.absPath)}">打开产物</button>` : ""}
+      </div>
+    </div>
+
+    <div class="sec"><h4>意图</h4>
+      <p>${esc(s.intent.description) || "<span style='color:var(--ink-3)'>未填写描述</span>"}</p>
+      ${s.intent.action ? `<p style="font-size:13px">${esc(s.intent.action)}</p>` : ""}
+      ${s.intent.prompt ? `<div class="prompt">${esc(s.intent.prompt)}</div>` : ""}
+    </div>
+
+    <div class="sec"><h4>绑定</h4>
+      <div class="chips"><span class="tag">${esc(s.binder.provider)}</span><span class="tag">${esc(s.binder.task)}</span>
+      ${Object.entries(s.binder.params || {}).map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v)}</span>`).join("")}</div>
+      <div class="chips" style="margin-top:6px">${subjectChips}</div>
+    </div>
+
+    <div class="sec"><h4>参考 <span>${s.references.length}</span></h4>${refs}</div>
+
+    <div class="sec"><h4>候选与选定</h4>${cands}
+      <dl class="kv" style="margin-top:8px">
+        <dt>当前选定</dt><dd>${s.selected ? esc(s.selected) : "—"}</dd>
+        <dt>审阅</dt><dd>${s.reviewed ?? "未审阅"}</dd>
+      </dl>
+    </div>
+
+    <div class="sec"><h4>产物</h4>
+      ${produce ? `<dl class="kv">
+        <dt>素材</dt><dd>${esc(produce.asset)}</dd>
+        <dt>规格</dt><dd>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind}</dd>
+        <dt>体积</dt><dd>${produce.bytes} 字节</dd>
+        <dt>sha256</dt><dd>${esc(produce.sha256).slice(0, 24)}…</dd>
+        <dt>作业</dt><dd>${esc(produce.jobId)}</dd>
+        <dt>路径</dt><dd>${esc(produce.path)}</dd>
+      </dl>` : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">尚未产出</p>`}
+    </div>
+
+    <div class="sec"><h4>依赖</h4><div class="chips">${deps}</div><div class="chips" style="margin-top:5px">${dependents}</div></div>
+
+    <div class="sec"><h4>检查 <span>${(s.checks || []).filter((c) => c.status === "fail").length} 项失败</span></h4>${checks || "<p>无检查项</p>"}</div>
+
+    <div class="sec"><h4>花费</h4>
+      <dl class="kv">
+        <dt>已花</dt><dd>${cost.actual.toFixed(2)} ${cost.currency}${cost.priceUnknown ? "（含价格未知调用）" : ""}</dd>
+        <dt>预估</dt><dd>${cost.estimated.toFixed(2)} ${cost.currency}</dd>
+        <dt>调用</dt><dd>${cost.calls} 次</dd>
+      </dl>
+    </div>
+
+    <div class="sec"><h4>时间轴</h4>
+      <dl class="kv">
+        <dt>位置</dt><dd>${s.startFrame} → ${s.endFrame} 帧（${(s.startFrame / (d.project.format?.fps || 30)).toFixed(2)}s → ${(s.endFrame / (d.project.format?.fps || 30)).toFixed(2)}s）</dd>
+        <dt>时长</dt><dd>${s.durationFrames} 帧 · ${s.seconds.toFixed(2)}s</dd>
+        <dt>依赖</dt><dd>${s.dependsOn.length} 条入 / ${s.dependents.length} 条出</dd>
+      </dl>
+    </div>
+
+    <div class="sec"><h4>作业历史</h4>
+      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map((j) => `<div class="item">
+        <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
+        ${j.asset ? `<button class="sm ghost" data-select="${esc(j.asset)}">选定</button>` : ""}
+      </div>`).join("") : "<p style='color:var(--ink-3);font-family:var(--mono);font-size:10px'>还没有作业</p>"}</div>
+    </div>
+
+    <div class="sec"><h4>事件</h4>${events || "<p>无</p>"}</div>
+  `;
+
+  $("dBody").querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => f.openPath(b.dataset.open)));
+  $("dBody").querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => f.reveal(b.dataset.reveal)));
+  $("dBody").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { await f.clipboardText(b.dataset.copy); toast("路径已复制"); }));
+  $("dBody").querySelectorAll("[data-select]").forEach((b) => (b.onclick = async () => {
+    try { await rpc("select", { shot: d.shot.id, asset: b.dataset.select }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
+  }));
+  $("dBody").querySelectorAll("[data-review]").forEach((b) => (b.onclick = async () => {
+    try { await rpc("review", { shot: d.shot.id, asset: b.dataset.review }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); }
+  }));
+
+  $("dSubmit").onclick = () => act(`提交 ${d.shot.id}`, () => rpc("submit", { shot: d.shot.id }), true);
+  $("dSelect").onclick = async () => { try { await rpc("select", { shot: d.shot.id }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
+  $("dApprove").onclick = async () => { try { await rpc("review", { shot: d.shot.id }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
+  $("dReject").onclick = async () => { try { await rpc("review", { shot: d.shot.id, reject: true }); toast("已否决"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
+  $("dSnap").onclick = () => startCapture();
 }
 
-$("submit").onclick = () => act("提交待办", async () => {
-  const r = await rpc("submit", {});
-  log(`提交 ${r.length} 个作业：${r.map((x) => `${x.jobId}:${x.phase}`).join(", ")}`);
-});
-$("run").onclick = () => act("执行队列", async () => {
-  const r = await rpc("run", {});
-  log(r.map((x) => `${x.jobId} ${x.ok ? "完成" : "失败"}${x.reason ? " · " + x.reason : ""}`).join("\n"));
-});
-$("build").onclick = () => act("出片", async () => {
-  const r = await rpc("build", {});
-  log(`成片 ${r.out} · ${r.durationFrames} 帧 · ${r.bytes} 字节`);
-});
-$("storyboard").onclick = () => act("生成故事板", async () => {
-  await rpc("storyboard", {});
-  const path = await window.filmbench.storyboardPath();
-  $("sbFrame").src = `file://${path}?t=${Date.now()}`;
-  $("overlay").classList.add("open");
-});
-$("close").onclick = () => { $("overlay").classList.remove("open"); $("sbFrame").src = "about:blank"; };
+async function refreshAndDetail() {
+  await load();
+  if (S.shotId) await openDetail(S.shotId, { keepScroll: true });
+}
 
-refresh();
-setInterval(refresh, 4000);
+/* —— 动作 —— */
+async function act(label, fn, silent = false) {
+  try {
+    const r = await fn();
+    if (!silent) toast(`${label} 完成`);
+    await load();
+    return r;
+  } catch (e) {
+    toast(`${label} 失败：${e.message}`, 4000);
+    throw e;
+  }
+}
+
+$("bSubmit").onclick = () => act("提交待办", () => rpc("submit", {})).catch(() => {});
+$("bRun").onclick = () => act("执行队列", () => rpc("run", {})).catch(() => {});
+$("bBuild").onclick = () => act("出片", () => rpc("build", {})).catch(() => {});
+$("bStory").onclick = async () => {
+  try {
+    const r = await rpc("storyboard", {});
+    toast(`故事板已生成：${r.out}`, 4000);
+    await f.openPath(r.out);
+  } catch (e) { toast(e.message, 4000); }
+};
+$("bSnap").onclick = () => startCapture();
+$("dClose").onclick = closeDetail;
+$("dPrev").onclick = () => stepShot(-1);
+$("dNext").onclick = () => stepShot(1);
+
+function stepShot(delta) {
+  if (!S.shots.length) return;
+  const i = S.shots.findIndex((s) => s.id === S.shotId);
+  const next = S.shots[Math.min(S.shots.length - 1, Math.max(0, i + delta))];
+  if (next) openDetail(next.id);
+}
+
+/* —— 项目切换 —— */
+$("projBtn").onclick = async () => {
+  const list = await f.projects();
+  $("pickList").innerHTML = list.map((p) => `<div class="pick" data-dir="${esc(p.dir)}">
+      <div class="grow"><div class="t">${esc(p.name || p.dir.split("/").pop())}${p.current ? ' <span class="now">当前</span>' : ""}</div>
+      <div class="d">${esc(p.dir)}${p.exists ? "" : " · 已不存在"}</div></div></div>`).join("")
+    || `<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--ink-3)">还没有最近项目</div>`;
+  $("pickList").querySelectorAll(".pick").forEach((el) => {
+    el.onclick = async () => {
+      try {
+        await f.useProject(el.dataset.dir);
+        $("modal").classList.remove("open");
+        S.shotId = null;
+        closeDetail();
+        await load();
+        toast("已切换项目");
+      } catch (e) { toast(e.message); }
+    };
+  });
+  $("modal").classList.add("open");
+};
+$("mClose").onclick = () => $("modal").classList.remove("open");
+$("pickDir").onclick = async () => {
+  const p = await f.pickProject();
+  if (!p) return;
+  $("modal").classList.remove("open");
+  S.shotId = null;
+  closeDetail();
+  await load();
+  toast(`已打开 ${p.name}`);
+};
+
+/* —— 截图标注 —— */
+const snap = S.snap;
+const canvas = $("snapCanvas");
+let ctx = canvas.getContext("2d");
+
+function startCapture() {
+  f.capture().then(openSnap).catch((e) => toast(e.message));
+}
+
+function openSnap(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    snap.img = img;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    snap.shapes = [];
+    snap.sel = null;
+    snap.drag = null;
+    snap.path = null;
+    $("snapPath").textContent = "";
+    $("snapCopyPath").disabled = true;
+    drawSnap();
+    $("snap").classList.add("open");
+    setTool("select");
+    drawColors();
+  };
+  img.src = dataUrl;
+}
+
+function drawColors() {
+  $("colors").innerHTML = COLORS.map((c) =>
+    `<span class="swatch${snap.color === c ? " on" : ""}" data-c="${c}" style="background:${c}"></span>`
+  ).join("");
+  $("colors").querySelectorAll(".swatch").forEach((el) =>
+    (el.onclick = () => { snap.color = el.dataset.c; drawColors(); })
+  );
+}
+
+function drawSnap() {
+  if (!snap.img) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(snap.img, 0, 0);
+  for (const s of snap.shapes) drawShape(s);
+  if (snap.drag) drawShape({ ...snap.drag, preview: true });
+  if (snap.sel) {
+    ctx.save();
+    ctx.fillStyle = "rgba(173,58,32,.08)";
+    ctx.fillRect(snap.sel.x, snap.sel.y, snap.sel.w, snap.sel.h);
+    ctx.setLineDash([10, 6]);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#ad3a20";
+    ctx.strokeRect(snap.sel.x, snap.sel.y, snap.sel.w, snap.sel.h);
+    ctx.restore();
+  }
+}
+
+function drawShape(s) {
+  ctx.save();
+  ctx.strokeStyle = s.color;
+  ctx.fillStyle = s.color;
+  ctx.lineWidth = Math.max(3, canvas.width / 420);
+  ctx.lineCap = "round";
+  if (s.type === "rect") {
+    ctx.fillStyle = "rgba(173,58,32,.07)";
+    ctx.fillRect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
+    ctx.strokeRect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
+  } else if (s.type === "arrow") {
+    const a = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+    ctx.beginPath();
+    ctx.moveTo(s.x1, s.y1);
+    ctx.lineTo(s.x2, s.y2);
+    ctx.stroke();
+    const head = Math.max(14, canvas.width / 90);
+    ctx.beginPath();
+    ctx.moveTo(s.x2, s.y2);
+    ctx.lineTo(s.x2 - head * Math.cos(a - 0.4), s.y2 - head * Math.sin(a - 0.4));
+    ctx.lineTo(s.x2 - head * Math.cos(a + 0.4), s.y2 - head * Math.sin(a + 0.4));
+    ctx.closePath();
+    ctx.fill();
+  } else if (s.type === "text") {
+    const size = Math.max(18, canvas.width / 70);
+    ctx.font = `600 ${size}px "Iowan Old Style", "Songti SC", serif`;
+    const w = ctx.measureText(s.text).width;
+    ctx.fillStyle = "rgba(248,243,232,.92)";
+    ctx.fillRect(s.x1 - 6, s.y1 - size, w + 12, size * 1.35);
+    ctx.fillStyle = s.color;
+    ctx.fillText(s.text, s.x1, s.y1);
+  }
+  ctx.restore();
+}
+
+function canvasPoint(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width / r.width;
+  const sy = canvas.height / r.height;
+  return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (!snap.img) return;
+  const p = canvasPoint(e);
+  canvas.setPointerCapture(e.pointerId);
+  if (snap.tool === "select") {
+    snap.sel = { x: p.x, y: p.y, w: 0, h: 0 };
+    snap.drag = null;
+  } else if (snap.tool === "text") {
+    openTextInput(p);
+    return;
+  } else {
+    snap.drag = { type: snap.tool, color: snap.color, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+  }
+  drawSnap();
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!snap.img) return;
+  const p = canvasPoint(e);
+  if (snap.tool === "select" && snap.sel) {
+    snap.sel.w = p.x - snap.sel.x;
+    snap.sel.h = p.y - snap.sel.y;
+  } else if (snap.drag) {
+    snap.drag.x2 = p.x;
+    snap.drag.y2 = p.y;
+  } else return;
+  drawSnap();
+});
+
+canvas.addEventListener("pointerup", (e) => {
+  if (!snap.img) return;
+  const p = canvasPoint(e);
+  if (snap.tool === "select" && snap.sel) {
+    snap.sel = normRect(snap.sel);
+    if (snap.sel.w < 8 || snap.sel.h < 8) snap.sel = null;
+  } else if (snap.drag) {
+    const s = { ...snap.drag, x2: p.x, y2: p.y };
+    if (Math.hypot(s.x2 - s.x1, s.y2 - s.y1) > 8) pushShape(s);
+    snap.drag = null;
+  }
+  drawSnap();
+});
+
+function normRect(r) {
+  return {
+    x: Math.min(r.x, r.x + r.w),
+    y: Math.min(r.y, r.y + r.h),
+    w: Math.abs(r.w),
+    h: Math.abs(r.h),
+  };
+}
+
+function pushShape(s) {
+  snap.shapes.push(s);
+  drawSnap();
+}
+
+function openTextInput(p) {
+  const input = $("txtInput");
+  const r = canvas.getBoundingClientRect();
+  const scale = r.width / canvas.width;
+  input.style.display = "block";
+  input.style.left = `${p.x * scale}px`;
+  input.style.top = `${p.y * scale - 8}px`;
+  input.value = "";
+  input.focus();
+  input.onkeydown = (e) => {
+    if (e.key === "Enter" && input.value.trim()) {
+      const size = Math.max(18, canvas.width / 70);
+      pushShape({ type: "text", color: snap.color, x1: p.x, y1: p.y + size * 0.2, text: input.value.trim() });
+      closeTextInput();
+    }
+    if (e.key === "Escape") closeTextInput();
+  };
+  input.onblur = closeTextInput;
+}
+function closeTextInput() {
+  const input = $("txtInput");
+  input.style.display = "none";
+  input.onkeydown = null;
+  input.onblur = null;
+}
+
+$("snapUndo").onclick = () => { if (snap.shapes.length) { snap.shapes.pop(); } else snap.sel = null; drawSnap(); };
+$("snapCrop").onclick = () => {
+  if (!snap.sel || snap.sel.w < 8) return toast("先框选一块区域");
+  const { x, y, w, h } = snap.sel;
+  const tmp = document.createElement("canvas");
+  tmp.width = Math.round(w);
+  tmp.height = Math.round(h);
+  tmp.getContext("2d").drawImage(canvas, x, y, w, h, 0, 0, w, h);
+  const img = new Image();
+  img.onload = () => {
+    snap.img = img;
+    canvas.width = img.width;
+    canvas.height = img.height;
+    snap.shapes = [];
+    snap.sel = null;
+    drawSnap();
+    toast("已裁剪");
+  };
+  img.src = tmp.toDataURL("image/png");
+};
+$("snapCopy").onclick = async () => {
+  const data = canvas.toDataURL("image/png");
+  await f.clipboardImage(data);
+  toast("图片已复制到剪贴板");
+};
+$("snapSave").onclick = async () => {
+  try {
+    const data = canvas.toDataURL("image/png");
+    const r = await rpc("save_markup", { png: data.replace(/^data:image\/png;base64,/, "") });
+    snap.path = r.path;
+    $("snapPath").textContent = r.path;
+    $("snapCopyPath").disabled = false;
+    await f.clipboardText(r.path);
+    toast("已保存，路径已复制到剪贴板");
+  } catch (e) { toast(e.message, 4000); }
+};
+$("snapCopyPath").onclick = async () => {
+  if (!snap.path) return;
+  await f.clipboardText(snap.path);
+  toast("路径已复制");
+};
+$("snapClose").onclick = () => {
+  $("snap").classList.remove("open");
+  snap.img = null;
+  snap.shapes = [];
+  snap.sel = null;
+  $("snapPath").textContent = "";
+  $("snapCopyPath").disabled = true;
+};
+
+function setTool(tool) {
+  snap.tool = tool;
+  document.querySelectorAll(".snapbar [data-tool]").forEach((b) => b.classList.toggle("on", b.dataset.tool === tool));
+  if (tool !== "select") snap.sel = null;
+  drawSnap();
+}
+document.querySelectorAll(".snapbar [data-tool]").forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
+
+/* —— 全局快捷键 —— */
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (!$("snap").classList.contains("open")) startCapture();
+    return;
+  }
+  if (e.key === "Escape") {
+    if ($("snap").classList.contains("open")) { $("snapClose").click(); return; }
+    if ($("modal").classList.contains("open")) { $("modal").classList.remove("open"); return; }
+    if ($("drawer").classList.contains("open")) { closeDetail(); return; }
+  }
+  if ($("drawer").classList.contains("open") && !e.metaKey && !e.ctrlKey) {
+    if (e.key === "ArrowDown") { e.preventDefault(); stepShot(1); }
+    if (e.key === "ArrowUp") { e.preventDefault(); stepShot(-1); }
+  }
+});
+
+$("scroll").addEventListener("scroll", () => {
+  $("main").classList.toggle("scrolled", $("scroll").scrollTop > 4);
+});
+
+/* —— 从 agent / CLI 唤起 —— */
+f.onFocusShot((id) => { openDetail(id); });
+f.onOpenProject(async ({ project, shot }) => {
+  try {
+    await f.useProject(project);
+    S.shotId = null;
+    closeDetail();
+    await load();
+    if (shot) await openDetail(shot);
+    toast("已切换项目");
+  } catch (e) { toast(e.message); }
+});
+
+load().catch((e) => toast(`加载失败：${e.message}`, 5000));
+setInterval(() => {
+  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open")) return;
+  load().catch(() => {});
+}, 6000);
+
+/* 缩略图：作业完成后抽首帧，按需生成并缓存 */
+const posterCache = new Map();
+async function posters() {
+  for (const shot of S.shots) {
+    if (!shot.asset) continue;
+    const card = document.querySelector(`.card[data-shot="${shot.id}"] .frame`);
+    if (!card || card.querySelector("img")) continue;
+    let path = posterCache.get(shot.id + shot.asset);
+    if (!path) {
+      try { path = (await rpc("poster", { shot: shot.id })).path; posterCache.set(shot.id + shot.asset, path); }
+      catch { continue; }
+    }
+    const img = document.createElement("img");
+    img.src = fileUrl(path) + `?v=${encodeURIComponent(shot.asset)}`;
+    img.onload = () => { card.prepend(img); };
+  }
+}
 </script>
 </body>
 </html>

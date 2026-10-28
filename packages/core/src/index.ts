@@ -7,3 +7,4 @@ export * from "./jobs.ts";
 export * from "./compile.ts";
 export * from "./cost.ts";
 export * from "./storyboard.ts";
+export * from "./detail.ts";

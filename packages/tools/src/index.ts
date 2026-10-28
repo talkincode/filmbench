@@ -1,4 +1,6 @@
-import { Service, build, compile, projectStoryboard, runJobs, submit, summarize, totalFrames } from "@filmbench/core";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { Service, build, compile, projectStoryboard, runJobs, shotDetail, submit, summarize, totalFrames } from "@filmbench/core";
 import { builtinProviders } from "@filmbench/providers";
 
 /**
@@ -186,6 +188,55 @@ export function toolSpecs(dir: string): ToolSpec[] {
         } finally {
           s.close();
         }
+      },
+    },
+    {
+      name: "shot_detail",
+      label: "读取分镜详情",
+      description: "返回一个镜头的全部信息：意图、绑定、主体版本、参考、候选与选定、产物与文件路径、依赖、作业、花费、检查项、事件历史。",
+      parameters: {
+        type: "object",
+        properties: { shot: { type: "string" } },
+        required: ["shot"],
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        const s = svc();
+        try {
+          return shotDetail(s, registry, String(args.shot));
+        } finally {
+          s.close();
+        }
+      },
+    },
+    {
+      name: "open_ui",
+      label: "打开 filmbench 界面",
+      description: "打开桌面端界面（可定位到某个镜头）。用户需要看图、框选标注或手动审阅时用它。",
+      parameters: {
+        type: "object",
+        properties: { shot: { type: "string" } },
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        const repo = resolve(import.meta.dir, "../../..");
+        const electron = join(repo, "apps/desktop/node_modules/.bin/electron");
+        if (!existsSync(electron)) {
+          return {
+            ok: false,
+            reason: "electron 未安装，先 bun install，或手动运行 bun run desktop",
+            command: `cd ${repo} && bun run desktop`,
+          };
+        }
+        const shot = str(args.shot);
+        const argv = [electron, ".", `--project=${dir}`, ...(shot ? [`--shot=${shot}`] : [])];
+        const proc = Bun.spawn(argv, {
+          cwd: join(repo, "apps/desktop"),
+          env: { ...process.env, FILMBENCH_PROJECT: dir },
+          stdio: ["ignore", "ignore", "ignore"],
+        });
+        proc.unref();
+        return { ok: true, project: dir, shot: shot ?? null };
       },
     },
     {

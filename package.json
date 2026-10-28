@@ -13,7 +13,10 @@
     "demo": "bun packages/cli/src/cli.ts demo demo-project",
     "storyboard:demo": "bun packages/storyboard-audit/src/cli.ts --in packages/storyboard-audit/fixtures/demo.storyboard.json --out out/storyboard.html",
     "desktop": "cd apps/desktop && bun run dev",
-    "test": "bun test"
+    "test": "bun test",
+    "dev": "bash scripts/dev.sh",
+    "dev:check": "bash scripts/dev.sh --check",
+    "dev:reset": "bash scripts/dev.sh --reset"
   },
   "engines": {
     "bun": ">=1.2.0"

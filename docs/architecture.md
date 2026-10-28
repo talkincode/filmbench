@@ -100,7 +100,7 @@ interface Provider {
 
 ## agent 与 MCP 同源
 
-`packages/tools` 是唯一工具表：`project_state`、`shot_add`、`shot_patch`、`job_submit`、`jobs_run`、`render_build`、`storyboard_projection`、`cost_ledger`、`journal_verify`。
+`packages/tools` 是唯一工具表：`project_state`、`shot_add`、`shot_patch`、`job_submit`、`jobs_run`、`render_build`、`shot_detail`、`open_ui`、`storyboard_projection`、`cost_ledger`、`journal_verify`。
 
 - `filmbench mcp` 把它们暴露成 stdio MCP（真客户端测试覆盖：列工具 → 读状态 → 写镜头 → 校验哈希链）。
 - `filmbench agent "<prompt>"` 用 pi SDK 起会话，把同一批工具注册进去。
@@ -120,6 +120,8 @@ Service / sqlite / ffmpeg / provider
 
 engine 是独立进程的原因：core 用 `bun:sqlite`，Electron 的 Node 加载不了；长任务崩了也不该带走窗口。
 
+engine 一个进程服务多个项目（每个项目一个 `Service`），请求里带 `project` 字段；桌面端切换项目只是换 `projectDir`，不重启 engine。主进程持有单实例锁：再次 `filmbench ui --shot x` 不会开新窗口，而是聚焦并把镜头 id 推给渲染层。
+
 ## 验收
 
 ```bash
@@ -128,7 +130,7 @@ bun packages/cli/src/cli.ts demo /tmp/fb-demo
 cd /tmp/fb-demo && filmbench build && filmbench storyboard
 ```
 
-真实覆盖：哈希链篡改检出、幂等重放、baseRevision 冲突、删库重建、预算拒绝不扣款、真实 ffmpeg 出片（ffprobe 校验 240 帧 / 8.000s）、IR 逐字节确定、未选定时拒绝出片、MCP 客户端全链路。
+真实覆盖：哈希链篡改检出、幂等重放、baseRevision 冲突、删库重建、预算拒绝不扣款、真实 ffmpeg 出片（ffprobe 校验 240 帧 / 8.000s）、IR 逐字节确定、未选定时拒绝出片、分镜详情聚合、MCP 客户端全链路。
 
 ## 明确的非目标 / 未完成
 

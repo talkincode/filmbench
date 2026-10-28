@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, projectStoryboard, runJobs, submit, summarize } from "../src/index.ts";
+import { Service, build, compile, projectStoryboard, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -158,6 +158,32 @@ describe("编译与投影", () => {
     const built = await build(svc, {});
     expect(built.durationFrames).toBe(30);
     expect(existsSync(built.out)).toBe(true);
+    svc.close();
+  });
+
+  test("分镜详情把意图、产物、作业、花费、事件、检查项串成一个对象", async () => {
+    if (!hasFfmpeg) return;
+    const { svc } = project("detail");
+    svc.proposeSubject({ id: "hero", name: "主角", revision: 1 });
+    svc.patchShot("shot-a", { subjects: [{ id: "hero", revision: 1 }] });
+    submit(svc, registry, { shot: "shot-a" });
+    await runJobs(svc, registry);
+    const produce = svc.state().shots[0].produce!;
+    svc.setSelection("shot-a", "video", produce.asset);
+    svc.decideReview("shot-a", produce.asset, "approved");
+
+    const d = shotDetail(svc, registry, "shot-a");
+    expect(d.shot.order).toBe(1);
+    expect(d.produce?.exists).toBe(true);
+    expect(d.produce?.absPath.endsWith(".mp4")).toBe(true);
+    expect(d.jobs.length).toBe(1);
+    expect(d.jobs[0].phase).toBe("done");
+    expect(d.shot.subjects[0].approved).toBe(false);
+    expect(d.cost.calls).toBe(1);
+    expect(d.events.map((e) => e.op)).toContain("job.completed");
+    expect(d.shot.checks.some((c) => c.id === "artifact.missing" && c.status === "pass")).toBe(true);
+    expect(d.shot.selected).toBe(produce.asset);
+    expect(d.revision.seq).toBeGreaterThan(0);
     svc.close();
   });
 

@@ -71,6 +71,7 @@ function help(): void {
   filmbench export [--out film.yaml]
   filmbench verify
   filmbench reindex
+  filmbench ui [--shot ID]
   filmbench mcp
   filmbench agent "<任务描述>"
   filmbench demo [<dir>]
@@ -381,6 +382,29 @@ const cmdReindex = () =>
     out(`索引已从事件重建（${events} 条）`);
   });
 
+const cmdUi = (argv: string[]) =>
+  withService((svc, dir) => {
+    const { values } = parseArgs({ args: argv, options: { shot: { type: "string" } } });
+    const repo = resolve(import.meta.dir, "../../..");
+    const electron = join(repo, "apps/desktop/node_modules/.bin/electron");
+    if (!existsSync(electron)) {
+      err(`electron 未安装。先运行: cd ${repo} && bun install`);
+      process.exitCode = 1;
+      return;
+    }
+    const child = Bun.spawn(
+      [electron, ".", `--project=${dir}`, ...(values.shot ? [`--shot=${values.shot}`] : [])],
+      {
+        cwd: join(repo, "apps/desktop"),
+        env: { ...process.env, FILMBENCH_PROJECT: dir },
+        stdio: ["ignore", "ignore", "ignore"],
+      },
+    );
+    child.unref();
+    out(`已打开界面 · ${dir}${values.shot ? ` · ${values.shot}` : ""}`);
+    void svc;
+  });
+
 const cmdMcp = () =>
   withServiceAsync(async (svc, dir) => {
     const { serveStdio } = await import("../../mcp/src/server.ts");
@@ -491,6 +515,8 @@ async function main(): Promise<void> {
         return cmdVerify();
       case "reindex":
         return cmdReindex();
+      case "ui":
+        return cmdUi(rest);
       case "mcp":
         return cmdMcp();
       case "agent":
