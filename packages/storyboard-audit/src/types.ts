@@ -66,6 +66,7 @@ export interface Cost {
 export interface Shot {
   id: string;
   title: string;
+  role?: "picture" | "music" | "voice";
   durationFrames: number;
   intent: { description?: string; action?: string; prompt?: string };
   binder: { provider: string; task: string; params?: Record<string, string | number | boolean> };

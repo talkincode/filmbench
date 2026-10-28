@@ -298,6 +298,16 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       service.patchShot(shot.id, { references }, { actor: { kind: "human", id: "desktop" } });
       return { ok: true };
     }
+    case "narration_set": {
+      const { service } = svc(args.project as string | undefined);
+      const state = service.state();
+      const shot = state.shots.find((s) => s.id === String(args.shot));
+      if (!shot) throw new Error(`镜头不存在: ${args.shot}`);
+      service.patchShot(shot.id, { intent: { narration: String(args.text ?? "") } } as any, {
+        actor: { kind: "human", id: "desktop" },
+      });
+      return { ok: true };
+    }
     case "prompt_set": {
       const { service } = svc(args.project as string | undefined);
       const state = service.state();

@@ -25,12 +25,12 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
   const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
   const { ir } = compile(state, service.dir);
 
-  const picture = state.shots.filter((s) => (s.role ?? "picture") === "picture");
-  const shots = picture.map((shot) => {
+  const shots = state.shots.map((shot) => {
     const checks: Check[] = [];
     const produce = shot.produce;
     const fileExists = produce ? existsSync(join(service.dir, produce.path)) : false;
     const provider = registry.get(shot.binder.provider);
+    const selection = state.selections.get(shot.id);
 
     if (!produce) {
       checks.push({ id: "artifact.missing", status: "fail", detail: "没有已完成作业的产物" });
@@ -61,6 +61,45 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
       }
     }
 
+    if ((shot.role ?? "picture") !== "picture") {
+      return {
+        id: shot.id,
+        title: shot.title,
+        role: shot.role,
+        durationFrames: shot.durationFrames,
+        intent: shot.intent,
+        binder: { provider: shot.binder.provider, task: shot.binder.task, params: shot.binder.params },
+        subjects: [],
+        references: [],
+        candidates: candidatesFor(state, shot),
+        selected: {
+          video: selection?.video ?? null,
+          image: selection?.image ?? null,
+          audio: selection?.audio ?? null,
+        },
+        produces: produce
+          ? [
+              {
+                kind: produce.kind,
+                preview: null,
+                path: produce.path,
+                exists: fileExists,
+                stale: shotStale(state, shot),
+                sha256: produce.sha256,
+                bytes: produce.bytes,
+                width: produce.width,
+                height: produce.height,
+                durationFrames: produce.durationFrames,
+              },
+            ]
+          : [],
+        dependsOn: shot.dependsOn,
+        checks,
+        cost: costFor(state, shot),
+        provenance: { revisionSeq: produce?.atSeq ?? shot.addedAt, approvedBy: null, proposal: undefined },
+      };
+    }
+
     if (!shot.intent.description && !shot.intent.prompt) {
       checks.push({ id: "intent.empty", status: "warn", detail: "没有描述也没有 prompt，生成不可复现" });
     }
@@ -84,7 +123,6 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
       });
     }
 
-    const selection = state.selections.get(shot.id);
     const selectedAsset = selection?.video ?? selection?.image ?? selection?.audio;
     if (produce && shot.references.some((r) => r.asset === produce.asset)) {
       checks.push({
@@ -131,6 +169,7 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
     return {
       id: shot.id,
       title: shot.title,
+      role: shot.role ?? "picture",
       durationFrames: shot.durationFrames,
       intent: shot.intent,
       binder: { provider: shot.binder.provider, task: shot.binder.task, params: shot.binder.params },

@@ -142,6 +142,7 @@ export function shotDetail(service: Service, registry: ProviderRegistry, shotId:
     },
     shot: {
       id: shot.id,
+      role: shot.role ?? "picture",
       order: order + 1,
       count: state.shots.length,
       title: shot.title,

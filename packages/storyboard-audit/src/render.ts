@@ -261,7 +261,11 @@ function ledger(findings: Finding[]): string {
 }
 
 export function renderDocument(doc: StoryboardDoc, assets: { css: string; client: string }): string {
-  const { shots, totals, findings } = derive(doc);
+  const pictureDoc: StoryboardDoc = {
+    ...doc,
+    shots: doc.shots.filter((s) => (s.role ?? "picture") === "picture"),
+  };
+  const { shots, totals, findings } = derive(pictureDoc);
   const clientData = {
     shots: shots.map((s) => ({
       id: s.id,
@@ -282,8 +286,8 @@ export function renderDocument(doc: StoryboardDoc, assets: { css: string; client
 </head>
 <body>
 <div class="sheet">
-  ${masthead(doc, totals)}
-  ${strip(doc, shots, totals)}
+  ${masthead(pictureDoc, totals)}
+  ${strip(pictureDoc, shots, totals)}
   <div class="toolbar" role="toolbar" aria-label="故事板视图控制">
     <div class="group" role="group" aria-label="筛选">
       <span class="lbl">筛选</span>

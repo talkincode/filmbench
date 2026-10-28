@@ -215,6 +215,9 @@
     background:rgba(16,14,10,.72);color:#e9e2d2;letter-spacing:.06em}
   .thumb.sel .flag{background:var(--accent);color:#fff}
   .thumb .cap{display:flex;justify-content:space-between;gap:4px;padding:4px 6px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+  .thumb.audio{height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    background:linear-gradient(160deg,#1b1a16,#12100b);border-color:var(--rule)}
+  .thumb.audio .ic{font-size:22px;color:#c9c0a8;line-height:1}
   .thumb.add{width:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     border-style:dashed;color:var(--ink-3);font-family:var(--mono);font-size:20px;line-height:1}
   .thumb.add .cap2{font-size:11px;letter-spacing:.1em}
@@ -656,13 +659,14 @@ function renderDetail(d) {
               ? { label: "同参重抽一版", act: "submit" }
               : { label: "按新输入生成一版", act: "submit" };
 
+  const isAudio = produce?.kind === "audio";
   const thumbs = cands.map((c) => {
     const isSel = c.asset === selected;
     const bad = c.review === "rejected";
     const state = isSel ? "已选" : bad ? "已否决" : c.review === "unreviewed" ? "未审阅" : c.review === "candidate" ? "已批准" : "候选";
-    return `<button class="thumb${isSel ? " sel" : ""}" data-asset="${esc(c.asset)}" title="${esc(c.asset)}">
+    return `<button class="thumb${isSel ? " sel" : ""}${isAudio ? " audio" : ""}" data-asset="${esc(c.asset)}" title="${esc(c.asset)}">
       <span class="flag">${state}</span>
-      <img data-poster="${esc(c.asset)}" alt="">
+      ${isAudio ? `<span class="ic">♪</span>` : `<img data-poster="${esc(c.asset)}" alt="">`}
       <span class="cap"><span>${esc(c.actor || "—")}</span><span>${esc(c.asset.slice(6, 12))}</span></span>
     </button>`;
   }).join("");
@@ -741,10 +745,17 @@ function renderDetail(d) {
         <h4>意图</h4>
         <p class="desc">${esc(s.intent.description) || "<span class='dim'>未填写描述</span>"}</p>
         ${s.intent.action ? `<p>${esc(s.intent.action)}</p>` : ""}
-        <div class="pe"><div class="lbl"><span>图片提示词</span></div>
-          <textarea data-pe="image" rows="2" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
-        <div class="pe"><div class="lbl"><span>视频提示词</span></div>
-          <textarea data-pe="video" rows="2" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
+        ${
+          s.role === "voice"
+            ? `<div class="pe"><div class="lbl"><span>旁白文本</span><span>${(s.intent.narration ?? "").length} 字</span></div>
+                 <textarea data-narration rows="3" placeholder="这一单，没有地址。">${esc(s.intent.narration ?? "")}</textarea></div>`
+            : s.role === "music"
+              ? `<p class="dim">音轨镜头：内容由 ${esc(s.binder.params.scene ?? "scene")} 决定</p>`
+              : `<div class="pe"><div class="lbl"><span>图片提示词</span></div>
+                   <textarea data-pe="image" rows="2" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
+                 <div class="pe"><div class="lbl"><span>视频提示词</span></div>
+                   <textarea data-pe="video" rows="2" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>`
+        }
       </div>
       <div class="sec">
         <h4>绑定</h4>
@@ -758,7 +769,11 @@ function renderDetail(d) {
         <h4>产物</h4>
         <div class="kv2">
           <span>素材</span><b>${esc(produce.asset)}</b>
-          <span>规格</span><b>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind === "video" ? "视频" : "图片"}</b>
+          <span>规格</span><b>${
+            produce.kind === "audio"
+              ? `${(produce.durationFrames / fps).toFixed(2)}s · ${produce.durationFrames}f · 音频`
+              : `${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind === "video" ? "视频" : "图片"}`
+          }</b>
           <span>体积</span><b>${(produce.bytes / 1024).toFixed(0)} KB</b>
           <span>摘要</span><b>${esc(produce.sha256).slice(0, 16)}…</b>
           <span>路径</span><b title="${esc(produce.path)}">${esc(produce.path)}</b>
@@ -804,6 +819,7 @@ function renderDetail(d) {
     $("dBody").scrollTop = 0;
   }));
   $("dBody").querySelectorAll("[data-poster]").forEach(async (img) => {
+    if (isAudio) return;
     try {
       const path = await rpc("poster", { shot: s.id, asset: img.dataset.poster });
       img.src = fileUrl(path.path) + `?v=${img.dataset.poster}`;
@@ -854,6 +870,10 @@ function renderDetail(d) {
   }));
   $("dBody").querySelectorAll("[data-pe]").forEach((ta) => (ta.onchange = async () => {
     try { await rpc("prompt_set", { shot: s.id, [ta.dataset.pe]: ta.value }); toast("提示词已保存"); }
+    catch (e) { toast(e.message); }
+  }));
+  $("dBody").querySelectorAll("[data-narration]").forEach((ta) => (ta.onchange = async () => {
+    try { await rpc("narration_set", { shot: s.id, text: ta.value }); toast("旁白已保存（需重新生成）"); await refreshAndDetail(); }
     catch (e) { toast(e.message); }
   }));
   $("dBody").querySelectorAll("[data-dep]").forEach((tag) => (tag.onclick = () => openDetail(tag.dataset.dep)));
@@ -1096,10 +1116,16 @@ function openPreview() {
   const d = S.detail;
   const p = d?.produce;
   if (!p) { toast("这一镜还没有产物"); return; }
-  $("pvTitle").textContent = `${d.shot.id} · ${p.width}×${p.height} · ${p.durationFrames}f`;
-  $("pvBody").innerHTML = p.kind === "video"
-    ? `<video class="pv-media" src="${fileUrl(p.absPath)}" controls autoplay loop muted></video>`
-    : `<img class="pv-media" src="${fileUrl(p.absPath)}" alt="">`;
+  $("pvTitle").textContent =
+    p.kind === "audio"
+      ? `${d.shot.id} · ${(p.durationFrames / (d.project.format?.fps || 30)).toFixed(2)}s · 音频`
+      : `${d.shot.id} · ${p.width}×${p.height} · ${p.durationFrames}f`;
+  $("pvBody").innerHTML =
+    p.kind === "audio"
+      ? `<div style="padding:28px;background:var(--paper-hi)"><audio style="width:100%" src="${fileUrl(p.absPath)}" controls autoplay></audio></div>`
+      : p.kind === "video"
+        ? `<video class="pv-media" src="${fileUrl(p.absPath)}" controls autoplay loop muted></video>`
+        : `<img class="pv-media" src="${fileUrl(p.absPath)}" alt="">`;
   $("pvSnap").onclick = () => { $("previewModal").classList.remove("open"); startCapture(); };
   $("pvOpen").onclick = () => f.openPath(p.absPath);
   $("previewModal").classList.add("open");
