@@ -1,0 +1,15 @@
+{
+  "name": "@filmbench/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Electron 壳：渲染层只通过 IPC 跟 engine 子进程说话",
+  "main": "src/main.mjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

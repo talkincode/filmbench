@@ -3,16 +3,24 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "本地视频编排工作台：设计、生成、审阅、编译在一个项目里",
+  "description": "本地视频编排工作台：事件日志 + sqlite 索引 + provider 作业 + 编译出片 + 审计故事板 + stdio MCP + pi agent",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "storyboard": "bun packages/storyboard-audit/src/cli.ts",
+    "cli": "bun packages/cli/src/cli.ts",
+    "demo": "bun packages/cli/src/cli.ts demo demo-project",
     "storyboard:demo": "bun packages/storyboard-audit/src/cli.ts --in packages/storyboard-audit/fixtures/demo.storyboard.json --out out/storyboard.html",
+    "desktop": "cd apps/desktop && bun run dev",
     "test": "bun test"
   },
   "engines": {
     "bun": ">=1.2.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   }
 }

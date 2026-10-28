@@ -1,0 +1,16 @@
+{
+  "name": "@filmbench/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "全功能 stdio MCP 服务端：与内置 agent 共用同一张工具表",
+  "exports": {
+    ".": "./src/server.ts"
+  },
+  "dependencies": {
+    "@filmbench/core": "workspace:*",
+    "@filmbench/tools": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.0.0"
+  }
+}

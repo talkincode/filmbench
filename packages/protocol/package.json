@@ -1,0 +1,13 @@
+{
+  "name": "@filmbench/protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "filmbench v1：Film 意图 / Event 历史 / Ledger 账本，单一命名空间",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  }
+}

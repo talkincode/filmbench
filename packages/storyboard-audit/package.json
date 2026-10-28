@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "description": "独立审计故事板：全部镜头网格铺开、按顺序连线、逐镜核对",
-  "bin": { "storyboard-audit": "./src/cli.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "storyboard-audit": "./src/cli.ts"
+  },
   "scripts": {
     "demo": "bun src/cli.ts --in fixtures/demo.storyboard.json --out out/storyboard.html"
   }

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>filmbench</title>
+<style>
+  :root{
+    --paper:#ece5d7;--paper-hi:#f7f2e7;--ink:#191610;--ink-2:#4f4838;--ink-3:#7d7460;
+    --rule:#c9bfa9;--accent:#ad3a20;--ok:#2b5f50;--warn:#8a6413;--block:#a3291a;
+    --mono:"SF Mono","Menlo",monospace;--serif:"Iowan Old Style","Songti SC",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:15px}
+  header{display:flex;align-items:baseline;gap:18px;padding:18px 26px 14px;border-bottom:2px solid var(--ink)}
+  header h1{margin:0;font-size:22px;font-weight:600}
+  header .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em}
+  header .spacer{flex:1}
+  button{font-family:var(--mono);font-size:11.5px;padding:6px 12px;border:1px solid var(--rule);background:var(--paper-hi);
+    color:var(--ink);border-radius:999px;cursor:pointer}
+  button:hover{border-color:var(--ink-2)}
+  button.primary{background:var(--ink);color:var(--paper-hi);border-color:var(--ink)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px;padding:22px 26px 60px;align-items:start}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .card{background:var(--paper-hi);border:1px solid var(--rule);box-shadow:0 10px 24px -20px rgba(40,30,10,.6)}
+  .card .frame{aspect-ratio:16/9;background:linear-gradient(160deg,#221f19,#12100b);position:relative;border-bottom:1px solid var(--ink)}
+  .card .idx{position:absolute;left:9px;top:7px;font-family:var(--mono);font-size:18px;color:#e9e2d2;letter-spacing:-.03em}
+  .card .badge{position:absolute;right:8px;top:8px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+    text-transform:uppercase;padding:2px 6px;border:1px solid currentColor;border-radius:2px}
+  .ready{color:#86bda9}.stale{color:#d9ac57}.missing{color:#bbae93}
+  .card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+  .card h3{margin:0;font-size:15.5px;font-weight:600}
+  .card .sub{font-family:var(--mono);font-size:10px;color:var(--ink-3);display:flex;justify-content:space-between}
+  .card .intent{font-size:12.5px;color:var(--ink-2);line-height:1.45;max-height:3.9em;overflow:hidden}
+  aside{position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
+  .panel{background:var(--paper-hi);border:1px solid var(--rule);padding:12px 14px}
+  .panel h2{margin:0 0 8px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+  .kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;padding:3px 0}
+  .kv b{font-weight:500}
+  .jobs{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto}
+  .log{font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:pre-wrap;max-height:120px;overflow:auto}
+  .empty{font-family:var(--mono);font-size:11px;color:var(--ink-3);padding:6px 0}
+  #overlay{position:fixed;inset:0;background:rgba(25,22,16,.55);display:none;padding:24px;z-index:50}
+  #overlay.open{display:block}
+  #overlay .box{background:var(--paper);width:100%;height:100%;display:flex;flex-direction:column;border:1px solid var(--ink)}
+  #overlay .bar{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:11px}
+  #overlay iframe{flex:1;border:0;width:100%;background:var(--paper)}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper-hi);
+    font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:3px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">filmbench</h1>
+  <span class="meta" id="meta">连接 engine…</span>
+  <span class="spacer"></span>
+  <button id="submit">提交待办</button>
+  <button id="run" class="primary">执行队列</button>
+  <button id="build">出片</button>
+  <button id="storyboard">审计故事板</button>
+</header>
+<main>
+  <section>
+    <div class="grid" id="grid"></div>
+  </section>
+  <aside>
+    <div class="panel">
+      <h2>项目</h2>
+      <div class="kv"><span>修订</span><b id="head">—</b></div>
+      <div class="kv"><span>帧数</span><b id="frames">—</b></div>
+      <div class="kv"><span>就位</span><b id="ready">—</b></div>
+      <div class="kv"><span>花费</span><b id="spent">—</b></div>
+      <div class="kv"><span>预算</span><b id="budget">—</b></div>
+    </div>
+    <div class="panel">
+      <h2>作业队列</h2>
+      <div class="jobs" id="jobs"></div>
+    </div>
+    <div class="panel">
+      <h2>日志</h2>
+      <div class="log" id="log">就绪。</div>
+    </div>
+  </aside>
+</main>
+<div id="overlay"><div class="box">
+  <div class="bar"><span id="sbTitle">审计故事板</span><span class="spacer" style="flex:1"></span>
+    <button id="close">关闭</button></div>
+  <iframe id="sbFrame"></iframe>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = (msg) => { $("log").textContent = `${msg}\n` + $("log").textContent; };
+const toast = (msg) => { const t = $("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); };
+
+async function rpc(cmd, args) {
+  if (!window.filmbench) throw new Error("preload 未加载");
+  return window.filmbench.rpc(cmd, args);
+}
+
+function stateChip(shot) {
+  if (!shot.hasOutput) return ["缺产物", "missing"];
+  if (shot.stale) return ["过期", "stale"];
+  return ["就位", "ready"];
+}
+
+function render(state) {
+  const p = state.project;
+  $("title").textContent = p ? p.title : "（尚未创建项目）";
+  $("meta").textContent = p ? `${p.name} · ${p.format.width}×${p.format.height}@${p.format.fps}fps` : "";
+  $("head").textContent = `#${state.head.seq}`;
+  const frames = state.shots.reduce((n, s) => n + s.durationFrames, 0);
+  $("frames").textContent = `${frames}`;
+  $("ready").textContent = `${state.shots.filter((s) => s.hasOutput && !s.stale).length}/${state.shots.length}`;
+  const c = state.cost || {};
+  $("spent").textContent = `${(c.spent ?? 0).toFixed(2)} ${c.currency ?? "USD"}`;
+  $("budget").textContent = c.budget ? `${(c.budget.remaining ?? 0).toFixed(2)} 余` : "未设";
+
+  $("grid").innerHTML = state.shots.map((s, i) => {
+    const [label, cls] = stateChip(s);
+    return `<article class="card">
+      <div class="frame"><span class="idx">${String(i + 1).padStart(2, "0")}</span>
+        <span class="badge ${cls}">${label}</span></div>
+      <div class="body">
+        <h3>${escapeHtml(s.title)}</h3>
+        <div class="sub"><span>${s.durationFrames}f</span><span>${escapeHtml(s.provider)} · ${escapeHtml(s.task)}</span></div>
+        <p class="intent">${escapeHtml(s.intent?.description || s.intent?.prompt || "")}</p>
+      </div></article>`;
+  }).join("") || `<div class="empty">还没有镜头。用 agent 或 CLI 加一个。</div>`;
+
+  $("jobs").innerHTML = (state.jobs || []).map((j) =>
+    `<div>${escapeHtml(j.jobId)} · ${escapeHtml(j.shot)} · ${escapeHtml(j.phase)}${j.reason ? ` · ${escapeHtml(j.reason)}` : ""}</div>`
+  ).join("") || `<div class="empty">队列为空</div>`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+async function refresh() {
+  try { render(await rpc("state")); }
+  catch (e) { log(`state 失败：${e.message}`); }
+}
+
+async function act(label, fn) {
+  try { log(`${label}…`); await fn(); await refresh(); toast(`${label} 完成`); }
+  catch (e) { log(`${label} 失败：${e.message}`); toast(`${label} 失败`); }
+}
+
+$("submit").onclick = () => act("提交待办", async () => {
+  const r = await rpc("submit", {});
+  log(`提交 ${r.length} 个作业：${r.map((x) => `${x.jobId}:${x.phase}`).join(", ")}`);
+});
+$("run").onclick = () => act("执行队列", async () => {
+  const r = await rpc("run", {});
+  log(r.map((x) => `${x.jobId} ${x.ok ? "完成" : "失败"}${x.reason ? " · " + x.reason : ""}`).join("\n"));
+});
+$("build").onclick = () => act("出片", async () => {
+  const r = await rpc("build", {});
+  log(`成片 ${r.out} · ${r.durationFrames} 帧 · ${r.bytes} 字节`);
+});
+$("storyboard").onclick = () => act("生成故事板", async () => {
+  await rpc("storyboard", {});
+  const path = await window.filmbench.storyboardPath();
+  $("sbFrame").src = `file://${path}?t=${Date.now()}`;
+  $("overlay").classList.add("open");
+});
+$("close").onclick = () => { $("overlay").classList.remove("open"); $("sbFrame").src = "about:blank"; };
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

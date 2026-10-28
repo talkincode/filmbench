@@ -3,3 +3,9 @@ node_modules/
 !**/out/.gitkeep
 !out/.gitkeep
 *.tmp
+
+demo-project/
+.filmbench/
+build/
+assets/
+*.mp4

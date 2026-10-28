@@ -1,0 +1,20 @@
+{
+  "name": "@filmbench/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "filmbench 命令行：项目 / 镜头 / 作业 / 出片 / 账本 / 故事板 / MCP",
+  "bin": {
+    "filmbench": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@filmbench/core": "workspace:*",
+    "@filmbench/providers": "workspace:*",
+    "@filmbench/protocol": "workspace:*",
+    "@filmbench/storyboard-audit": "workspace:*",
+    "yaml": "^2.6.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@filmbench/providers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "provider 实现：本地产线卡 / imagine / colab 会话 / 通用本地命令",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@filmbench/core": "workspace:*",
+    "@filmbench/protocol": "workspace:*"
+  }
+}
