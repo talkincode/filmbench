@@ -67,6 +67,7 @@ function help(): void {
   filmbench plan
   filmbench jobs submit [--shot ID] [--all]
   filmbench jobs run [--job ID]
+  filmbench jobs cancel --job ID | --all
   filmbench status
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
@@ -363,6 +364,19 @@ const cmdJobs = (argv: string[]) =>
           : fmtMoney(result.estimate.amount, result.estimate.currency);
         out(`${result.jobId} ${result.phase}${result.reason ? ` · ${result.reason}` : ` · 预估 ${price}`}`);
       }
+      return;
+    }
+    if (sub === "cancel") {
+      const { values } = parseArgs({ args: argv.slice(1), options: { job: { type: "string" }, all: { type: "boolean" } } });
+      const state = svc.state();
+      const queued = [...state.jobs.values()].filter(
+        (j) => j.phase === "requested" && (values.job ? j.jobId === values.job : Boolean(values.all)),
+      );
+      if (!queued.length) throw new Error("没有可取消的排队作业（用 --job ID 或 --all）");
+      for (const job of queued) {
+        svc.append("job.rejected", { jobId: job.jobId, reason: "手动取消", cause: "cancelled" }, { actor: { kind: "human", id: "cli" } });
+      }
+      out(`已取消 ${queued.length} 个作业`);
       return;
     }
     if (sub === "run" || sub === undefined) {

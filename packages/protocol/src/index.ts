@@ -190,7 +190,11 @@ export const EVENT_PAYLOADS = {
     path: z.string(),
   }),
   "job.failed": z.object({ jobId: z.string(), reason: z.string() }),
-  "job.rejected": z.object({ jobId: z.string(), reason: z.string() }),
+  "job.rejected": z.object({
+    jobId: z.string(),
+    reason: z.string(),
+    cause: z.enum(["budget", "cancelled", "other"]).default("other"),
+  }),
   "cost.recorded": z.object({
     jobId: z.string().optional(),
     kind: z.enum(["api", "compute", "model", "local"]),

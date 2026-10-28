@@ -37,6 +37,7 @@ export interface JobState {
   inputsHash: string;
   phase: JobPhase;
   reason?: string;
+  rejectCause?: "budget" | "cancelled" | "other";
   produce?: ProduceState;
   requestedAt: number;
   updatedAt: number;
@@ -245,6 +246,7 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
           Object.assign(job, {
             phase: e.op === "job.failed" ? "failed" : "rejected",
             reason: p.reason,
+            rejectCause: e.op === "job.rejected" ? (p.cause ?? "other") : undefined,
             updatedAt: e.seq,
           });
         }

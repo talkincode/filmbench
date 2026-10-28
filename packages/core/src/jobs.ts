@@ -76,7 +76,7 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
     const remaining = remainingBudget(state) ?? 0;
     if (estimate.amount > remaining) {
       const reason = `超出剩余预算：需要 ${estimate.amount.toFixed(2)} ${estimate.currency}，剩余 ${remaining.toFixed(2)} ${estimate.currency}`;
-      service.append("job.rejected", { jobId, reason }, { actor: input.actor });
+      service.append("job.rejected", { jobId, reason, cause: "budget" }, { actor: input.actor });
       return { jobId, phase: "rejected", estimate, reason };
     }
   }

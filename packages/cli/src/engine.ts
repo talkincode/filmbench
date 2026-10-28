@@ -100,6 +100,14 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       });
       return { ok: true };
     }
+    case "cancel": {
+      const { service } = svc(args.project as string | undefined);
+      const queued = [...service.state().jobs.values()].filter((j) => j.phase === "requested");
+      for (const job of queued) {
+        service.append("job.rejected", { jobId: job.jobId, reason: "手动取消", cause: "cancelled" }, { actor: { kind: "human", id: "desktop" } });
+      }
+      return { cancelled: queued.length };
+    }
     case "run": {
       const { service } = svc(args.project as string | undefined);
       return runJobs(service, registry);
@@ -192,12 +200,18 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       const { service, dir } = svc(args.project as string | undefined);
       const state = service.state();
       const shot = state.shots.find((s) => s.id === String(args.shot));
-      if (!shot?.produce) throw new Error("该镜头还没有产物");
+      if (!shot) throw new Error("镜头不存在");
+      const assetId = args.asset ? String(args.asset) : shot.produce?.asset;
+      if (!assetId) throw new Error("该镜头还没有产物");
+      const asset = state.assets.get(assetId);
+      if (!asset) throw new Error(`素材未登记: ${assetId}`);
+      const source = asset.path.startsWith("/") ? asset.path : join(dir, asset.path);
+      if (!existsSync(source)) throw new Error(`文件不存在: ${source}`);
+      if (asset.mime.startsWith("image/")) return { path: source };
       const folder = join(dir, "build/posters");
-      const target = join(folder, `${shot.id}.jpg`);
+      const target = join(folder, `${assetId}.jpg`);
       if (!existsSync(target)) {
         mkdirSync(folder, { recursive: true });
-        const source = shot.produce.path.startsWith("/") ? shot.produce.path : join(dir, shot.produce.path);
         const proc = Bun.spawn(
           ["ffmpeg", "-y", "-ss", "0", "-i", source, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", target],
           { stdout: "ignore", stderr: "ignore" },

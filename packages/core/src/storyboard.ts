@@ -100,7 +100,9 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
       checks.push({ id: "cost.unknown", status: "unknown", detail: "该作业的价格未登记，未计入账本" });
     }
 
-    const rejected = [...state.jobs.values()].find((j) => j.shot === shot.id && j.phase === "rejected");
+    const rejected = [...state.jobs.values()].find(
+      (j) => j.shot === shot.id && j.phase === "rejected" && j.rejectCause === "budget",
+    );
     if (rejected) {
       checks.push({ id: "budget.estimate", status: "warn", detail: rejected.reason });
     }

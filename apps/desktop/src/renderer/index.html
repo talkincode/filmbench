@@ -23,29 +23,29 @@
   button.sm{padding:3px 8px;font-size:10.5px;border-radius:6px}
   button:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
-  .app{display:grid;grid-template-columns:264px minmax(0,1fr);height:100vh}
+  .app{display:grid;grid-template-columns:204px minmax(0,1fr);height:100vh}
   /* —— 左栏 —— */
   .rail{background:var(--paper-2);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden}
-  .rail .brand{padding:44px 18px 14px;-webkit-app-region:drag}
-  .brand h1{margin:0;font-size:19px;font-weight:600;letter-spacing:.01em}
-  .brand .sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
-  .proj{margin:10px 14px 14px;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--paper-hi);cursor:pointer;-webkit-app-region:no-drag}
+  .rail .brand{padding:42px 14px 10px;-webkit-app-region:drag}
+  .brand h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  .brand .sub{font-family:var(--mono);font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-top:3px}
+  .proj{margin:6px 10px 10px;padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--paper-hi);cursor:pointer;-webkit-app-region:no-drag}
   .proj:hover{border-color:var(--ink-2)}
-  .proj .name{font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .proj .name span:last-child{font-family:var(--mono);font-size:9px;color:var(--ink-3)}
-  .proj .path{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+  .proj .name{font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap;overflow:hidden}
+  .proj .name span:last-child{font-family:var(--mono);font-size:8px;color:var(--ink-3);flex:0 0 auto}
+  .proj .path{font-family:var(--mono);font-size:8.5px;color:var(--ink-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule-hi);border-top:1px solid var(--rule-hi);border-bottom:1px solid var(--rule-hi)}
-  .stat{background:var(--paper-2);padding:9px 14px}
-  .stat .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
-  .stat .v{font-family:var(--mono);font-size:15px;margin-top:3px;font-variant-numeric:tabular-nums}
-  .rail h2{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);
-    font-weight:500;margin:16px 18px 6px}
-  .jobs{padding:0 12px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:4px}
-  .job{font-family:var(--mono);font-size:10px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
+  .stat{background:var(--paper-2);padding:6px 10px}
+  .stat .k{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+  .stat .v{font-family:var(--mono);font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .rail h2{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:500;margin:12px 12px 4px}
+  .jobs{padding:0 10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:3px}
+  .job{font-family:var(--mono);font-size:9px;color:var(--ink-2);display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden}
   .job .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);flex:0 0 auto}
   .job.done .dot{background:var(--ok)}.job.failed .dot,.job.rejected .dot{background:var(--block)}
   .job.running .dot{background:var(--warn)}
-  .hints{padding:10px 18px 16px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);line-height:1.7;border-top:1px solid var(--rule-hi)}
+  .hints{padding:8px 12px 12px;font-family:var(--mono);font-size:8.5px;color:var(--ink-3);line-height:1.65;border-top:1px solid var(--rule-hi)}
   kbd{font-family:var(--mono);font-size:9px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper-hi)}
 
   /* —— 主区 —— */
@@ -58,7 +58,7 @@
   .topbar .actions{display:flex;gap:8px;-webkit-app-region:no-drag}
 
   .scroll{overflow:auto;padding:18px 26px 40px;flex:1}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(244px,1fr));gap:16px}
   .card{position:relative;background:var(--paper-hi);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);
     cursor:pointer;text-align:left;padding:0;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease,border-color .16s}
   .card:hover{transform:translateY(-3px);border-color:var(--ink-2)}
@@ -77,21 +77,31 @@
   .empty code{background:rgba(25,22,16,.06);padding:1px 5px;border-radius:3px}
 
   /* —— 详情抽屉 —— */
-  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,92vw);background:var(--paper-hi);border-left:1px solid var(--rule);
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(516px,94vw);background:var(--paper-hi);border-left:1px solid var(--rule);
     box-shadow:-24px 0 60px -40px rgba(30,22,8,.8);display:flex;flex-direction:column;transform:translateX(100%);
     transition:transform .22s cubic-bezier(.2,.8,.3,1);z-index:30}
   .drawer.open{transform:none}
-  .dhead{display:flex;align-items:center;gap:10px;padding:44px 18px 12px;border-bottom:1px solid var(--rule);-webkit-app-region:drag}
+  .dhead{display:flex;align-items:center;gap:8px;padding:14px 14px 9px;border-bottom:1px solid var(--rule);-webkit-app-region:drag}
   /* 拖拽区域会吞掉鼠标事件：里面所有可点的东西必须显式排除 */
   .dhead button,.dhead .n{-webkit-app-region:no-drag}
   .dhead .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);-webkit-app-region:no-drag}
-  .dhead h2{margin:0;font-size:17px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-app-region:no-drag}
-  .dbody{overflow:auto;padding:14px 18px 40px;display:flex;flex-direction:column;gap:16px}
-  .sec{border-top:1px solid var(--rule-hi);padding-top:12px}
+  .dhead h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-app-region:no-drag}
+  .dbody{overflow:auto;padding:10px 14px 30px;display:flex;flex-direction:column;gap:11px}
+  .sec{border-top:1px solid var(--rule-hi);padding-top:9px}
   .sec:first-child{border-top:0;padding-top:0}
-  .sec h4{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:500;
-    display:flex;justify-content:space-between;align-items:center}
-  .sec p{margin:0 0 7px;line-height:1.55;color:var(--ink-2)}
+  .sec h4{margin:0 0 6px;font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:500;
+    display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sec h4 span{letter-spacing:.02em;text-transform:none;font-size:9px;opacity:.8}
+  .sec p{margin:0 0 5px;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+  .sec p.desc{font-size:13.5px;color:var(--ink)}
+  .dim{color:var(--ink-3);font-family:var(--mono);font-size:10px}
+  .okline{margin:0;font-family:var(--mono);font-size:10px;color:var(--ok)}
+  details.sec>summary{cursor:pointer;list-style:none;font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:8px}
+  details.sec>summary::-webkit-details-marker{display:none}
+  details.sec>summary::after{content:"＋";color:var(--ink-3)}
+  details.sec[open]>summary::after{content:"－"}
+  details.sec[open]>summary{margin-bottom:7px}
   .prompt{font-family:var(--mono);font-size:11px;line-height:1.6;background:rgba(25,22,16,.045);border:1px solid var(--rule-hi);
     border-radius:6px;padding:8px 10px;color:var(--ink-2);word-break:break-word}
   .preview{background:#12100b;border-radius:6px;overflow:hidden;border:1px solid var(--rule)}
@@ -106,17 +116,35 @@
   .check{display:flex;gap:8px;font-family:var(--mono);font-size:10.5px;padding:3px 0;color:var(--ink-2)}
   .check .m{width:10px;flex:0 0 auto}
   .check[data-s="fail"] .m{color:var(--block)}.check[data-s="warn"] .m{color:var(--warn)}.check[data-s="pass"] .m{color:var(--ok)}.check[data-s="unknown"] .m{color:var(--ink-3)}
-  .slot{display:grid;grid-template-columns:26px minmax(0,1fr) 116px 26px;gap:8px;align-items:center;border:1px solid var(--rule-hi);
-    border-radius:6px;padding:6px 8px;background:var(--paper);margin-bottom:5px}
+  .strip{display:flex;gap:7px;overflow-x:auto;padding:1px 1px 5px;scrollbar-width:thin}
+  .thumb{position:relative;flex:0 0 auto;width:124px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;
+    background:var(--paper);padding:0;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+  .thumb:hover{border-color:var(--ink-2)}
+  .thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(173,58,32,.16)}
+  .thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#12100b}
+  .thumb .flag{position:absolute;top:4px;left:4px;font-family:var(--mono);font-size:8px;padding:1px 4px;border-radius:3px;
+    background:rgba(16,14,10,.72);color:#e9e2d2;letter-spacing:.06em}
+  .thumb.sel .flag{background:var(--accent);color:#fff}
+  .thumb .cap{display:flex;justify-content:space-between;gap:4px;padding:3px 5px;font-family:var(--mono);font-size:8px;color:var(--ink-3)}
+  .thumb.add{width:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    border-style:dashed;color:var(--ink-3);font-family:var(--mono);font-size:18px;line-height:1}
+  .thumb.add .cap2{font-size:8px;letter-spacing:.1em}
+  .actbar{display:flex;gap:6px;flex-wrap:wrap;padding:0 0 9px;border-bottom:1px solid var(--rule-hi)}
+  .actbar .primary{box-shadow:0 6px 14px -10px rgba(25,22,16,.8)}
+  .kv2{display:grid;grid-template-columns:56px minmax(0,1fr);gap:3px 8px;font-family:var(--mono);font-size:10px;align-items:baseline}
+  .kv2 span{color:var(--ink-3);font-size:9px;letter-spacing:.04em}
+  .kv2 b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot{display:grid;grid-template-columns:22px minmax(0,1fr) 104px 22px;gap:6px;align-items:center;border:1px solid var(--rule-hi);
+    border-radius:5px;padding:4px 6px;background:var(--paper);margin-bottom:4px}
   .slot .n{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
   .slot .id{font-family:var(--mono);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .slot select{font-family:var(--mono);font-size:10px;padding:2px 3px;border:1px solid var(--rule);border-radius:4px;background:var(--paper-hi);color:var(--ink)}
   .slot button{padding:0;width:22px;height:22px;border-radius:5px;line-height:1}
   .slot.empty{border-style:dashed;color:var(--ink-3);display:block;font-family:var(--mono);font-size:10px;padding:9px 10px}
-  .pe{margin-top:7px}
+  .pe{margin-top:5px}
   .pe .lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
-  .pe textarea{width:100%;font-family:var(--mono);font-size:11px;line-height:1.55;padding:7px 9px;border:1px solid var(--rule);
-    border-radius:6px;background:var(--paper);color:var(--ink);resize:vertical;min-height:52px}
+  .pe textarea{width:100%;font-family:var(--mono);font-size:10.5px;line-height:1.5;padding:6px 8px;border:1px solid var(--rule);
+    border-radius:5px;background:var(--paper);color:var(--ink);resize:vertical;min-height:40px}
   .pe textarea:focus{outline:none;border-color:var(--ink-2);background:var(--paper-hi)}
   .cid{font-family:var(--mono);font-size:9px;color:var(--ink-3);opacity:.8}
   .ev{display:grid;grid-template-columns:44px 1fr;gap:8px;font-family:var(--mono);font-size:10px;color:var(--ink-2);padding:3px 0}
@@ -387,19 +415,33 @@ const MARK = { pass: "●", fail: "■", warn: "▲", unknown: "○" };
 
 function renderDetail(d) {
   const s = d.shot;
-  $("dNum").textContent = `${String(s.order).padStart(2, "0")}/${String(s.count).padStart(2, "0")}`;
-  $("dTitle").textContent = s.title;
-
   const produce = d.produce;
-  const preview = produce && produce.exists
-    ? produce.kind === "video"
-      ? `<video src="${fileUrl(produce.absPath)}" controls muted preload="metadata"></video>`
-      : `<img src="${fileUrl(produce.absPath)}" alt="">`
-    : `<div style="padding:26px;text-align:center;color:#8d8570;font-family:var(--mono);font-size:10px;letter-spacing:.2em">NO ARTIFACT</div>`;
+  const selected = s.selected;
+  const cands = (s.candidates || []).slice();
+  if (produce && !cands.some((c) => c.asset === produce.asset)) {
+    cands.unshift({ asset: produce.asset, actor: "—", review: "selected" });
+  }
+  const fps = d.project.format?.fps || 30;
+  const approved = s.reviewed === "approved";
 
-  const subjectChips = s.subjects.length
-    ? s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("")
-    : `<span class="tag">无主体绑定</span>`;
+  const next = !produce
+    ? { label: "提交作业", act: "submit" }
+    : !selected || selected !== produce.asset
+      ? { label: "选定这一版", act: "select" }
+      : !approved
+        ? { label: "批准这一版", act: "approve" }
+        : { label: "再生成一版", act: "submit" };
+
+  const thumbs = cands.map((c) => {
+    const isSel = c.asset === selected;
+    const bad = c.review === "rejected";
+    const state = isSel ? "已选" : bad ? "已否决" : c.review === "unreviewed" ? "未审阅" : c.review === "candidate" ? "已批准" : "候选";
+    return `<button class="thumb${isSel ? " sel" : ""}" data-asset="${esc(c.asset)}" title="${esc(c.asset)}">
+      <span class="flag">${state}</span>
+      <img data-poster="${esc(c.asset)}" alt="">
+      <span class="cap"><span>${esc(c.actor || "—")}</span><span>${esc(c.asset.slice(6, 12))}</span></span>
+    </button>`;
+  }).join("");
 
   const ROLES = ["identity", "wardrobe", "prop", "environment", "layout", "first_frame", "last_frame", "style", "other"];
   const refs = s.references.length
@@ -411,146 +453,155 @@ function renderDetail(d) {
       </div>`).join("")
     : `<div class="slot empty">还没有参考图</div>`;
 
-  const cands = s.candidates?.length
-    ? `<div class="list">${s.candidates.map((c) => `<div class="item">
-        <div class="grow"><div class="id">${esc(c.asset)}</div><div class="meta">${esc(c.actor)} · ${c.review === "selected" ? "已选" : c.review === "rejected" ? "已否决" : c.review === "candidate" ? "已批准" : "未审阅"}</div></div>
-        <button class="sm ghost" data-select="${esc(c.asset)}">选定</button>
-        <button class="sm ghost" data-review="${esc(c.asset)}">批准</button>
-      </div>`).join("")}</div>`
-    : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">还没有候选</p>`;
-
-  const checks = (s.checks || []).map((c) =>
-    `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status] || "○"}</span><span><b>${esc(c.label || c.id)}</b> <span class="cid">${esc(c.id)}</span>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`
-  ).join("");
+  const failing = (s.checks || []).filter((c) => c.status === "fail" || c.status === "warn");
+  const checks = failing.length
+    ? failing.map((c) => `<div class="check" data-s="${c.status}"><span class="m">${MARK[c.status]}</span>
+        <span><b>${esc(c.label || c.id)}</b>${c.detail ? " — " + esc(c.detail) : ""}</span></div>`).join("")
+    : `<p class="okline">✓ 全部检查通过</p>`;
 
   const jobRow = (j) => `<div class="item">
-        <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${PHASE_ZH[j.phase] || esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
-        ${j.asset ? `<button class="sm ghost" data-select="${esc(j.asset)}">选定</button>` : ""}
-      </div>`;
-  const events = d.events.slice(-12).reverse().map((e) =>
+      <div class="grow"><div class="id">${esc(j.jobId)}</div><div class="meta">${esc(j.provider)} · ${esc(j.task)} · ${PHASE_ZH[j.phase] || esc(j.phase)}${j.reason ? " · " + esc(j.reason) : ""}</div></div>
+      ${j.asset ? `<button class="sm ghost" data-asset-jump="${esc(j.asset)}">看这一版</button>` : ""}
+    </div>`;
+
+  const events = d.events.slice(-10).reverse().map((e) =>
     `<div class="ev"><span class="s">#${e.seq}</span><span>${esc(e.summary)}<div class="a">${esc(e.actor)} · ${esc(e.at.slice(5, 19).replace("T", " "))}</div></span></div>`
   ).join("");
 
-  const deps = s.dependsOn.length
-    ? s.dependsOn.map((x) => `<span class="tag">← ${esc(x.shot)} ${esc(x.kind)}</span>`).join("")
-    : `<span class="tag">无</span>`;
-  const dependents = s.dependents.length
-    ? s.dependents.map((x) => `<span class="tag">→ ${esc(x.shot)} ${esc(x.kind)}</span>`).join("")
-    : `<span class="tag">无</span>`;
+  const deps = s.dependsOn.length ? s.dependsOn.map((x) => `<span class="tag" data-dep="${esc(x.shot)}">← ${esc(x.shot)} ${esc(x.kind)}</span>`).join("") : `<span class="tag">无</span>`;
+  const dependents = s.dependents.length ? s.dependents.map((x) => `<span class="tag" data-dep="${esc(x.shot)}">→ ${esc(x.shot)} ${esc(x.kind)}</span>`).join("") : `<span class="tag">无</span>`;
 
-  const cost = d.cost;
+  $("dNum").textContent = `${String(s.order).padStart(2, "0")}/${String(s.count).padStart(2, "0")}`;
+  $("dTitle").textContent = s.title;
 
   $("dBody").innerHTML = `
     <div class="sec">
-      <div class="preview">${preview}</div>
-      <div class="actions-row" style="margin-top:8px">
-        <button id="dSubmit">提交作业</button>
-        <button id="dSelect" ${produce ? "" : "disabled"}>选定产物</button>
-        <button id="dApprove" ${s.selected ? "" : "disabled"}>批准</button>
-        <button id="dReject" ${s.selected ? "" : "disabled"}>否决</button>
-        <button class="ghost" id="dSnap">截图标注</button>
-        ${produce ? `<button class="ghost" data-reveal="${esc(produce.absPath)}">在 Finder 中显示</button>` : ""}
-      </div>
-      <div class="actions-row" style="margin-top:6px">
-        ${produce && produce.exists ? `<button class="sm ghost" data-copy="${esc(produce.absPath)}">复制产物路径</button>
-        <button class="sm ghost" data-open="${esc(produce.absPath)}">打开产物</button>` : ""}
+      <h4>素材 <span>${cands.length} 个候选 · 点缩略图切换</span></h4>
+      <div class="strip">
+        ${thumbs}
+        <button class="thumb add" id="dAction2" title="生成新一版"><span>＋</span><span class="cap2">生成</span></button>
       </div>
     </div>
 
-    <div class="sec"><h4>意图</h4>
-      <p>${esc(s.intent.description) || "<span style='color:var(--ink-3)'>未填写描述</span>"}</p>
-      ${s.intent.action ? `<p style="font-size:13px">${esc(s.intent.action)}</p>` : ""}
-      <div class="pe"><div class="lbl"><span>图片提示词</span><span>${s.binder.provider === "imagine" ? "当前生成器" : ""}</span></div>
-        <textarea data-pe="image" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
-      <div class="pe"><div class="lbl"><span>视频提示词</span><span>${s.binder.provider === "colab" ? "当前生成器" : ""}</span></div>
-        <textarea data-pe="video" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
+    <div class="actbar">
+      <button class="primary" id="dAction">${next.label}</button>
+      <button id="dApprove" ${selected ? "" : "disabled"}>批准</button>
+      <button id="dReject" ${selected ? "" : "disabled"}>否决</button>
+      <button class="ghost" id="dSnap">截图标注</button>
+      ${produce ? `<button class="ghost" data-open="${esc(produce.absPath)}">打开</button>
+        <button class="ghost" data-reveal="${esc(produce.absPath)}">显示</button>` : ""}
     </div>
 
-    <div class="sec"><h4>绑定</h4>
-      <div class="chips"><span class="tag">${esc(s.binder.provider)}</span><span class="tag">${esc(s.binder.task)}</span>
-      ${Object.entries(s.binder.params || {}).map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v)}</span>`).join("")}</div>
-      <div class="chips" style="margin-top:6px">${subjectChips}</div>
+    <div class="sec">
+      <h4>意图</h4>
+      <p class="desc">${esc(s.intent.description) || "<span class='dim'>未填写描述</span>"}</p>
+      ${s.intent.action ? `<p>${esc(s.intent.action)}</p>` : ""}
+      <div class="pe"><div class="lbl"><span>图片提示词</span></div>
+        <textarea data-pe="image" rows="2" placeholder="主体 · 动作 · 机位 · 光线 · 不要文字">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
+      <div class="pe"><div class="lbl"><span>视频提示词</span></div>
+        <textarea data-pe="video" rows="2" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
     </div>
 
-    <div class="sec"><h4>参考 <span>${s.references.length}/5</span></h4>${refs}
-      <button class="sm" id="dAddRef" ${s.references.length >= 5 ? "disabled" : ""} style="margin-top:4px">+ 添加参考</button>
+    <div class="sec">
+      <h4>绑定</h4>
+      <div class="chips">
+        <span class="tag">${esc(s.binder.provider)}</span><span class="tag">${esc(s.binder.task)}</span>
+        ${Object.entries(s.binder.params || {}).map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v)}</span>`).join("")}
+        ${s.subjects.length ? s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("") : ""}
+      </div>
     </div>
 
-    <div class="sec"><h4>候选与选定</h4>${cands}
-      <dl class="kv" style="margin-top:8px">
-        <dt>当前选定</dt><dd>${s.selected ? esc(s.selected) : "—"}</dd>
-        <dt>审阅</dt><dd>${REVIEW_ZH[s.reviewed] || "未审阅"}</dd>
-      </dl>
+    <div class="sec">
+      <h4>参考 <span>${s.references.length}/5</span></h4>
+      ${refs}
+      <button class="sm" id="dAddRef" ${s.references.length >= 5 ? "disabled" : ""}>+ 添加参考</button>
     </div>
 
-    <div class="sec"><h4>产物</h4>
-      ${produce ? `<dl class="kv">
-        <dt>素材</dt><dd>${esc(produce.asset)}</dd>
-        <dt>规格</dt><dd>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind}</dd>
-        <dt>体积</dt><dd>${produce.bytes} 字节</dd>
-        <dt>sha256</dt><dd>${esc(produce.sha256).slice(0, 24)}…</dd>
-        <dt>作业</dt><dd>${esc(produce.jobId)}</dd>
-        <dt>路径</dt><dd>${esc(produce.path)}</dd>
-      </dl>` : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">尚未产出</p>`}
+    <div class="sec">
+      <h4>检查 <span>${failing.filter((c) => c.status === "fail").length} 项阻断 · ${failing.length} 项待处理</span></h4>
+      ${checks}
     </div>
 
-    <div class="sec"><h4>依赖</h4><div class="chips">${deps}</div><div class="chips" style="margin-top:5px">${dependents}</div></div>
+    ${produce ? `<div class="sec">
+      <h4>产物</h4>
+      <div class="kv2">
+        <span>素材</span><b>${esc(produce.asset)}</b>
+        <span>规格</span><b>${produce.width}×${produce.height} · ${produce.durationFrames}f · ${produce.kind === "video" ? "视频" : "图片"}</b>
+        <span>体积</span><b>${(produce.bytes / 1024).toFixed(0)} KB</b>
+        <span>摘要</span><b>${esc(produce.sha256).slice(0, 16)}…</b>
+        <span>路径</span><b title="${esc(produce.path)}">${esc(produce.path)}</b>
+      </div>
+    </div>` : ""}
 
-    <div class="sec"><h4>检查 <span>${(s.checks || []).filter((c) => c.status === "fail").length} 项失败</span></h4>${checks || "<p>无检查项</p>"}</div>
+    <details class="sec">
+      <summary>时间轴与依赖</summary>
+      <div class="kv2">
+        <span>位置</span><b>${s.startFrame} → ${s.endFrame} 帧 · ${(s.startFrame / fps).toFixed(2)}s → ${(s.endFrame / fps).toFixed(2)}s</b>
+        <span>时长</span><b>${s.durationFrames} 帧 · ${s.seconds.toFixed(2)}s</b>
+      </div>
+      <div class="chips" style="margin-top:6px">${deps}${dependents}</div>
+    </details>
 
-    <div class="sec"><h4>花费</h4>
-      <dl class="kv">
-        <dt>已花</dt><dd>${cost.actual.toFixed(2)} ${cost.currency}${cost.priceUnknown ? "（含价格未知调用）" : ""}</dd>
-        <dt>预估</dt><dd>${cost.estimated.toFixed(2)} ${cost.currency}</dd>
-        <dt>调用</dt><dd>${cost.calls} 次</dd>
-      </dl>
-    </div>
+    <details class="sec">
+      <summary>作业历史 <span>${d.jobs.length}</span></summary>
+      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map(jobRow).join("") : `<p class="dim">还没有作业</p>`}</div>
+    </details>
 
-    <div class="sec"><h4>时间轴</h4>
-      <dl class="kv">
-        <dt>位置</dt><dd>${s.startFrame} → ${s.endFrame} 帧（${(s.startFrame / (d.project.format?.fps || 30)).toFixed(2)}s → ${(s.endFrame / (d.project.format?.fps || 30)).toFixed(2)}s）</dd>
-        <dt>时长</dt><dd>${s.durationFrames} 帧 · ${s.seconds.toFixed(2)}s</dd>
-        <dt>依赖</dt><dd>${s.dependsOn.length} 条入 / ${s.dependents.length} 条出</dd>
-      </dl>
-    </div>
-
-    <div class="sec"><h4>作业历史</h4>
-      <div class="list">${d.jobs.length ? d.jobs.slice().reverse().map(jobRow).join("") : "<p style='color:var(--ink-3);font-family:var(--mono);font-size:10px'>还没有作业</p>"}</div>
-    </div>
-
-    <div class="sec"><h4>事件</h4>${events || "<p>无</p>"}</div>
+    <details class="sec">
+      <summary>事件 <span>${d.events.length}</span></summary>
+      ${events || `<p class="dim">无</p>`}
+    </details>
   `;
 
-  $("dBody").querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => f.openPath(b.dataset.open)));
-  $("dBody").querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => f.reveal(b.dataset.reveal)));
-  $("dBody").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { await f.clipboardText(b.dataset.copy); toast("路径已复制"); }));
-  $("dBody").querySelectorAll("[data-select]").forEach((b) => (b.onclick = async () => {
-    try { await rpc("select", { shot: d.shot.id, asset: b.dataset.select }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
-  }));
-  $("dBody").querySelectorAll("[data-review]").forEach((b) => (b.onclick = async () => {
-    try { await rpc("review", { shot: d.shot.id, asset: b.dataset.review }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); }
+  /* 缩略图：按需取首帧 */
+  $("dBody").querySelectorAll("[data-poster]").forEach(async (img) => {
+    try {
+      const path = await rpc("poster", { shot: s.id, asset: img.dataset.poster });
+      img.src = fileUrl(path.path) + `?v=${img.dataset.poster}`;
+    } catch {}
+  });
+  $("dBody").querySelectorAll(".thumb[data-asset]").forEach((btn) => (btn.onclick = async () => {
+    const asset = btn.dataset.asset;
+    if (asset === selected) return;
+    try { await rpc("select", { shot: s.id, asset }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); }
   }));
 
+  const runAction = async () => {
+    try {
+      if (next.act === "submit") await rpc("submit", { shot: s.id });
+      if (next.act === "select") await rpc("select", { shot: s.id });
+      if (next.act === "approve") await rpc("review", { shot: s.id });
+      toast(`${next.label} 完成`);
+      await refreshAndDetail();
+    } catch (e) { toast(e.message, 4000); }
+  };
+  $("dAction").onclick = runAction;
+  $("dAction2").onclick = runAction;
+
+  $("dApprove").onclick = async () => { try { await rpc("review", { shot: s.id }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
+  $("dReject").onclick = async () => { try { await rpc("review", { shot: s.id, reject: true }); toast("已否决"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
+  $("dSnap").onclick = () => startCapture();
+  $("dBody").querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => f.reveal(b.dataset.reveal)));
+  $("dBody").querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => f.openPath(b.dataset.open)));
   $("dBody").querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
-    try { await rpc("ref_role", { shot: d.shot.id, asset: sel.dataset.role, role: sel.value }); toast("用途已改"); await refreshAndDetail(); }
+    try { await rpc("ref_role", { shot: s.id, asset: sel.dataset.role, role: sel.value }); toast("用途已改"); await refreshAndDetail(); }
     catch (e) { toast(e.message); }
   }));
   $("dBody").querySelectorAll("[data-unref]").forEach((b) => (b.onclick = async () => {
-    try { await rpc("ref_remove", { shot: d.shot.id, asset: b.dataset.unref }); toast("已移除"); await refreshAndDetail(); }
+    try { await rpc("ref_remove", { shot: s.id, asset: b.dataset.unref }); toast("已移除"); await refreshAndDetail(); }
     catch (e) { toast(e.message); }
   }));
   $("dBody").querySelectorAll("[data-pe]").forEach((ta) => (ta.onchange = async () => {
-    try { await rpc("prompt_set", { shot: d.shot.id, [ta.dataset.pe]: ta.value }); toast("提示词已保存"); }
+    try { await rpc("prompt_set", { shot: s.id, [ta.dataset.pe]: ta.value }); toast("提示词已保存"); }
+    catch (e) { toast(e.message); }
+  }));
+  $("dBody").querySelectorAll("[data-dep]").forEach((tag) => (tag.onclick = () => openDetail(tag.dataset.dep)));
+  $("dBody").querySelectorAll("[data-asset-jump]").forEach((b) => (b.onclick = async () => {
+    try { await rpc("select", { shot: s.id, asset: b.dataset.assetJump }); toast("已选定"); await refreshAndDetail(); }
     catch (e) { toast(e.message); }
   }));
   const addRef = $("dAddRef");
-  if (addRef) addRef.onclick = () => openAssetPicker(d.shot.id);
-
-  $("dSubmit").onclick = () => act(`提交 ${d.shot.id}`, () => rpc("submit", { shot: d.shot.id }), true);
-  $("dSelect").onclick = async () => { try { await rpc("select", { shot: d.shot.id }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
-  $("dApprove").onclick = async () => { try { await rpc("review", { shot: d.shot.id }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
-  $("dReject").onclick = async () => { try { await rpc("review", { shot: d.shot.id, reject: true }); toast("已否决"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
-  $("dSnap").onclick = () => startCapture();
+  if (addRef) addRef.onclick = () => openAssetPicker(s.id);
 }
 
 async function refreshAndDetail() {
