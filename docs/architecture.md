@@ -95,6 +95,7 @@ interface Provider {
 | provider | 能力 | 说明 |
 | --- | --- | --- |
 | `filmbench/colorcard` | 视频 | 用 ffmpeg lavfi 生成纯色片段，离线、零成本，用来跑通整条链路与做回归 |
+| `filmbench/qwentts` | 音频 | 本地 Qwen3-TTS 生成旁白；时长以实际输出为准，入点须落在剪辑点 |
 | `filmbench/scorekit` | 音频 | 调 `scorekit build` 把 scene.yaml 编译成 WAV；作为 `role: music` 的音轨混入 |
 | `filmbench/title` | 图片 | 本地渲染片名卡/封面（SVG → PNG，宋体标题 + 红线；可选参考图当底并压暗） |
 | `imagine` | 图片 | 调 `imagine generate`，`--authorize-spend`；用 ffprobe 回读真实尺寸；凭据可用 `FILMBENCH_IMAGINE_ENV_FILE` 指向 KEY=VALUE 文件；价格来自 `unitPrice` / `IMAGINE_UNIT_PRICE`，没配就是未知 |

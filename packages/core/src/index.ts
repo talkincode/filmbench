@@ -14,3 +14,4 @@ export * from "./posters.ts";
 export * from "./policy.ts";
 export * from "./check.ts";
 export * from "./cues.ts";
+export * from "./narration.ts";

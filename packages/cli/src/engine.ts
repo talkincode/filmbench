@@ -62,7 +62,9 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
           order: i + 1,
           role: s.role ?? "picture",
           title: s.title,
-          durationFrames: s.durationFrames,
+          // 音轨用实际产物时长（旁白生成长度不可预知）
+          durationFrames:
+            (s.role ?? "picture") !== "picture" && s.produce ? s.produce.durationFrames : s.durationFrames,
           startFrame: state.shots.slice(0, i).reduce((n, x) => n + x.durationFrames, 0),
           provider: s.binder.provider,
           task: s.binder.task,
@@ -108,7 +110,9 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
           order: i + 1,
           role: s.role ?? "picture",
           title: s.title,
-          durationFrames: s.durationFrames,
+          // 音轨用实际产物时长（旁白生成长度不可预知）
+          durationFrames:
+            (s.role ?? "picture") !== "picture" && s.produce ? s.produce.durationFrames : s.durationFrames,
           startFrame: start,
           endFrame: cursor,
           provider: s.binder.provider,

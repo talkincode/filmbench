@@ -5,6 +5,7 @@ import { lintPrompt } from "./prompt.ts";
 import { shotStale } from "./stale.ts";
 import { totalFrames } from "./state.ts";
 import { alignCues, cueTimes, loadCues } from "./cues.ts";
+import { voiceAlignment, voiceLines } from "./narration.ts";
 import type { Service } from "./service.ts";
 import { join } from "node:path";
 
@@ -98,6 +99,19 @@ export function runChecks(service: Service, registry: ProviderRegistry): CheckRe
     } catch (e) {
       add("音乐卡点", false, (e as Error).message);
     }
+  }
+
+  const voices = voiceLines(state);
+  if (voices.length) {
+    const rows = voiceAlignment(state);
+    const bad = rows.filter((r) => !r.ok);
+    add(
+      "旁白入点",
+      bad.length === 0,
+      bad.length
+        ? `${bad.length}/${rows.length} 条旁白没有落在剪辑点：${bad.map((r) => `${r.shot}@${r.start.toFixed(2)}s`).join("，")}`
+        : `${rows.length} 条旁白全部落在剪辑点`,
+    );
   }
 
   const projection = projectStoryboard(service, registry);

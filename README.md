@@ -161,6 +161,19 @@ filmbench build      # 混入成片：AAC 48kHz 立体声
 - 混音链：`loudnorm(I=-18,TP=-2)` → `volume` → 淡入/淡出，多个音轨走 `amix`；
 - 产物同样走内容寻址、选定、审阅，`filmbench check` 会把它算进"每镜有产物"。
 
+### 旁白（role: voice）
+
+```bash
+filmbench shot add --id vo-open --title "旁白 · 没有地址" --frames 90 --role voice \
+  --provider filmbench/qwentts --task voice --narration "这一单，没有地址。" \
+  --param startFrame=60 --param voice=Serena --param emotion=low
+```
+
+- 本地 Qwen3-TTS 生成（qwentts skill），产物是音频，**时长以实际生成为准**；
+- `startFrame` 决定入点，**必须在剪辑点上**（与音乐卡点同一套校验），否则 `build` 拒绝；
+- 有旁白时音乐自动避让：`sidechaincompress` 用旁白做侧链压音乐，旁白 -16 LUFS / 音乐 -18 LUFS；
+- `build` 会顺带写出 `build/narration.srt`（按句切分、按字数分配时间，近似字幕，不做强制对齐）。
+
 ### 音轨卡点（fit: exact）
 
 音乐不是"铺上去就行"，剪辑点要落在乐句边界上：

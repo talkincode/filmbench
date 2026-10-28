@@ -529,7 +529,7 @@ function render() {
   const audioShots = st.shots.filter((s) => (s.role ?? "picture") !== "picture");
   $("musicRow").classList.toggle("on", audioShots.length > 0);
   $("musicRow").innerHTML = audioShots.map((s) => `<div class="music-item" data-shot="${esc(s.id)}">
-      <span class="ic">♪</span><b>${esc(s.title)}</b>
+      <span class="ic">${s.role === "voice" ? "◍" : "♪"}</span><b>${esc(s.title)}</b>
       <span>${(s.durationFrames / (st.project?.format.fps || 30)).toFixed(2)}s · ${esc(s.provider)}</span>
       <span class="st" data-s="${s.hasOutput && !s.stale ? "ok" : "bad"}">${!s.hasOutput ? "缺音频" : s.stale ? "过期" : "就位"}</span>
     </div>`).join("");

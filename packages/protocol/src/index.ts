@@ -81,6 +81,8 @@ export const SHOT = z.object({
   intent: z.object({
     description: z.string().default(""),
     action: z.string().default(""),
+    /** 旁白文本（role: voice 的镜头用） */
+    narration: z.string().default(""),
     prompt: z.string().default(""),
     /** 按模态分开的模型 prompt：图生图 / 图生视频要的东西不是一回事 */
     prompts: z
@@ -109,6 +111,7 @@ export const SHOT_PATCH = z.object({
     .object({
       description: z.string().optional(),
       action: z.string().optional(),
+      narration: z.string().optional(),
       prompt: z.string().optional(),
       prompts: z
         .object({ image: z.string().optional(), video: z.string().optional() })

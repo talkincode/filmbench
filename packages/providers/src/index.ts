@@ -546,6 +546,48 @@ export function scorekit(): Provider {
   };
 }
 
+/** filmbench/qwentts：本地 Qwen3-TTS 生成旁白 */
+export function qwentts(): Provider {
+  return {
+    id: "filmbench/qwentts",
+    tasks: ["voice"],
+    determinism: "nondeterministic",
+    estimate: () => ({ amount: 0, currency: "USD", units: "line", priceUnknown: false }),
+    health: () =>
+      Bun.which(process.env.FILMBENCH_QWENTTS ?? "qwen3-tts-ai")
+        ? { ok: true, detail: "qwen3-tts-ai 可用" }
+        : { ok: false, detail: "缺少 qwen3-tts-ai（qwentts skill）" },
+    async run(input: ProviderRunInput) {
+      const bin = process.env.FILMBENCH_QWENTTS ?? "qwen3-tts-ai";
+      if (!Bun.which(bin)) throw new Error("qwen3-tts-ai 未安装");
+      const text = String(input.params.text ?? input.shot.intent.narration ?? "");
+      if (!text.trim()) throw new Error(`${input.shot.id} 没有旁白文本（intent.narration 或 params.text）`);
+      const tmp = join(input.projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${input.shot.id}.wav`);
+      const args = [
+        bin, "-t", text, "-o", out,
+        "--model", String(input.params.model ?? "customvoice"),
+        "--voice", String(input.params.voice ?? "Serena"),
+        "--emotion-intensity", String(input.params.emotion ?? "low"),
+        "--speed", String(input.params.speed ?? 1),
+      ];
+      const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
+      if (code !== 0) throw new Error(`qwentts 失败：${stderr.split("\n").slice(-4).join("\n")}`);
+      if (!existsSync(out)) throw new Error("qwentts 没有写出音频");
+      const probe = Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out]);
+      const seconds = Number(probe.stdout.toString().trim());
+      if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("无法读取旁白时长");
+      const frames = Math.round(seconds * input.format.fps);
+      input.onLog?.(`旁白 ${seconds.toFixed(2)}s / ${frames}f`);
+      return {
+        files: [{ kind: "audio" as const, path: out, mime: "audio/wav", width: 0, height: 0, durationFrames: frames }],
+        cost: { kind: "local" as const, units: "line", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
 /** 通用本地命令：把任意 CLI（qwentts / scorekit / hyperframes / remotion）接成 provider */
 export function localProc(config: {
   id: string;
@@ -602,6 +644,6 @@ export function localProc(config: {
 
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
-  for (const p of [colorcard(), titleCard(), scorekit(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
+  for (const p of [colorcard(), titleCard(), scorekit(), qwentts(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
   return registry;
 }

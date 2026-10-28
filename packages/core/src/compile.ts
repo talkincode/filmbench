@@ -6,6 +6,7 @@ import { PATHS, ValidationError, type Service } from "./service.ts";
 import { pictureShots, totalFrames, type ProjectState } from "./state.ts";
 import { shotStale } from "./stale.ts";
 import { alignCues, cueTimes, loadCues } from "./cues.ts";
+import { narrationSrt, voiceAlignment } from "./narration.ts";
 
 /**
  * Render IR：编译的唯一产物。声明式、逐字节确定、可 diff。
@@ -26,7 +27,10 @@ export interface RenderIR {
   }[];
   audio: {
     shot: string;
+    role: "music" | "voice";
     path: string;
+    startFrame: number;
+    durationFrames: number;
     volume: number;
     fadeInFrames: number;
     fadeOutFrames: number;
@@ -98,12 +102,16 @@ export function compile(
           }
         }
       }
-      const fadeIn = Number(shot.binder.params.fadeIn ?? 1.5);
-      const fadeOut = Number(shot.binder.params.fadeOut ?? 2);
+      const isVoice = shot.role === "voice";
+      const fadeIn = Number(shot.binder.params.fadeIn ?? (isVoice ? 0 : 1.5));
+      const fadeOut = Number(shot.binder.params.fadeOut ?? (isVoice ? 0.15 : 2));
       audio.push({
         shot: shot.id,
+        role: isVoice ? "voice" : "music",
         path: shot.produce.path,
-        volume: Number(shot.binder.params.volume ?? 0.55),
+        startFrame: Number(shot.binder.params.startFrame ?? 0),
+        durationFrames: shot.produce.durationFrames,
+        volume: Number(shot.binder.params.volume ?? (isVoice ? 1 : 0.55)),
         fadeInFrames: Math.round(fadeIn * format.fps),
         fadeOutFrames: Math.round(fadeOut * format.fps),
       });
@@ -163,6 +171,16 @@ export function compile(
     });
   }
 
+  for (const line of voiceAlignment(state)) {
+    if (!line.ok) {
+      issues.push({
+        code: "voice-misaligned",
+        shot: line.shot,
+        detail: `旁白入点 ${line.start.toFixed(2)}s 没有落在剪辑点（最近 ${line.cut?.toFixed(2) ?? "-"}s）`,
+      });
+    }
+  }
+
   if (issues.length > 0) return { ir: null, issues };
 
   return {
@@ -216,23 +234,48 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
 
   const durationSec = ir.totalFrames / fps;
   const audioChains = ir.audio.map((track, i) => {
-    // 先把响度拉到统一水平，再按 track.volume 做最终配比，避免不同音源忽大忽小
-    const parts = ["loudnorm=I=-18:TP=-2:LRA=11", `volume=${track.volume}`];
+    const parts: string[] = [];
+    // 旁白比音乐床更靠前：-16 LUFS；音乐 -18 LUFS
+    parts.push(track.role === "voice" ? "loudnorm=I=-16:TP=-1.5:LRA=7" : "loudnorm=I=-18:TP=-2:LRA=11");
+    parts.push(`volume=${track.volume}`);
     if (track.fadeInFrames > 0) parts.push(`afade=t=in:st=0:d=${secs(track.fadeInFrames, fps)}`);
     if (track.fadeOutFrames > 0) {
-      const start = Math.max(0, durationSec - track.fadeOutFrames / fps);
+      const anchor = track.role === "music" ? durationSec : track.durationFrames / fps;
+      const start = Math.max(0, anchor - track.fadeOutFrames / fps);
       parts.push(`afade=t=out:st=${start.toFixed(3)}:d=${secs(track.fadeOutFrames, fps)}`);
+    }
+    if (track.startFrame > 0) {
+      const ms = Math.round((track.startFrame / fps) * 1000);
+      parts.push(`adelay=${ms}|${ms}`);
     }
     return `[${ir.clips.length + i}:a]${parts.join(",")}[a${i}]`;
   });
-  const mix =
-    ir.audio.length === 0
-      ? null
-      : ir.audio.length === 1
-        ? "[a0]anull[a]"
-        : `${ir.audio.map((_, i) => `[a${i}]`).join("")}amix=inputs=${ir.audio.length}:duration=longest:dropout_transition=0[a]`;
+  // 有旁白时让音乐自动避让（sidechain），否则直接把所有音轨相加
+  const voiceIdx = ir.audio.map((t, i) => (t.role === "voice" ? i : -1)).filter((i) => i >= 0);
+  const musicIdx = ir.audio.map((t, i) => (t.role === "music" ? i : -1)).filter((i) => i >= 0);
+  const duck: string[] = [];
+  let mix: string | null = null;
 
-  const graph = [norm, concat, ...audioChains, ...(mix ? [mix] : [])].join(";");
+  if (ir.audio.length === 0) {
+    mix = null;
+  } else if (voiceIdx.length > 0 && musicIdx.length > 0) {
+    const voiceLabels = voiceIdx.map((i) => `[a${i}]`).join("");
+    duck.push(
+      `${voiceLabels}amix=inputs=${voiceIdx.length}:duration=longest:dropout_transition=0:normalize=0,` +
+        `apad=whole_dur=${durationSec.toFixed(3)},asplit=2[vmix][vsc]`,
+    );
+    const ducked = musicIdx.map((i) => {
+      duck.push(`[a${i}][vsc]sidechaincompress=threshold=0.02:ratio=6:attack=15:release=350[duck${i}]`);
+      return `[duck${i}]`;
+    });
+    mix = `${ducked.join("")}[vmix]amix=inputs=${musicIdx.length + 1}:duration=longest:dropout_transition=0:normalize=0[a]`;
+  } else if (ir.audio.length === 1) {
+    mix = "[a0]anull[a]";
+  } else {
+    mix = `${ir.audio.map((_, i) => `[a${i}]`).join("")}amix=inputs=${ir.audio.length}:duration=longest:dropout_transition=0:normalize=0[a]`;
+  }
+
+  const graph = [norm, concat, ...audioChains, ...duck, ...(mix ? [mix] : [])].join(";");
   return [
     "-y",
     ...inputs,
@@ -293,6 +336,9 @@ export async function build(
 
   const bytes = statSync(out).size;
   const digest = createHash("sha256").update(readFileSync(out)).digest("hex");
+  const srt = narrationSrt(state);
+  if (srt.trim()) writeFileSync(join(service.dir, PATHS.build, "narration.srt"), srt);
+
   service.append("render.completed", { out, sha256: digest, bytes, durationFrames: ir.totalFrames });
   return { ir, out, durationFrames: ir.totalFrames, sha256: digest, bytes };
 }

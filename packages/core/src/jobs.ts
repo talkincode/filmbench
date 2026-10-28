@@ -24,6 +24,15 @@ export function hashReferencedFiles(projectDir: string, params: Record<string, u
   return out;
 }
 
+/** 只影响混音、不影响产物的参数：改它们不该让素材过期 */
+const MIX_ONLY_KEYS = new Set(["volume", "fadeIn", "fadeOut", "startFrame", "fit", "cues", "tolerance"]);
+
+function stripMixParams(params: Record<string, string | number | boolean>) {
+  const out: Record<string, string | number | boolean> = {};
+  for (const [k, v] of Object.entries(params)) if (!MIX_ONLY_KEYS.has(k)) out[k] = v;
+  return out;
+}
+
 export function inputsHash(
   shot: ShotState,
   fps: number,
@@ -31,6 +40,7 @@ export function inputsHash(
   modality: "image" | "video" | null = null,
   includeDuration = modality !== "image",
   extras: Record<string, string> = {},
+  includeMixParams = false,
 ): string {
   // 只哈希"实际生效"的 prompt：改了通用兜底但专用 prompt 已存在时，不该判过期
   return sha256(
@@ -42,10 +52,12 @@ export function inputsHash(
         intent: {
           description: shot.intent.description,
           action: shot.intent.action,
+          // 只有真正有旁白的 voice 镜头才加这个字段：画面镜头的哈希保持原样
+          ...(shot.role === "voice" && shot.intent.narration ? { narration: shot.intent.narration } : {}),
           prompt: promptFor(shot.intent, modality),
         },
         binder: shot.binder,
-        params,
+        params: includeMixParams ? params : stripMixParams(params),
         subjects: shot.subjects,
         references: shot.references,
         // 只有真的引用了本地文件才加这个字段：老作业的哈希里没有它

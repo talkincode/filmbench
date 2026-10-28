@@ -183,6 +183,7 @@ const cmdShot = (argv: string[]) => {
         ref: { type: "string", multiple: true },
         desc: { type: "string", default: "" },
         action: { type: "string", default: "" },
+        narration: { type: "string", default: "" },
         after: { type: "string" },
         color: { type: "string" },
         role: { type: "string", default: "picture" },
@@ -212,6 +213,7 @@ const cmdShot = (argv: string[]) => {
           intent: {
             description: values.desc!,
             action: values.action!,
+            narration: values.narration!,
             prompt: values["image-prompt"] || values["video-prompt"] || values.prompt!,
             prompts: { image: values["image-prompt"]!, video: values["video-prompt"]! },
           },
@@ -287,6 +289,7 @@ const cmdShot = (argv: string[]) => {
         prompt: { type: "string" },
         desc: { type: "string" },
         action: { type: "string" },
+        narration: { type: "string" },
         provider: { type: "string" },
         task: { type: "string" },
       },
@@ -300,6 +303,7 @@ const cmdShot = (argv: string[]) => {
       if (values.prompt) intent.prompt = values.prompt;
       if (values.desc !== undefined) intent.description = values.desc;
       if (values.action !== undefined) intent.action = values.action;
+      if (values.narration !== undefined) intent.narration = values.narration;
       if (Object.keys(intent).length) patch.intent = intent;
       if (values.provider || values.task) {
         patch.binder = {

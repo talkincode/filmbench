@@ -18,6 +18,7 @@ shots:
     intent:
       description: 黑底片名，细红线，副标题
       action: ""
+      narration: ""
       prompt: ""
       prompts:
         image: ""
@@ -47,6 +48,7 @@ shots:
     intent:
       description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
       action: 静止，雨声，灯管轻微频闪
+      narration: ""
       prompt: 废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm
         电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印
       prompts:
@@ -70,6 +72,7 @@ shots:
     intent:
       description: 穿深色雨衣的快递员背对镜头，把一个小纸箱放在门口脚垫上
       action: 弯腰、放下、起身，肩膀上有雨
+      narration: ""
       prompt: 穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm
         电影剧照，浅景深，画面里没有文字，没有水印
       prompts:
@@ -97,6 +100,7 @@ shots:
     intent:
       description: 电梯门打开，里面是空的，灯管在闪
       action: 门开、停顿、灯闪三次
+      narration: ""
       prompt: empty elevator car, doors opening, flickering tube
       prompts:
         image: ""
@@ -118,6 +122,7 @@ shots:
     intent:
       description: 走廊尽头那扇门缝里漏出暖光，地上有湿脚印
       action: 极缓慢前推，脚印从镜头下缘延伸出去
+      narration: ""
       prompt: 老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm
         变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
       prompts:
@@ -146,6 +151,7 @@ shots:
     intent:
       description: " scratched brass number plate beside the door"
       action: 特写，焦点从划痕移到数字
+      narration: ""
       prompt: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
       prompts:
         image: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
@@ -169,6 +175,7 @@ shots:
     intent:
       description: 包裹不见了，脚垫上只留一圈水渍，门已经关上
       action: 静止两秒，然后切黑
+      narration: ""
       prompt: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
       prompts:
         image: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
@@ -193,6 +200,7 @@ shots:
       description: A 小调 2/4、10 小节：钢琴主题（6s / 14s 两次模进）+ 弦乐 + 低音提琴 + 竖琴；定音鼓在 0s / 10s /
         16s 各一下；p–mf
       action: ""
+      narration: ""
       prompt: ""
       prompts:
         image: ""
@@ -202,12 +210,58 @@ shots:
       task: music
       params:
         scene: music/score.yaml
-        volume: 0.9
+        volume: 0.8
         fadeIn: 2
         fadeOut: 3
         fit: exact
         cues: music/score.cues.json
         tolerance: 0.06
+    subjects: []
+    references: []
+    dependsOn: []
+  - id: vo-open
+    title: 旁白 · 没有地址
+    role: voice
+    durationFrames: 90
+    intent:
+      description: ""
+      action: ""
+      narration: ""
+      prompt: ""
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: filmbench/qwentts
+      task: voice
+      params:
+        startFrame: 60
+        voice: Serena
+        emotion: low
+        volume: 1.15
+    subjects: []
+    references: []
+    dependsOn: []
+  - id: vo-door
+    title: 旁白 · 灯还亮着
+    role: voice
+    durationFrames: 90
+    intent:
+      description: ""
+      action: ""
+      narration: ""
+      prompt: ""
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: filmbench/qwentts
+      task: voice
+      params:
+        startFrame: 360
+        voice: Serena
+        emotion: low
+        volume: 1.2
     subjects: []
     references: []
     dependsOn: []

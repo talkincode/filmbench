@@ -46,6 +46,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 标题卡 | `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits），剧照压暗 + 暗角 + 颗粒 |
 | 封面 | 标题卡本身就是封面（`filmbench cover --shot title`），与片头同一套设计语言 |
 | 配乐 | `music/score.yaml` 用 scorekit 场景 DSL 写；产物作为音轨混入，成片 AAC 48kHz 立体声 |
+| 旁白 | 两条（`vo-open` @2s、`vo-door` @12s），qwentts 本地生成，入点都落在剪辑点；音乐自动避让旁白；build 顺带产出 `narration.srt` |
 | 音轨卡点 | `music/score.cues.json`（2/4、60bpm、10 小节）+ `fit: exact`；`filmbench cues` 显示 8 个剪辑点全部 0 偏差 |
 | 一键验收 | `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面 12 项 |
 

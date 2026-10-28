@@ -172,7 +172,11 @@ export function fold(
         const shot = p.shot as Shot;
         state.shots.push({
           ...shot,
-          intent: { ...shot.intent, prompts: shot.intent.prompts ?? { image: "", video: "" } },
+          intent: {
+            ...shot.intent,
+            narration: shot.intent.narration ?? "",
+            prompts: shot.intent.prompts ?? { image: "", video: "" },
+          },
           addedAt: e.seq,
           mutatedAt: e.seq,
         });
