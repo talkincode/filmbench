@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Provider, ProviderRegistry, ProviderRunInput } from "@filmbench/core";
 import { colabRunJob } from "./colab.ts";
@@ -519,16 +519,35 @@ export function scorekit(): Provider {
       if (!existsSync(scenePath)) throw new Error(`场景文件不存在: ${scenePath}`);
       const tmp = join(input.projectDir, ".filmbench", "tmp");
       mkdirSync(tmp, { recursive: true });
+      const raw = join(tmp, `${input.shot.id}.raw.wav`);
       const out = join(tmp, `${input.shot.id}.wav`);
-      const { code, stderr } = await run(
-        ["scorekit", "build", "--output", out, scenePath, "--json"],
-        input.projectDir,
-        input.onLog,
-        undefined,
-        input.signal,
-      );
+      // 采样库渲染（sfizz + orchestration）比 GM 好听一个档次；不填就还是默认 SF2
+      const renderer = String(input.params.renderer ?? "");
+      const orchestration = String(input.params.orchestration ?? "");
+      const soundfont = String(input.params.soundfont ?? "");
+      const args = ["scorekit", "build", "--output", raw, scenePath, "--json"];
+      if (renderer) args.push("--renderer", renderer);
+      if (orchestration) args.push("--orchestration", orchestration);
+      if (soundfont) args.push("--soundfont", soundfont);
+      if (input.params.gain !== undefined) args.push("--gain", String(input.params.gain));
+      const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`scorekit 失败：${stderr.split("\n").slice(-6).join("\n")}`);
-      if (!existsSync(out)) throw new Error("scorekit 没有写出音频");
+      if (!existsSync(raw)) throw new Error("scorekit 没有写出音频");
+      // 母带小修（高通 / 高音架）跟渲染在同一个作业里完成，不另开手工链路
+      const post = String(input.params.postFilter ?? "");
+      if (post) {
+        const master = await run(
+          ["ffmpeg", "-y", "-i", raw, "-af", post, "-c:a", "pcm_s16le", out],
+          input.projectDir,
+          input.onLog,
+          undefined,
+          input.signal,
+        );
+        if (master.code !== 0) throw new Error(`母带处理失败：${master.stderr.split("\n").slice(-6).join("\n")}`);
+      } else {
+        copyFileSync(raw, out);
+      }
+      if (!existsSync(out)) throw new Error("没有写出音频");
       return {
         files: [
           {
@@ -652,6 +671,83 @@ export function localProc(config: {
   };
 }
 
+/**
+ * import：把项目里已经存在的文件登记成镜头产物（不转码、不重算）。
+ *
+ * 有些素材根本不该由 filmbench 生成——比如舆图录制、实拍补拍、别人给的一段音乐。
+ * 它们也必须走同一条「产物 → 选片 → 审阅 → 编译」的路，而不是绕过作业直接塞进 IR；
+ * 否则账本、哈希链、过期判定都会出现盲区。长度与画幅按实测校验，短了就是短了。
+ */
+export function importFile(): Provider {
+  return {
+    id: "filmbench/import",
+    tasks: ["import"],
+    determinism: "deterministic",
+    estimate: () => ({ amount: 0, currency: "USD", units: "file", priceUnknown: false }),
+    health: () => (has("ffprobe") ? { ok: true, detail: "ffprobe 可用" } : { ok: false, detail: "缺少 ffprobe" }),
+    async run(input: ProviderRunInput) {
+      const { shot, params, projectDir, format } = input;
+      const rel = String(params.file ?? "");
+      if (!rel) throw new Error(`${shot.id} 需要 params.file（相对项目根或绝对路径）`);
+      const file = rel.startsWith("/") ? rel : join(projectDir, rel);
+      if (!existsSync(file)) throw new Error(`文件不存在: ${rel}`);
+      const ext = file.split(".").pop()?.toLowerCase() ?? "";
+      const kind = (params.kind as "video" | "image" | "audio" | undefined) ??
+        (["mp4", "mov", "mkv", "webm"].includes(ext)
+          ? "video"
+          : ["wav", "mp3", "flac", "aac", "m4a"].includes(ext)
+            ? "audio"
+            : "image");
+      const mime = ext === "png" ? "image/png" : ["jpg", "jpeg"].includes(ext) ? "image/jpeg" : ext === "wav" ? "audio/wav" : ext === "mp3" ? "audio/mpeg" : "video/mp4";
+      const info = await probeMedia(file);
+      const durationFrames =
+        kind === "image" ? shot.durationFrames : info.frames || Math.round(info.duration * format.fps);
+      if (kind !== "image" && Math.abs(durationFrames - shot.durationFrames) > 1) {
+        throw new Error(
+          `实际 ${durationFrames} 帧（${info.duration.toFixed(2)}s），镜头声明 ${shot.durationFrames} 帧——先对齐长度再导入`,
+        );
+      }
+      return {
+        files: [
+          {
+            kind,
+            path: file,
+            mime,
+            width: kind === "audio" ? 0 : info.width,
+            height: kind === "audio" ? 0 : info.height,
+            durationFrames,
+          },
+        ],
+        cost: { kind: "local" as const, units: "file", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
+/** 实测一条媒体的画幅与帧数（视频按 nb_frames，取不到再用时长×帧率） */
+async function probeMedia(path: string): Promise<{ width: number; height: number; frames: number; duration: number }> {
+  try {
+    const proc = Bun.spawn(
+      [
+        "ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=width,height,nb_frames,avg_frame_rate,duration",
+        "-show_entries", "format=duration", "-of", "json", path,
+      ],
+      { stdout: "pipe", stderr: "ignore" },
+    );
+    const data = JSON.parse(await new Response(proc.stdout).text());
+    await proc.exited;
+    const s = data.streams?.[0];
+    const duration = Number(s?.duration ?? data.format?.duration ?? 0);
+    const [num, den] = String(s?.avg_frame_rate ?? "0/1").split("/").map(Number);
+    const fps = den ? num / den : 0;
+    const frames = Number(s?.nb_frames) || (fps ? Math.round(duration * fps) : 0);
+    return { width: Number(s?.width ?? 0), height: Number(s?.height ?? 0), frames, duration };
+  } catch {
+    return { width: 0, height: 0, frames: 0, duration: 0 };
+  }
+}
+
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
   for (const p of [
@@ -665,6 +761,7 @@ export function builtinProviders(): ProviderRegistry {
     remotion(),
     hyperframes(),
     browserCapture(),
+    importFile(),
   ]) {
     registry.set(p.id, p);
   }
@@ -683,7 +780,8 @@ export function remotion(): Provider {
       return bin ? { ok: true, detail: "node 可用（remotion 由项目依赖提供）" } : { ok: false, detail: "缺少 node" };
     },
     async run(input: ProviderRunInput) {
-      const cwd = join(input.projectDir, String(input.params.cwd ?? "."));
+      const rawCwd = String(input.params.cwd ?? ".");
+      const cwd = rawCwd.startsWith("/") ? rawCwd : join(input.projectDir, rawCwd);
       const entry = String(input.params.entry ?? "src/index.ts");
       const composition = String(input.params.composition ?? "");
       if (!composition) throw new Error(`${input.shot.id} 需要 params.composition（Remotion composition id）`);
@@ -700,15 +798,17 @@ export function remotion(): Provider {
       const { code, stderr } = await run([cmd, ...args], cwd, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`remotion 失败：${stderr.split("\n").slice(-6).join("\n")}`);
       if (!existsSync(out)) throw new Error("remotion 没有写出视频");
+      // composition 自己的尺寸可能与项目格式不一致：按实测登记，别信声明
+      const info = await probeMedia(out);
       return {
         files: [
           {
             kind: "video" as const,
             path: out,
             mime: "video/mp4",
-            width: input.format.width,
-            height: input.format.height,
-            durationFrames: input.shot.durationFrames,
+            width: info.width || input.format.width,
+            height: info.height || input.format.height,
+            durationFrames: info.frames || input.shot.durationFrames,
           },
         ],
         cost: { kind: "local" as const, units: "render", unitPrice: 0, amount: 0, currency: "USD" },
@@ -726,7 +826,8 @@ export function hyperframes(): Provider {
     estimate: () => ({ amount: 0, currency: "USD", units: "render", priceUnknown: false }),
     health: () => (Bun.which("npx") ? { ok: true, detail: "npx 可用（首次会下载 hyperframes CLI）" } : { ok: false, detail: "缺少 npx" }),
     async run(input: ProviderRunInput) {
-      const projectDir = join(input.projectDir, String(input.params.project ?? "."));
+      const rawProject = String(input.params.project ?? ".");
+      const projectDir = rawProject.startsWith("/") ? rawProject : join(input.projectDir, rawProject);
       if (!existsSync(join(projectDir, "index.html")) && !input.params.composition) {
         throw new Error(`${input.shot.id} 需要 params.project（含 index.html）或 params.composition`);
       }
@@ -739,15 +840,16 @@ export function hyperframes(): Provider {
       const { code, stderr } = await run(["npx", ...args], input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`hyperframes 失败：${stderr.split("\n").slice(-6).join("\n")}`);
       if (!existsSync(out)) throw new Error("hyperframes 没有写出视频");
+      const info = await probeMedia(out);
       return {
         files: [
           {
             kind: "video" as const,
             path: out,
             mime: "video/mp4",
-            width: input.format.width,
-            height: input.format.height,
-            durationFrames: input.shot.durationFrames,
+            width: info.width || input.format.width,
+            height: info.height || input.format.height,
+            durationFrames: info.frames || input.shot.durationFrames,
           },
         ],
         cost: { kind: "local" as const, units: "render", unitPrice: 0, amount: 0, currency: "USD" },

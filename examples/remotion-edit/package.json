@@ -1,0 +1,19 @@
+{
+  "name": "filmbench-remotion-edit",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Remotion 剪辑例子：三段实拍/录制素材 + 交叉溶解 + 动态字幕，由 filmbench/remotion provider 渲染成镜头",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts Edit out/edit.mp4",
+    "still": "remotion still src/index.ts Edit out/still.png --frame=40",
+    "clips": "node scripts/prepare-clips.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "@remotion/transitions": "4.0.539",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.539"
+  }
+}

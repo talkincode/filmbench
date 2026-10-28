@@ -34,6 +34,8 @@ export interface RenderIR {
     volume: number;
     fadeInFrames: number;
     fadeOutFrames: number;
+    /** 已经做过母带的音轨（normalize:false）不再跑一遍 loudnorm：那会把力度曲线压平 */
+    normalize: boolean;
   }[];
   requirements: ("ffmpeg" | "ffprobe")[];
   output: { container: "mp4"; videoCodec: "libx264"; pixelFormat: "yuv420p"; audio: "none" };
@@ -114,6 +116,7 @@ export function compile(
         volume: Number(shot.binder.params.volume ?? (isVoice ? 1 : 0.55)),
         fadeInFrames: Math.round(fadeIn * format.fps),
         fadeOutFrames: Math.round(fadeOut * format.fps),
+        normalize: shot.binder.params.normalize !== false,
       });
       continue;
     }
@@ -236,7 +239,17 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
   const audioChains = ir.audio.map((track, i) => {
     const parts: string[] = [];
     // 旁白比音乐床更靠前：-16 LUFS；音乐 -18 LUFS
-    parts.push(track.role === "voice" ? "loudnorm=I=-16:TP=-1.5:LRA=7" : "loudnorm=I=-18:TP=-2:LRA=11");
+    // 动态归一化会重排力度关系（轻的地方被抬起来，顶点被压下去）。配乐要保曲线，
+    // 就在 provider 里做好母带、这里 normalize:false；linear=true 只做整段增益。
+    if (track.normalize) {
+      parts.push(
+        track.role === "voice"
+          ? "loudnorm=I=-16:TP=-1.5:LRA=7:linear=true"
+          : "loudnorm=I=-18:TP=-2:LRA=11:linear=true",
+      );
+    } else {
+      parts.push("alimiter=limit=0.95:level=false:attack=3:release=80");
+    }
     parts.push(`volume=${track.volume}`);
     if (track.fadeInFrames > 0) parts.push(`afade=t=in:st=0:d=${secs(track.fadeInFrames, fps)}`);
     if (track.fadeOutFrames > 0) {

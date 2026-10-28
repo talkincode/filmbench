@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, lintPrompt, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -363,4 +363,42 @@ describe("编译与投影", () => {
     }
     svc.close();
   });
+});
+
+test("替换同名媒体文件会让镜头过期（否则账本里会留下假产物）", () => {
+  const { svc, sub } = project("import-stale");
+  const video = join(sub, "clip.mp4");
+  writeFileSync(video, "first-take");
+  svc.patchShot("shot-a", { binder: { provider: "filmbench/import", task: "import", params: { file: "clip.mp4" } } });
+  const shot = svc.state().shots[0];
+  const before = hashReferencedFiles(sub, shot.binder.params);
+  writeFileSync(video, "second-take");
+  const after = hashReferencedFiles(sub, shot.binder.params);
+  // 文本输入与媒体输入都要进入哈希：同名替换必须改变哈希，才会被判定为过期
+  expect(Object.keys(before)).toEqual(["file"]);
+  expect(before.file).not.toBe(after.file);
+  svc.close();
+});
+
+test("normalize:false 的音轨不跑 loudnorm，只留安全限幅", () => {
+  const { svc } = project("normalize-off");
+  svc.patchShot("shot-a", { produce: undefined });
+  const shot = svc.state().shots[0];
+  const ir = {
+    ir: "filmbench/render-ir/v1" as const,
+    project: "p",
+    format: { width: 320, height: 180, fps: 30 },
+    totalFrames: 30,
+    clips: [],
+    audio: [
+      { shot: "m", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
+    ],
+    requirements: ["ffmpeg" as const],
+    output: { container: "mp4" as const, videoCodec: "libx264" as const, pixelFormat: "yuv420p" as const, audio: "none" as const },
+  };
+  const args = ffmpegArgs(ir, "/tmp", "/tmp/out.mp4");
+  const graph = args[args.indexOf("-filter_complex") + 1];
+  expect(graph).toContain("alimiter=limit=0.95:level=false");
+  expect(graph).not.toContain("loudnorm");
+  expect(shot.durationFrames).toBe(30);
 });

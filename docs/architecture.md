@@ -101,6 +101,7 @@ interface Provider {
 | `imagine` | 图片 | 调 `imagine generate`，`--authorize-spend`；用 ffprobe 回读真实尺寸；凭据可用 `FILMBENCH_IMAGINE_ENV_FILE` 指向 KEY=VALUE 文件；价格来自 `unitPrice` / `IMAGINE_UNIT_PRICE`，没配就是未知 |
 | `colab` | 视频 | 可复用会话：`workflows/<name>` 打包上传，首次 setup（persist 命中跳过），之后复用；空闲 30 分钟由本地 reap 与 VM watchdog 停止 |
 | `local-proc` | 自定义 | 任意 CLI 模板（qwentts / scorekit / hyperframes / remotion）接成 provider |
+| `filmbench/import` | 全部 | 把项目内已有文件登记成作业产物（不转码）；媒体文件也进输入哈希，同名替换会被判过期 |
 
 ## agent 与 MCP 同源
 

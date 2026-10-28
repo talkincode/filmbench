@@ -8,7 +8,7 @@ export interface ProviderEstimate {
 }
 
 export interface ProviderFile {
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   /** 绝对路径；落库前会被内容寻址复制到 assets/<sha>/ */
   path: string;
   mime: string;

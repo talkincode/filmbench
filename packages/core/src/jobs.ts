@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { canonical, promptFor } from "@filmbench/protocol";
 import { remainingBudget, type ShotState } from "./state.ts";
@@ -11,14 +11,28 @@ import { blockedBy, lintPrompt } from "./prompt.ts";
 const sha256 = (buf: Uint8Array) => createHash("sha256").update(buf).digest("hex");
 
 /** params 里指向本地文件的参数（scene/cues/script…）：内容的哈希也要进输入，改文件才算改输入 */
+/** 文本类输入：内容哈希；媒体类输入：小文件同样算内容，大文件退回「大小+修改时间」 */
+const TEXT_INPUT = /\.(ya?ml|json|md|txt|srt)$/i;
+const MEDIA_INPUT = /\.(mp4|mov|mkv|webm|wav|mp3|flac|m4a|aac|png|jpe?g|webp)$/i;
+const FULL_HASH_LIMIT = 64 * 1024 * 1024;
+
 export function hashReferencedFiles(projectDir: string, params: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value !== "string" || !/\.(ya?ml|json|md|txt)$/i.test(value)) continue;
+    if (typeof value !== "string") continue;
+    const isText = TEXT_INPUT.test(value);
+    const isMedia = MEDIA_INPUT.test(value);
+    // 《最后一单》的 scene.yaml 改了要重出，舆图录制的 mp4 换了也一样——
+    // 素材被同名文件替换却不判过期，是账本里最难发现的错
+    if (!isText && !isMedia) continue;
     const path = resolve(projectDir, value);
     if (!existsSync(path)) continue;
     try {
-      out[key] = sha256(readFileSync(path));
+      const stat = statSync(path);
+      out[key] =
+        isText || stat.size <= FULL_HASH_LIMIT
+          ? sha256(readFileSync(path))
+          : sha256(`${stat.size}:${stat.mtimeMs}`);
     } catch {}
   }
   return out;

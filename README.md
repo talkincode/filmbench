@@ -83,6 +83,28 @@ filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC
   "cwd": "/Users/wangjuntao/github/filmbench/demo-project" } } }
 ```
 
+## Remotion 剪辑例子
+
+`examples/remotion-edit/` 是一个**剪辑**形态的 Remotion 工程（不是生成）：三段素材、交叉溶解与滑入、
+下三分之一字幕、片名与结尾压字，全部 React 动画，由 `filmbench/remotion` 渲染成镜头产物。
+
+```bash
+cd examples/remotion-edit && npm install && node scripts/prepare-clips.mjs
+npx remotion render src/index.ts Edit out/edit.mp4     # 360 帧 / 12s / 1280×720@30
+```
+
+接进 filmbench 只要四个参数（`cwd` 支持绝对路径）：
+
+```bash
+filmbench shot add --id edit --title '剪辑' --frames 360 \
+  --provider filmbench/remotion --task render \
+  --param cwd=/abs/path/to/examples/remotion-edit --param entry=src/index.ts --param composition=Edit
+```
+
+provider 会用 ffprobe **实测**产物尺寸与帧数再登记，composition 尺寸写错会被编译期的 `spec-mismatch`
+拦下。跑通的参考工程在 `~/github/filmbench-demo/remotion-edit`（12 秒，附 4 小节 scorekit 配乐，
+花费 0，`filmbench check` 全绿）。
+
 ## 需求对照
 
 | 最初的要求 | 现状 | 位置 |
