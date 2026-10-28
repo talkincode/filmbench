@@ -246,6 +246,7 @@ filmbench demo [dir]
 ## 文档
 
 - [架构](docs/architecture.md) —— 模块、真相与投影、单写路径、编译、预算、provider 契约、验收面与非目标
+- [工作流与 provider 契约](docs/workflows.md) —— 声明式 workflow（defaults/capabilities）、H3 i2v/ref2v、Three.js 录制、Remotion/HyperFrames
 - [片名卡与封面设计](docs/title-design.md) —— 四层结构、三个预设、怎么根据剧情写标题
 - [参考图与 prompt 规范](docs/prompt-guide.md) —— 5 张上限、槽位语义、prompt 结构、机器判定规则
 - [审计故事板](packages/storyboard-audit/README.md) —— 投影 schema、检查登记表、网格与连线规则

@@ -1,14 +1,35 @@
 {
+  "schema": "filmbench/workflow/v1",
   "name": "h3-i2v",
-  "title": "ComfyUI · MiniMax H3 图生视频",
+  "title": "MiniMax H3 首尾帧图生视频",
   "gpu": "A100",
-  "remoteDir": "/content/filmbench",
-  "persist": "/content/filmbench/persist",
-  "idleMinutes": 30,
-  "pips": [],
-  "models": [],
+  "defaults": {
+    "width": 768,
+    "height": 1024,
+    "length": 124,
+    "fps": 24,
+    "steps": 24,
+    "seed": 7101
+  },
+  "capabilities": {
+    "firstFrame": true,
+    "lastFrame": true,
+    "referenceImages": false,
+    "referenceVideos": false,
+    "controlVideo": false
+  },
+  "models": [
+    "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+    "vae/minimax_h3_video_vae_fp16.safetensors",
+    "vae/minimax_h3_audio_vae_fp32.safetensors",
+    "model_patches/minimax_h3_fun_controlnet_union_2.0_pruned_int8_convrot.safetensors",
+    "loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+  ],
   "run": "run.py",
   "setup": "setup.py",
   "out": "/content/filmbench/out/{jobId}.mp4",
-  "notes": "首帧定稿 → H3 图生视频，原生 768×1024 / 107 帧 / 24fps；草稿挂 turbo LoRA 8 步，正式 24 步"
+  "pips": [],
+  "env": {},
+  "notes": "默认 3:4（768×1024），length 会吸附到 17k+5 并在 124–362 训练区间内；草稿挂 turbo LoRA 8 步，正式 24 步、cfg 1、seed 固定"
 }

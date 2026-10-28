@@ -654,6 +654,172 @@ export function localProc(config: {
 
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
-  for (const p of [colorcard(), titleCard(), scorekit(), qwentts(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
+  for (const p of [
+    colorcard(),
+    titleCard(),
+    scorekit(),
+    qwentts(),
+    imagine(),
+    imagineVideo(),
+    colab(),
+    remotion(),
+    hyperframes(),
+    browserCapture(),
+  ]) {
+    registry.set(p.id, p);
+  }
   return registry;
+}
+
+/** Remotion：跑项目里的 npx remotion render，产物是 mp4 */
+export function remotion(): Provider {
+  return {
+    id: "filmbench/remotion",
+    tasks: ["render"],
+    determinism: "deterministic",
+    estimate: () => ({ amount: 0, currency: "USD", units: "render", priceUnknown: false }),
+    health: () => {
+      const bin = Bun.which("node");
+      return bin ? { ok: true, detail: "node 可用（remotion 由项目依赖提供）" } : { ok: false, detail: "缺少 node" };
+    },
+    async run(input: ProviderRunInput) {
+      const cwd = join(input.projectDir, String(input.params.cwd ?? "."));
+      const entry = String(input.params.entry ?? "src/index.ts");
+      const composition = String(input.params.composition ?? "");
+      if (!composition) throw new Error(`${input.shot.id} 需要 params.composition（Remotion composition id）`);
+      const tmp = join(input.projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${input.shot.id}.mp4`);
+      const propsPath = join(tmp, `${input.shot.id}.props.json`);
+      writeFileSync(propsPath, JSON.stringify(input.params.props ?? {}, null, 2));
+      const bin = join(cwd, "node_modules/.bin/remotion");
+      const cmd = existsSync(bin) ? bin : "npx";
+      const args = existsSync(bin)
+        ? ["render", entry, composition, out, `--props=${propsPath}`]
+        : ["-y", "remotion", "render", entry, composition, out, `--props=${propsPath}`];
+      const { code, stderr } = await run([cmd, ...args], cwd, input.onLog, undefined, input.signal);
+      if (code !== 0) throw new Error(`remotion 失败：${stderr.split("\n").slice(-6).join("\n")}`);
+      if (!existsSync(out)) throw new Error("remotion 没有写出视频");
+      return {
+        files: [
+          {
+            kind: "video" as const,
+            path: out,
+            mime: "video/mp4",
+            width: input.format.width,
+            height: input.format.height,
+            durationFrames: input.shot.durationFrames,
+          },
+        ],
+        cost: { kind: "local" as const, units: "render", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
+/** HyperFrames：npx hyperframes render <dir>，产物是 mp4 */
+export function hyperframes(): Provider {
+  return {
+    id: "filmbench/hyperframes",
+    tasks: ["render"],
+    determinism: "deterministic",
+    estimate: () => ({ amount: 0, currency: "USD", units: "render", priceUnknown: false }),
+    health: () => (Bun.which("npx") ? { ok: true, detail: "npx 可用（首次会下载 hyperframes CLI）" } : { ok: false, detail: "缺少 npx" }),
+    async run(input: ProviderRunInput) {
+      const projectDir = join(input.projectDir, String(input.params.project ?? "."));
+      if (!existsSync(join(projectDir, "index.html")) && !input.params.composition) {
+        throw new Error(`${input.shot.id} 需要 params.project（含 index.html）或 params.composition`);
+      }
+      const tmp = join(input.projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${input.shot.id}.mp4`);
+      const args = ["-y", "hyperframes", "render", projectDir, "-o", out, "-f", String(input.format.fps)];
+      if (input.params.composition) args.push("-c", String(input.params.composition));
+      args.push("-q", String(input.params.quality ?? "looks"));
+      const { code, stderr } = await run(["npx", ...args], input.projectDir, input.onLog, undefined, input.signal);
+      if (code !== 0) throw new Error(`hyperframes 失败：${stderr.split("\n").slice(-6).join("\n")}`);
+      if (!existsSync(out)) throw new Error("hyperframes 没有写出视频");
+      return {
+        files: [
+          {
+            kind: "video" as const,
+            path: out,
+            mime: "video/mp4",
+            width: input.format.width,
+            height: input.format.height,
+            durationFrames: input.shot.durationFrames,
+          },
+        ],
+        cost: { kind: "local" as const, units: "render", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
+/**
+ * browser：把一张 HTML（Three.js / canvas / WebGL）逐帧渲染成视频。
+ * 契约：页面暴露 `window.__seek(frame)` 同步渲染第 frame 帧；provider 用 headless Chrome 逐帧截图。
+ */
+export function browserCapture(): Provider {
+  return {
+    id: "filmbench/browser",
+    tasks: ["capture"],
+    determinism: "deterministic",
+    estimate: () => ({ amount: 0, currency: "USD", units: "frame", priceUnknown: false }),
+    health: () => {
+      const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+      return existsSync(chrome)
+        ? { ok: true, detail: chrome }
+        : { ok: false, detail: "缺少 Chrome（设置 CHROME_PATH）" };
+    },
+    async run(input: ProviderRunInput) {
+      const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+      if (!existsSync(chrome)) throw new Error("缺少 Chrome（设置 CHROME_PATH）");
+      const page = String(input.params.page ?? "");
+      if (!page) throw new Error(`${input.shot.id} 需要 params.page（HTML 路径，暴露 window.__seek(frame)）`);
+      const pagePath = page.startsWith("/") ? page : join(input.projectDir, page);
+      if (!existsSync(pagePath)) throw new Error(`页面不存在: ${pagePath}`);
+      const frames = input.shot.durationFrames;
+      const tmp = join(input.projectDir, ".filmbench", "tmp", input.shot.id);
+      mkdirSync(tmp, { recursive: true });
+      const width = input.format.width;
+      const height = input.format.height;
+
+      for (let i = 0; i < frames; i++) {
+        const png = join(tmp, `${String(i).padStart(4, "0")}.png`);
+        const url = `file://${pagePath}?frame=${i}`;
+        const { code, stderr } = await run(
+          [
+            chrome, "--headless=new", "--hide-scrollbars",
+            "--allow-file-access-from-files",
+            // 模块 import / WebGL 首帧是异步的：给虚拟时间预算，否则截到黑屏
+            `--virtual-time-budget=${String(input.params.budgetMs ?? 8000)}`,
+            `--window-size=${width},${height}`,
+            `--screenshot=${png}`, url,
+          ],
+          input.projectDir,
+          undefined,
+          undefined,
+          input.signal,
+        );
+        if (code !== 0 || !existsSync(png)) throw new Error(`第 ${i} 帧截图失败：${stderr.slice(-200)}`);
+        if (i % 10 === 0) input.onLog?.(`capture ${i + 1}/${frames}`);
+      }
+
+      const out = join(input.projectDir, ".filmbench", "tmp", `${input.shot.id}.mp4`);
+      const { code, stderr } = await run(
+        ["ffmpeg", "-y", "-framerate", String(input.format.fps), "-i", join(tmp, "%04d.png"),
+          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(input.format.fps), out],
+        input.projectDir,
+        input.onLog,
+        undefined,
+        input.signal,
+      );
+      if (code !== 0) throw new Error(`拼帧失败：${stderr.slice(-300)}`);
+      return {
+        files: [{ kind: "video" as const, path: out, mime: "video/mp4", width, height, durationFrames: frames }],
+        cost: { kind: "local" as const, units: "frame", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
 }

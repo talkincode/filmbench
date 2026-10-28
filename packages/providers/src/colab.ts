@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
-import type { Provider, ProviderRunInput } from "@filmbench/core";
+import { assertCapabilities, readWorkflowSpec, type Provider, type ProviderRunInput } from "@filmbench/core";
 
 /**
  * Colab 会话管理。核心诉求不是"能跑一次"，而是：
@@ -372,6 +372,7 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
       seconds: input.shot.durationFrames / input.format.fps,
     },
     refs,
+    refRoles: (input.shot.references ?? []).map((r) => r.role),
     out: remoteOut,
     timeoutSec: Number(process.env.FILMBENCH_COLAB_JOB_TIMEOUT_SEC ?? 1200),
   };
