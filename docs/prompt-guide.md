@@ -59,6 +59,29 @@ cinematic still: empty riverside promenade at night, wet asphalt reflecting
 city light bands, slow lateral dolly, 35mm, teal and amber, no people, no text
 ```
 
+## 中文提示词
+
+已在本机 MAI-Image-2.6-Flash 上实测可用。结构和英文一致，但更吃「具体名词 + 镜头语言」：
+
+```
+主体 → 动作/状态 → 机位与焦段 → 光线与色彩 → 材质/风格 → 否定项
+```
+
+例（出自 `examples/last-delivery`）：
+
+```
+废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，
+墙皮大片剥落，墙边堆着纸箱，35mm 电影剧照，青蓝与琥珀色调，
+画面里没有人，没有文字，没有水印
+```
+
+几条经验：
+
+- 否定项写成「没有文字，没有水印」，lint 认得；只写「字幕/水印」会被判成文字泄漏
+- 中文没有单复数与冠词，靠量词和修饰语给信息：一盏、大片、湿透的
+- 风格词用模型见过的说法：35mm 电影剧照 / 变形宽银幕 / 浅景深 / 青蓝与琥珀
+- 描述里已经有主体和动作时，prompt 不必重复故事，只写画面
+
 ## 机器判定的四条规则
 
 `filmbench prompt lint` 与故事板「检查」用的是同一套：

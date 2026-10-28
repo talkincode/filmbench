@@ -22,7 +22,8 @@ shots:
         wall, 35mm cinematic still, cold teal and amber, no people, no text, no
         watermark
       prompts:
-        image: ""
+        image: 废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm
+          电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印
         video: ""
     binder:
       provider: imagine
@@ -45,7 +46,8 @@ shots:
         shoulders, cinematic 35mm still, shallow depth of field, no text, no
         watermark
       prompts:
-        image: ""
+        image: 穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm
+          电影剧照，浅景深，画面里没有文字，没有水印
         video: ""
     binder:
       provider: imagine
@@ -56,7 +58,7 @@ shots:
         height: 768
     subjects: []
     references:
-      - asset: asset-227d03dbf105
+      - asset: asset-7d0a95eafcf8
         role: environment
     dependsOn:
       - shot: door
@@ -92,7 +94,8 @@ shots:
         anamorphic cinematic still, teal shadows and amber spill, no people, no
         text, no watermark
       prompts:
-        image: ""
+        image: 老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm
+          变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
         video: ""
     binder:
       provider: imagine
@@ -103,7 +106,7 @@ shots:
         height: 768
     subjects: []
     references:
-      - asset: asset-227d03dbf105
+      - asset: asset-7d0a95eafcf8
         role: environment
     dependsOn:
       - shot: lift
@@ -119,7 +122,7 @@ shots:
         warm rim, 35mm cinematic still, no text other than the number, no
         watermark
       prompts:
-        image: ""
+        image: 黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印
         video: ""
     binder:
       provider: imagine
@@ -143,7 +146,7 @@ shots:
         parcel used to be, door closed, single overhead light, 35mm cinematic
         still, melancholic, no people, no text, no watermark
       prompts:
-        image: ""
+        image: 昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印
         video: ""
     binder:
       provider: imagine

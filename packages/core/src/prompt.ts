@@ -15,7 +15,8 @@ export interface PromptIssue {
  * 有主体就要有身份参考、参考数量不能超过目标工具能力。
  */
 const TEXT_LEAK = /(字幕|编号|标注|标题|箭头|说明文字|水印|logo)/i;
-const NO_TEXT = /(no text|no caption|no watermark|without text|无文字|不要文字|无字幕|不加字幕)/i;
+const NO_TEXT =
+  /(no text|no caption|no watermark|without text|无文字|不要文字|没有文字|不含文字|无字幕|不加字幕|没有水印|无水印)/i;
 
 export function lintPrompt(shot: Shot, provider: Provider | undefined): PromptIssue[] {
   const issues: PromptIssue[] = [];

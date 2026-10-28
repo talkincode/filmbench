@@ -1,7 +1,7 @@
 # 最后一单 · 20 秒短片（filmbench 端到端样例）
 
 一支用 filmbench 从零做出来的 20 秒短片：**6 个镜头 / 600 帧 / 1344×768@30fps**，
-其中 5 镜是 imagine（Azure MAI-Image-2.6-Flash）真实生成，1 镜是本地 colorcard 占位。
+其中 5 镜是 imagine（Azure MAI-Image-2.6-Flash）真实生成，**提示词全部用中文**，1 镜是本地 colorcard 占位。
 
 剧本：雨夜，快递员把最后一单放在一栋待拆公寓的门口；电梯是空的；走廊尽头那扇门缝亮着；
 门牌是 14 号；包裹被拿走，只剩脚垫上一圈水渍。
@@ -52,16 +52,16 @@ cd "$D"
 M="--param model=MAI-Image-2.6-Flash --param width=1344 --param height=768"
 
 filmbench shot add --id door --title "门厅 · 雨夜" --frames 150 --provider imagine --task image \
-  --prompt "rain-soaked lobby of a condemned apartment building at night, single bare bulb, wet cracked tiles, peeling paint, 35mm cinematic still, cold teal and amber, no people, no text" $M
+  --prompt "废弃老公寓的门厅，深夜暴雨，唯一的裸灯泡发出冷白光，地面是裂开的湿瓷砖，墙皮大片剥落，墙边堆着纸箱，35mm 电影剧照，青蓝与琥珀色调，画面里没有人，没有文字，没有水印" $M
 filmbench shot add --id courier --title "快递员 · 放下包裹" --frames 120 --provider imagine --task image --after door \
-  --prompt "a courier in a dark raincoat seen from behind, bending to place a small cardboard parcel on a wet doormat, cold fluorescent light, rain on shoulders, cinematic 35mm still, no text" $M
+  --prompt "穿深色雨衣的快递员背对镜头，弯腰把一个小纸箱放到湿透的脚垫上，冷白日光灯从头顶照下，肩膀上有雨水，35mm 电影剧照，浅景深，画面里没有文字，没有水印" $M
 filmbench shot add --id lift --title "电梯 · 空轿厢" --frames 90 --provider filmbench/colorcard --task clip --after courier --param color=0x0d1114
 filmbench shot add --id hall --title "走廊 · 门缝的光" --frames 120 --provider imagine --task image --after lift \
-  --prompt "long dim corridor, one door at the far end leaking warm light, wet footprints leading toward it, 35mm anamorphic, teal shadows and amber spill, no people, no text" $M
+  --prompt "老旧公寓的长走廊，尽头那扇门缝里漏出暖光，地上的湿脚印一路延伸过去，35mm 变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印" $M
 filmbench shot add --id number --title "门牌 · 14 号" --frames 60 --provider imagine --task image --after hall \
-  --prompt "extreme close-up of a scratched brass number plate showing 14 beside a dark doorway, shallow depth of field, no watermark" $M
+  --prompt "黄铜门牌特写，上面是数字 14，旁边是深色门框，表面有划痕，浅景深，冷光带一点暖边，35mm 电影剧照，除数字外没有文字，没有水印" $M
 filmbench shot add --id last --title "脚垫 · 只剩水渍" --frames 60 --provider imagine --task image --after number \
-  --prompt "close-up of a wet doormat, a round water stain where a parcel used to be, door closed, single overhead light, melancholic, no people, no text" $M
+  --prompt "昏暗走廊里的一块湿脚垫特写，原来放包裹的位置只留下一圈水渍，门已经关上，头顶一盏灯，35mm 电影剧照，失落感，画面里没有人，没有文字，没有水印" $M
 
 filmbench jobs submit --shot door && filmbench jobs run
 filmbench ref add --shot courier --asset $(filmbench assets | awk 'NR==2{print $1}') --role environment
@@ -71,3 +71,4 @@ filmbench plan && filmbench build && filmbench storyboard
 ```
 
 > 每支片子第一次跑会花掉几张图的额度；换模型时记得 `filmbench doctor` 看一眼哪些模型真的可用。
+> 中文提示词在这台机器的 MAI-Image-2.6-Flash 上已实测可用，写法和英文一致：主体 → 动作 → 机位 → 光线 → 风格 → 否定项（「没有文字，没有水印」）。

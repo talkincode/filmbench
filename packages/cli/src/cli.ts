@@ -394,7 +394,9 @@ const cmdJobs = (argv: string[]) =>
       });
       const state = svc.state();
       const targets = values.all
-        ? state.shots.filter((s) => !s.produce).map((s) => s.id)
+        ? state.shots
+            .filter((s) => !s.produce || s.mutatedAt > s.produce.atSeq)
+            .map((s) => s.id)
         : values.shot
           ? [values.shot]
           : [];
