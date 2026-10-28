@@ -126,6 +126,9 @@ export function imagine(): Provider {
     id: "imagine",
     tasks: ["image"],
     determinism: "nondeterministic",
+    modality: "image" as const,
+    requiresPrompt: true,
+    maxReferences: 5,
     estimate: ({ shot }) => {
       const unit = Number(shot.binder.params.unitPrice ?? process.env.IMAGINE_UNIT_PRICE ?? "NaN");
       const known = Number.isFinite(unit);
@@ -153,6 +156,15 @@ export function imagine(): Provider {
       const width = Number(params.width ?? format.width);
       const height = Number(params.height ?? format.height);
       const args = ["imagine", "generate", "-m", String(model), "-p", prompt, "-o", out, "--width", String(width), "--height", String(height), "--json"];
+
+      // 参考图：按镜头里声明的顺序喂给模型，最多 provider 上限
+      const limit = 5;
+      const refs = (shot.references ?? []).slice(0, limit);
+      for (const ref of refs) {
+        const asset = input.references?.[ref.asset];
+        if (!asset) throw new Error(`参考素材未登记: ${ref.asset}`);
+        args.push("--image", asset);
+      }
       if (params.dryRun) args.push("--dry-run");
       else args.push("--authorize-spend");
       const env = envWithFile(String(params.envFile ?? process.env.FILMBENCH_IMAGINE_ENV_FILE ?? ""));
@@ -190,6 +202,8 @@ export function colab(): Provider {
     id: "colab",
     tasks: ["video"],
     determinism: "nondeterministic",
+    modality: "video" as const,
+    requiresPrompt: true,
     maxReferences: 3,
     estimate: ({ shot }) => {
       const cu = Number(shot.binder.params.cuBudget ?? "NaN");

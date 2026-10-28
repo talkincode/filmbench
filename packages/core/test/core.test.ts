@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, projectStoryboard, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, compile, lintPrompt, projectStoryboard, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -71,6 +71,64 @@ describe("事件日志与单写路径", () => {
     expect(again.state().head.seq).toBe(before);
     expect(again.state().shots[0].intent.prompt).toBe("新 prompt");
     again.close();
+  });
+});
+
+describe("参考图与 prompt 规范", () => {
+  test("参考图超过 5 张直接拒绝（协议层）", () => {
+    const { svc } = project("refs-max");
+    const refs = Array.from({ length: 6 }, (_, i) => ({ asset: `asset-${i}`, role: "other" as const }));
+    expect(() => svc.patchShot("shot-a", { references: refs })).toThrow(/最多 5 张/);
+    svc.close();
+  });
+
+  test("缺 prompt 的 imagine 作业在提交前被拒，不浪费一次付费调用", () => {
+    const { svc } = project("prompt-missing");
+    svc.close();
+    const sub = join(dir, "prompt-missing");
+    rmSync(sub, { recursive: true, force: true });
+    const s2 = Service.open(sub);
+    s2.createProject({ name: "p", title: "T", format: { width: 320, height: 180, fps: 30 } });
+    s2.addShot({
+      id: "shot-a",
+      title: "A",
+      durationFrames: 30,
+      intent: { description: "", action: "", prompt: "" },
+      binder: { provider: "imagine", task: "image", params: { model: "m" } },
+      subjects: [],
+      references: [],
+      dependsOn: [],
+    });
+    expect(() => submit(s2, registry, { shot: "shot-a" })).toThrow(/缺少 图片 prompt/);
+    expect(s2.state().jobs.size).toBe(0);
+    s2.close();
+  });
+
+  test("prompt 规则：过短、文字泄漏、参考图全 other、有主体无身份图", () => {
+    const { svc } = project("prompt-rules");
+    const provider = registry.get("imagine")!;
+    const shot = svc.state().shots[0];
+
+    const thin = lintPrompt({ ...shot, intent: { ...shot.intent, prompt: "a cat" } }, provider);
+    expect(thin.map((i) => i.id)).toContain("prompt.thin");
+
+    const leak = lintPrompt(
+      { ...shot, intent: { ...shot.intent, prompt: "street at night with a 字幕 overlay, 35mm, cinematic lighting" } },
+      provider,
+    );
+    expect(leak.map((i) => i.id)).toContain("prompt.text-leak");
+
+    const refs = lintPrompt(
+      {
+        ...shot,
+        intent: { ...shot.intent, prompt: "a wide riverside shot at night, wet asphalt, teal light" },
+        subjects: [{ id: "hero", revision: 1 }],
+        references: [{ asset: "asset-x", role: "other" }],
+      },
+      provider,
+    );
+    expect(refs.map((i) => i.id)).toEqual(expect.arrayContaining(["reference.roles", "reference.identity"]));
+    svc.close();
   });
 });
 

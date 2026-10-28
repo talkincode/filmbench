@@ -147,9 +147,16 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
       case "project.created":
         state.project = { name: p.name, title: p.title, format: p.format, budget: p.budget };
         break;
-      case "shot.added":
-        state.shots.push({ ...(p.shot as Shot), addedAt: e.seq, mutatedAt: e.seq });
+      case "shot.added": {
+        const shot = p.shot as Shot;
+        state.shots.push({
+          ...shot,
+          intent: { ...shot.intent, prompts: shot.intent.prompts ?? { image: "", video: "" } },
+          addedAt: e.seq,
+          mutatedAt: e.seq,
+        });
         break;
+      }
       case "shot.patched": {
         const shot = state.shots.find((s) => s.id === p.id);
         if (!shot) break;

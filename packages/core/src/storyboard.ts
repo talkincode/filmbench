@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { CHECK_REGISTRY, type StoryboardDoc } from "@filmbench/storyboard-audit";
 import { subjectApproved, totalFrames, type ProjectState, type ShotState } from "./state.ts";
 import { compile } from "./compile.ts";
+import { lintPrompt } from "./prompt.ts";
 import { remainingBudget } from "./state.ts";
 import type { ProviderRegistry } from "./providers.ts";
 import type { Service } from "./service.ts";
@@ -72,11 +73,11 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
       });
     }
 
-    if (provider?.maxReferences !== undefined && shot.references.length > provider.maxReferences) {
+    for (const issue of lintPrompt(shot as any, provider)) {
       checks.push({
-        id: "reference.limit",
-        status: "fail",
-        detail: `${shot.references.length} 张参考图，${provider.id} 上限 ${provider.maxReferences}`,
+        id: issue.id,
+        status: issue.status === "fail" ? "fail" : issue.status === "warn" ? "warn" : "unknown",
+        detail: issue.detail,
       });
     }
 

@@ -140,6 +140,7 @@ filmbench demo [dir]
 ## 文档
 
 - [架构](docs/architecture.md) —— 模块、真相与投影、单写路径、编译、预算、provider 契约、验收面与非目标
+- [参考图与 prompt 规范](docs/prompt-guide.md) —— 5 张上限、槽位语义、prompt 结构、机器判定规则
 - [审计故事板](packages/storyboard-audit/README.md) —— 投影 schema、检查登记表、网格与连线规则
 
 ## 尚未完成

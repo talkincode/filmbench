@@ -5,6 +5,7 @@ import { canonical } from "@filmbench/protocol";
 import { remainingBudget, type ShotState } from "./state.ts";
 import { PATHS, ValidationError, type Actor, type Service } from "./service.ts";
 import { requireProvider, type ProviderRegistry, type ProviderRunResult } from "./providers.ts";
+import { blockedBy, lintPrompt } from "./prompt.ts";
 
 const sha256 = (buf: Uint8Array) => createHash("sha256").update(buf).digest("hex");
 
@@ -52,9 +53,10 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
   if (!provider.tasks.includes(shot.binder.task)) {
     throw new ValidationError(`provider ${provider.id} 不支持 task ${shot.binder.task}`);
   }
-  if (provider.maxReferences !== undefined && shot.references.length > provider.maxReferences) {
+  const blockers = blockedBy(lintPrompt(shot, provider));
+  if (blockers.length > 0) {
     throw new ValidationError(
-      `${provider.id} 最多接受 ${provider.maxReferences} 张参考图，${shot.id} 有 ${shot.references.length} 张`,
+      `${shot.id} 无法提交：\n${blockers.map((b) => `  - ${b.detail}`).join("\n")}`,
     );
   }
 
@@ -141,11 +143,17 @@ export async function runJobs(
 
     service.append("job.started", { jobId: job.jobId });
     try {
+      const references: Record<string, string> = {};
+      for (const ref of shot.references) {
+        const asset = state.assets.get(ref.asset);
+        if (asset) references[ref.asset] = join(service.dir, asset.path);
+      }
       const result: ProviderRunResult = await provider.run({
         shot,
         params: job.params,
         projectDir: service.dir,
         format: state.project.format,
+        references,
         onLog: options.onLog,
       });
       if (!result.files.length) throw new Error("provider 没有产出任何文件");

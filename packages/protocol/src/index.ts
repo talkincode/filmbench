@@ -45,6 +45,27 @@ export const BINDER = z.object({
 });
 export type Binder = z.infer<typeof BINDER>;
 
+/** 参考图用途（来自 vflow 的教训：角色槽位不可互换） */
+export const REFERENCE_ROLES = [
+  "identity",
+  "wardrobe",
+  "prop",
+  "environment",
+  "layout",
+  "first_frame",
+  "last_frame",
+  "style",
+  "other",
+] as const;
+export type ReferenceRole = (typeof REFERENCE_ROLES)[number];
+
+export const REFERENCE = z.object({
+  asset: ident,
+  role: z.enum(REFERENCE_ROLES).default("other"),
+});
+
+export const MAX_REFERENCES = 5;
+
 export const DEPENDENCY = z.object({
   shot: ident,
   kind: z.enum(["continuity", "last_frame", "data", "derived"]),
@@ -59,10 +80,17 @@ export const SHOT = z.object({
     description: z.string().default(""),
     action: z.string().default(""),
     prompt: z.string().default(""),
+    /** 按模态分开的模型 prompt：图生图 / 图生视频要的东西不是一回事 */
+    prompts: z
+      .object({
+        image: z.string().default(""),
+        video: z.string().default(""),
+      })
+      .default({ image: "", video: "" }),
   }),
   binder: BINDER,
   subjects: z.array(SUBJECT_PIN).default([]),
-  references: z.array(z.object({ asset: ident, role: z.string().default("reference") })).default([]),
+  references: z.array(REFERENCE).max(MAX_REFERENCES, "每个分镜最多 5 张参考图").default([]),
   dependsOn: z.array(DEPENDENCY).default([]),
 });
 export type Shot = z.infer<typeof SHOT>;
@@ -79,6 +107,9 @@ export const SHOT_PATCH = z.object({
       description: z.string().optional(),
       action: z.string().optional(),
       prompt: z.string().optional(),
+      prompts: z
+        .object({ image: z.string().optional(), video: z.string().optional() })
+        .optional(),
     })
     .optional(),
   binder: z
@@ -89,7 +120,7 @@ export const SHOT_PATCH = z.object({
     })
     .optional(),
   subjects: z.array(SUBJECT_PIN).optional(),
-  references: z.array(z.object({ asset: ident, role: z.string() })).optional(),
+  references: z.array(REFERENCE).max(MAX_REFERENCES, "每个分镜最多 5 张参考图").optional(),
   dependsOn: z.array(DEPENDENCY).optional(),
 });
 export type ShotPatch = z.infer<typeof SHOT_PATCH>;
@@ -239,6 +270,13 @@ export function assertFilm(input: unknown): Film {
     }
   }
   return film;
+}
+
+/** 解析某个模态实际要用的 prompt：专用字段优先，其次通用 prompt */
+export function promptFor(intent: { prompt: string; prompts?: { image: string; video: string } }, modality: "image" | "video" | null): string {
+  if (!modality) return intent.prompt;
+  const specific = modality === "image" ? intent.prompts?.image : intent.prompts?.video;
+  return (specific && specific.trim()) || intent.prompt;
 }
 
 /** 帧 → 秒：只在出图/出片边界使用，内部一律整数帧 */

@@ -106,6 +106,18 @@
   .check{display:flex;gap:8px;font-family:var(--mono);font-size:10.5px;padding:3px 0;color:var(--ink-2)}
   .check .m{width:10px;flex:0 0 auto}
   .check[data-s="fail"] .m{color:var(--block)}.check[data-s="warn"] .m{color:var(--warn)}.check[data-s="pass"] .m{color:var(--ok)}.check[data-s="unknown"] .m{color:var(--ink-3)}
+  .slot{display:grid;grid-template-columns:26px minmax(0,1fr) 116px 26px;gap:8px;align-items:center;border:1px solid var(--rule-hi);
+    border-radius:6px;padding:6px 8px;background:var(--paper);margin-bottom:5px}
+  .slot .n{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+  .slot .id{font-family:var(--mono);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot select{font-family:var(--mono);font-size:10px;padding:2px 3px;border:1px solid var(--rule);border-radius:4px;background:var(--paper-hi);color:var(--ink)}
+  .slot button{padding:0;width:22px;height:22px;border-radius:5px;line-height:1}
+  .slot.empty{border-style:dashed;color:var(--ink-3);display:block;font-family:var(--mono);font-size:10px;padding:9px 10px}
+  .pe{margin-top:7px}
+  .pe .lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+  .pe textarea{width:100%;font-family:var(--mono);font-size:11px;line-height:1.55;padding:7px 9px;border:1px solid var(--rule);
+    border-radius:6px;background:var(--paper);color:var(--ink);resize:vertical;min-height:52px}
+  .pe textarea:focus{outline:none;border-color:var(--ink-2);background:var(--paper-hi)}
   .ev{display:grid;grid-template-columns:44px 1fr;gap:8px;font-family:var(--mono);font-size:10px;color:var(--ink-2);padding:3px 0}
   .ev .s{color:var(--ink-3)}
   .ev .a{color:var(--ink-3);font-size:9px}
@@ -208,6 +220,16 @@
   </div>
   <div class="dbody" id="dBody"></div>
 </aside>
+
+<div class="modal" id="assetModal">
+  <div class="panel" style="width:min(680px,92vw)">
+    <header><h3>选择参考素材</h3><button class="sm" id="amClose">关闭</button></header>
+    <div class="list" id="assetList"></div>
+    <div style="padding:10px 12px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:9.5px;color:var(--ink-3)">
+      从本项目已登记的素材里选；加进去后可以在列表里改用途（identity / wardrobe / environment / first_frame …）
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="modal">
   <div class="panel">
@@ -372,11 +394,15 @@ function renderDetail(d) {
     ? s.subjects.map((x) => `<span class="tag ${x.approved ? "ok" : "bad"}">${esc(x.name)}@${x.revision}${x.variant ? "·" + esc(x.variant) : ""}</span>`).join("")
     : `<span class="tag">无主体绑定</span>`;
 
+  const ROLES = ["identity", "wardrobe", "prop", "environment", "layout", "first_frame", "last_frame", "style", "other"];
   const refs = s.references.length
-    ? `<div class="list">${s.references.map((r) => `<div class="item">
-        <div class="grow"><div class="id">${esc(r.asset)}</div><div class="meta">${esc(r.role)} · ${r.registered ? (r.exists ? "已登记" : "文件缺失") : "未登记"}</div></div>
-        ${r.absPath ? `<button class="sm ghost" data-open="${esc(r.absPath)}">打开</button>` : ""}</div>`).join("")}</div>`
-    : `<p style="color:var(--ink-3);font-family:var(--mono);font-size:10px">无参考素材</p>`;
+    ? s.references.map((r, i) => `<div class="slot">
+        <span class="n">${i + 1}</span>
+        <span class="id" title="${esc(r.absPath || r.asset)}">${esc(r.asset)}</span>
+        <select data-role="${esc(r.asset)}">${ROLES.map((x) => `<option${x === r.role ? " selected" : ""}>${x}</option>`).join("")}</select>
+        <button class="sm ghost" data-unref="${esc(r.asset)}" title="移除">✕</button>
+      </div>`).join("")
+    : `<div class="slot empty">还没有参考图</div>`;
 
   const cands = s.candidates?.length
     ? `<div class="list">${s.candidates.map((c) => `<div class="item">
@@ -423,7 +449,10 @@ function renderDetail(d) {
     <div class="sec"><h4>意图</h4>
       <p>${esc(s.intent.description) || "<span style='color:var(--ink-3)'>未填写描述</span>"}</p>
       ${s.intent.action ? `<p style="font-size:13px">${esc(s.intent.action)}</p>` : ""}
-      ${s.intent.prompt ? `<div class="prompt">${esc(s.intent.prompt)}</div>` : ""}
+      <div class="pe"><div class="lbl"><span>image prompt</span><span>${s.binder.provider === "imagine" ? "当前 provider" : ""}</span></div>
+        <textarea data-pe="image" placeholder="主体 · 动作 · 机位 · 光线 · no text">${esc(s.intent.prompts?.image || s.intent.prompt || "")}</textarea></div>
+      <div class="pe"><div class="lbl"><span>video prompt</span><span>${s.binder.provider === "colab" ? "当前 provider" : ""}</span></div>
+        <textarea data-pe="video" placeholder="动作变化 · 运镜 · 时间顺序">${esc(s.intent.prompts?.video ?? "")}</textarea></div>
     </div>
 
     <div class="sec"><h4>绑定</h4>
@@ -432,7 +461,9 @@ function renderDetail(d) {
       <div class="chips" style="margin-top:6px">${subjectChips}</div>
     </div>
 
-    <div class="sec"><h4>参考 <span>${s.references.length}</span></h4>${refs}</div>
+    <div class="sec"><h4>参考 <span>${s.references.length}/5</span></h4>${refs}
+      <button class="sm" id="dAddRef" ${s.references.length >= 5 ? "disabled" : ""} style="margin-top:4px">+ 添加参考</button>
+    </div>
 
     <div class="sec"><h4>候选与选定</h4>${cands}
       <dl class="kv" style="margin-top:8px">
@@ -492,6 +523,21 @@ function renderDetail(d) {
     try { await rpc("review", { shot: d.shot.id, asset: b.dataset.review }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); }
   }));
 
+  $("dBody").querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
+    try { await rpc("ref_role", { shot: d.shot.id, asset: sel.dataset.role, role: sel.value }); toast("用途已改"); await refreshAndDetail(); }
+    catch (e) { toast(e.message); }
+  }));
+  $("dBody").querySelectorAll("[data-unref]").forEach((b) => (b.onclick = async () => {
+    try { await rpc("ref_remove", { shot: d.shot.id, asset: b.dataset.unref }); toast("已移除"); await refreshAndDetail(); }
+    catch (e) { toast(e.message); }
+  }));
+  $("dBody").querySelectorAll("[data-pe]").forEach((ta) => (ta.onchange = async () => {
+    try { await rpc("prompt_set", { shot: d.shot.id, [ta.dataset.pe]: ta.value }); toast("prompt 已保存"); }
+    catch (e) { toast(e.message); }
+  }));
+  const addRef = $("dAddRef");
+  if (addRef) addRef.onclick = () => openAssetPicker(d.shot.id);
+
   $("dSubmit").onclick = () => act(`提交 ${d.shot.id}`, () => rpc("submit", { shot: d.shot.id }), true);
   $("dSelect").onclick = async () => { try { await rpc("select", { shot: d.shot.id }); toast("已选定"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
   $("dApprove").onclick = async () => { try { await rpc("review", { shot: d.shot.id }); toast("已批准"); await refreshAndDetail(); } catch (e) { toast(e.message); } };
@@ -538,6 +584,32 @@ function stepShot(delta) {
   const next = S.shots[Math.min(S.shots.length - 1, Math.max(0, i + delta))];
   if (next) openDetail(next.id);
 }
+
+/* —— 素材选择 —— */
+async function openAssetPicker(shotId) {
+  const assets = await rpc("assets", {});
+  const used = new Set((S.detail?.shot.references ?? []).map((r) => r.asset));
+  $("assetList").innerHTML = assets.length
+    ? assets.map((a) => `<div class="pick" data-asset="${esc(a.asset)}" style="opacity:${used.has(a.asset) ? 0.45 : 1}">
+        <div class="grow"><div class="t">${esc(a.asset)}</div>
+        <div class="d">${esc(a.mime)} · ${(a.bytes / 1024).toFixed(0)} KB · ${esc(a.provider ?? "?")}${used.has(a.asset) ? " · 已引用" : ""}</div></div>
+        <button class="sm">添加</button></div>`).join("")
+    : `<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--ink-3)">项目里还没有已登记的素材</div>`;
+  $("assetList").querySelectorAll(".pick").forEach((el) => {
+    el.onclick = async () => {
+      const asset = el.dataset.asset;
+      if (used.has(asset)) { toast("已经在参考里了"); return; }
+      try {
+        await rpc("ref_add", { shot: shotId, asset, role: "other" });
+        $("assetModal").classList.remove("open");
+        toast("已添加参考，记得改用途");
+        await refreshAndDetail();
+      } catch (e) { toast(e.message); }
+    };
+  });
+  $("assetModal").classList.add("open");
+}
+$("amClose").onclick = () => $("assetModal").classList.remove("open");
 
 /* —— 项目切换 —— */
 $("projBtn").onclick = async () => {
@@ -819,6 +891,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if ($("snap").classList.contains("open")) { $("snapClose").click(); return; }
+    if ($("assetModal").classList.contains("open")) { $("assetModal").classList.remove("open"); return; }
     if ($("modal").classList.contains("open")) { $("modal").classList.remove("open"); return; }
     if ($("drawer").classList.contains("open")) { closeDetail(); return; }
   }
@@ -847,7 +920,7 @@ f.onOpenProject(async ({ project, shot }) => {
 
 load().catch((e) => toast(`加载失败：${e.message}`, 5000));
 setInterval(() => {
-  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open")) return;
+  if ($("drawer").classList.contains("open") || $("snap").classList.contains("open") || $("modal").classList.contains("open") || $("assetModal").classList.contains("open")) return;
   load().catch(() => {});
 }, 6000);
 

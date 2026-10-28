@@ -129,6 +129,65 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       const { service } = svc(args.project as string | undefined);
       return service.verify();
     }
+    case "assets": {
+      const { service, dir } = svc(args.project as string | undefined);
+      const state = service.state();
+      return [...state.assets.values()].map((a) => ({
+        asset: a.asset,
+        mime: a.mime,
+        bytes: a.bytes,
+        path: a.path,
+        absPath: join(dir, a.path),
+        exists: existsSync(join(dir, a.path)),
+        provider: a.lineage?.provider ?? null,
+      }));
+    }
+    case "ref_add": {
+      const { service, dir } = svc(args.project as string | undefined);
+      const state = service.state();
+      const shot = state.shots.find((s) => s.id === String(args.shot));
+      if (!shot) throw new Error(`镜头不存在: ${args.shot}`);
+      if (shot.references.length >= 5) throw new Error("参考图已有 5 张（上限）");
+      const asset = String(args.asset);
+      if (!state.assets.has(asset)) throw new Error(`素材未登记: ${asset}`);
+      service.patchShot(shot.id, { references: [...shot.references, { asset, role: (args.role as any) ?? "other" }] }, {
+        actor: { kind: "human", id: "desktop" },
+      });
+      return { ok: true, references: shot.references.length + 1 };
+    }
+    case "ref_remove": {
+      const { service } = svc(args.project as string | undefined);
+      const state = service.state();
+      const shot = state.shots.find((s) => s.id === String(args.shot));
+      if (!shot) throw new Error(`镜头不存在: ${args.shot}`);
+      const references = shot.references.filter((r) => r.asset !== String(args.asset));
+      service.patchShot(shot.id, { references }, { actor: { kind: "human", id: "desktop" } });
+      return { ok: true, references: references.length };
+    }
+    case "ref_role": {
+      const { service } = svc(args.project as string | undefined);
+      const state = service.state();
+      const shot = state.shots.find((s) => s.id === String(args.shot));
+      if (!shot) throw new Error(`镜头不存在: ${args.shot}`);
+      const references = shot.references.map((r) =>
+        r.asset === String(args.asset) ? { ...r, role: String(args.role) as any } : r,
+      );
+      service.patchShot(shot.id, { references }, { actor: { kind: "human", id: "desktop" } });
+      return { ok: true };
+    }
+    case "prompt_set": {
+      const { service } = svc(args.project as string | undefined);
+      const state = service.state();
+      const shot = state.shots.find((s) => s.id === String(args.shot));
+      if (!shot) throw new Error(`镜头不存在: ${args.shot}`);
+      const prompts = { ...shot.intent.prompts };
+      if (args.image !== undefined) prompts.image = String(args.image);
+      if (args.video !== undefined) prompts.video = String(args.video);
+      const intent: Record<string, unknown> = { prompts };
+      if (args.text !== undefined) intent.prompt = String(args.text);
+      service.patchShot(shot.id, { intent } as any, { actor: { kind: "human", id: "desktop" } });
+      return { ok: true };
+    }
     case "poster": {
       const { service, dir } = svc(args.project as string | undefined);
       const state = service.state();

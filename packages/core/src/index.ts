@@ -8,3 +8,4 @@ export * from "./compile.ts";
 export * from "./cost.ts";
 export * from "./storyboard.ts";
 export * from "./detail.ts";
+export * from "./prompt.ts";

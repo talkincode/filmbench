@@ -22,6 +22,8 @@ export interface ProviderRunInput {
   params: Record<string, string | number | boolean>;
   projectDir: string;
   format: Format;
+  /** 镜头参考图 → 项目内绝对路径；由执行器解析，provider 不碰存储 */
+  references?: Record<string, string>;
   onLog?: (line: string) => void;
 }
 
@@ -47,6 +49,10 @@ export interface Provider {
   determinism: "deterministic" | "seeded" | "nondeterministic";
   /** 该 provider 单次调用能吃下的参考图上限 */
   maxReferences?: number;
+  /** 该 provider 产出什么模态：决定用哪条 prompt，也决定尺寸校验的严格度 */
+  modality?: "image" | "video";
+  /** 提交前是否必须有 prompt（纯本地产线卡不需要） */
+  requiresPrompt?: boolean;
   estimate(input: { shot: Shot; format: Format }): ProviderEstimate;
   health(): { ok: boolean; detail: string };
   run(input: ProviderRunInput): Promise<ProviderRunResult>;

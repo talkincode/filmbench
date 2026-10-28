@@ -10,6 +10,7 @@ import {
   ConflictError,
   Service,
   ValidationError,
+  lintPrompt,
   build,
   compile,
   projectStoryboard,
@@ -59,6 +60,10 @@ function help(): void {
   filmbench init <dir> [--name] [--title] [--width 1920] [--height 1080] [--fps 30] [--budget 0]
   filmbench shot add --id --title --frames --provider --task [--prompt] [--desc] [--action] [--after]
   filmbench shot patch --id [--title] [--frames] [--prompt]
+  filmbench ref add --shot ID --asset A [--role identity|wardrobe|environment|first_frame|...]
+  filmbench ref list|remove --shot ID [--asset A]
+  filmbench prompt set --shot ID [--image "…"] [--video "…"] [--text "…"]
+  filmbench prompt lint [--shot ID]
   filmbench plan
   filmbench jobs submit [--shot ID] [--all]
   filmbench jobs run [--job ID]
@@ -146,6 +151,9 @@ const cmdShot = (argv: string[]) => {
         provider: { type: "string" },
         task: { type: "string" },
         prompt: { type: "string", default: "" },
+        "image-prompt": { type: "string", default: "" },
+        "video-prompt": { type: "string", default: "" },
+        ref: { type: "string", multiple: true },
         desc: { type: "string", default: "" },
         action: { type: "string", default: "" },
         after: { type: "string" },
@@ -172,10 +180,19 @@ const cmdShot = (argv: string[]) => {
           id: values.id!,
           title: values.title!,
           durationFrames: Number(values.frames),
-          intent: { description: values.desc!, action: values.action!, prompt: values.prompt! },
+          intent: {
+            description: values.desc!,
+            action: values.action!,
+            prompt: values["image-prompt"] || values["video-prompt"] || values.prompt!,
+            prompts: { image: values["image-prompt"]!, video: values["video-prompt"]! },
+          },
+          references: (values.ref ?? []).map((r) => {
+            const [asset, role = "other"] = r.split(":");
+            if (!state.assets.has(asset)) throw new Error(`素材未登记: ${asset}`);
+            return { asset, role: role as any };
+          }),
           binder: { provider: values.provider!, task: values.task!, params },
           subjects: [],
-          references: [],
           dependsOn: values.after ? [{ shot: values.after, kind: "continuity" as const }] : [],
         },
         { actor: { kind: "human", id: "cli" } },
@@ -207,6 +224,91 @@ const cmdShot = (argv: string[]) => {
   }
   throw new Error(`未知子命令 shot ${sub ?? ""}`);
 };
+
+const cmdRef = (argv: string[]) =>
+  withService((svc) => {
+    const sub = argv[0];
+    if (sub === "list") {
+      const { values } = parseArgs({ args: argv.slice(1), options: { shot: { type: "string" } } });
+      const shot = svc.state().shots.find((s) => s.id === values.shot);
+      if (!shot) throw new Error(`镜头不存在: ${values.shot}`);
+      if (!shot.references.length) return out("没有参考图");
+      out(table(shot.references.map((r, i) => [`${i + 1}`, r.role, r.asset]), ["#", "用途", "素材"]));
+      return;
+    }
+    if (sub === "add") {
+      const { values } = parseArgs({
+        args: argv.slice(1),
+        options: { shot: { type: "string" }, asset: { type: "string" }, role: { type: "string", default: "other" } },
+      });
+      if (!values.shot || !values.asset) throw new Error("ref add 需要 --shot 和 --asset");
+      const state = svc.state();
+      const shot = state.shots.find((s) => s.id === values.shot);
+      if (!shot) throw new Error(`镜头不存在: ${values.shot}`);
+      if (!state.assets.has(values.asset)) throw new Error(`素材未登记: ${values.asset}`);
+      if (shot.references.length >= 5) throw new Error("参考图已有 5 张（协议上限）");
+      const references = [...shot.references, { asset: values.asset, role: values.role as any }];
+      const { event } = svc.patchShot(shot.id, { references }, { actor: { kind: "human", id: "cli" } });
+      out(`已添加参考 ${values.asset}（${values.role}）· 事件 #${event.seq}`);
+      return;
+    }
+    if (sub === "remove") {
+      const { values } = parseArgs({ args: argv.slice(1), options: { shot: { type: "string" }, asset: { type: "string" } } });
+      if (!values.shot || !values.asset) throw new Error("ref remove 需要 --shot 和 --asset");
+      const shot = svc.state().shots.find((s) => s.id === values.shot);
+      if (!shot) throw new Error(`镜头不存在: ${values.shot}`);
+      const references = shot.references.filter((r) => r.asset !== values.asset);
+      if (references.length === shot.references.length) throw new Error(`该镜头没有 ${values.asset}`);
+      svc.patchShot(shot.id, { references }, { actor: { kind: "human", id: "cli" } });
+      out(`已移除 ${values.asset}`);
+      return;
+    }
+    throw new Error(`未知子命令 ref ${sub ?? ""}`);
+  });
+
+const cmdPrompt = (argv: string[]) =>
+  withService((svc) => {
+    const sub = argv[0];
+    if (sub === "set") {
+      const { values } = parseArgs({
+        args: argv.slice(1),
+        options: { shot: { type: "string" }, image: { type: "string" }, video: { type: "string" }, text: { type: "string" } },
+      });
+      if (!values.shot) throw new Error("prompt set 需要 --shot");
+      const shot = svc.state().shots.find((s) => s.id === values.shot);
+      if (!shot) throw new Error(`镜头不存在: ${values.shot}`);
+      const prompts = { ...shot.intent.prompts };
+      if (values.image !== undefined) prompts.image = values.image;
+      if (values.video !== undefined) prompts.video = values.video;
+      const intent: Record<string, unknown> = { prompts };
+      if (values.text !== undefined) intent.prompt = values.text;
+      svc.patchShot(shot.id, { intent } as any, { actor: { kind: "human", id: "cli" } });
+      out(`已更新 ${shot.id} 的 prompt`);
+      return;
+    }
+    if (sub === "lint" || sub === undefined) {
+      const { values } = parseArgs({ args: argv.slice(1), options: { shot: { type: "string" } } });
+      const state = svc.state();
+      const targets = values.shot ? state.shots.filter((s) => s.id === values.shot) : state.shots;
+      if (!targets.length) throw new Error("没有可检查的镜头");
+      const registry = builtinProviders();
+      let failed = 0;
+      for (const shot of targets) {
+        const provider = registry.get(shot.binder.provider);
+        const issues = lintPrompt(shot, provider);
+        out(`${shot.id} · ${shot.binder.provider} · ${shot.references.length}/5 参考`);
+        for (const i of issues) {
+          const mark = i.status === "fail" ? "✗" : i.status === "warn" ? "▲" : "·";
+          out(`  ${mark} ${i.id} — ${i.detail}`);
+          if (i.status === "fail") failed++;
+        }
+        if (!issues.length) out("  ✓ 无问题");
+      }
+      if (failed) process.exitCode = 2;
+      return;
+    }
+    throw new Error(`未知子命令 prompt ${sub}`);
+  });
 
 const cmdPlan = () =>
   withService((svc) => {
@@ -568,41 +670,45 @@ async function main(): Promise<void> {
   try {
     switch (cmd) {
       case "init":
-        return cmdInit(rest);
+        return await cmdInit(rest);
       case "shot":
-        return cmdShot(rest);
+        return await cmdShot(rest);
+      case "ref":
+        return await cmdRef(rest);
+      case "prompt":
+        return await cmdPrompt(rest);
       case "plan":
-        return cmdPlan();
+        return await cmdPlan();
       case "jobs":
-        return cmdJobs(rest);
+        return await cmdJobs(rest);
       case "status":
-        return cmdStatus();
+        return await cmdStatus();
       case "select":
-        return cmdSelect(rest);
+        return await cmdSelect(rest);
       case "review":
-        return cmdReview(rest);
+        return await cmdReview(rest);
       case "build":
-        return cmdBuild(rest);
+        return await cmdBuild(rest);
       case "storyboard":
-        return cmdStoryboard(rest);
+        return await cmdStoryboard(rest);
       case "ledger":
-        return cmdLedger(rest);
+        return await cmdLedger(rest);
       case "export":
-        return cmdExport(rest);
+        return await cmdExport(rest);
       case "verify":
-        return cmdVerify();
+        return await cmdVerify();
       case "reindex":
-        return cmdReindex();
+        return await cmdReindex();
       case "doctor":
-        return cmdDoctor();
+        return await cmdDoctor();
       case "ui":
-        return cmdUi(rest);
+        return await cmdUi(rest);
       case "mcp":
-        return cmdMcp();
+        return await cmdMcp();
       case "agent":
-        return cmdAgent(rest);
+        return await cmdAgent(rest);
       case "demo":
-        return cmdDemo(rest);
+        return await cmdDemo(rest);
       case undefined:
       case "help":
       case "--help":

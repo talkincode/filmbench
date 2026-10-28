@@ -27,6 +27,36 @@ export const CHECK_REGISTRY: Record<string, { label: string; severity: Severity;
     severity: "blocker",
     action: "按成片规格重生成，或修正 provider 参数",
   },
+  "prompt.missing": {
+    label: "缺少生成 prompt",
+    severity: "blocker",
+    action: "在 intent.prompts.<模态> 里补主体、动作、机位与光线",
+  },
+  "prompt.thin": {
+    label: "prompt 过短",
+    severity: "warning",
+    action: "补齐主体/动作/机位，避免模型自由发挥",
+  },
+  "prompt.long": {
+    label: "prompt 过长",
+    severity: "note",
+    action: "把不变的部分交给参考图，prompt 只留本次变化",
+  },
+  "prompt.text-leak": {
+    label: "prompt 可能生成文字",
+    severity: "warning",
+    action: "显式写 no text / 无字幕，或去掉文字类描述",
+  },
+  "reference.roles": {
+    label: "参考图缺用途",
+    severity: "warning",
+    action: "给每张参考图选 identity/wardrobe/environment/first_frame 等槽位",
+  },
+  "reference.identity": {
+    label: "缺少身份参考",
+    severity: "warning",
+    action: "为已绑定主体加一张 identity 参考图",
+  },
   "intent.empty": {
     label: "意图为空",
     severity: "warning",
