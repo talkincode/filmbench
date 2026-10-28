@@ -61,6 +61,8 @@ function help(): void {
   filmbench init <dir> [--name] [--title] [--width 1920] [--height 1080] [--fps 30] [--budget 0]
   filmbench shot add --id --title --frames --provider --task [--prompt] [--desc] [--action] [--after]
   filmbench shot patch --id [--title] [--frames] [--prompt]
+  filmbench shot param --id [--set k=v]... [--unset k]...
+  filmbench shot remove --id
   filmbench ref add --shot ID --asset A [--role identity|wardrobe|environment|first_frame|...]
   filmbench ref list|remove --shot ID [--asset A]
   filmbench prompt set --shot ID [--image "…"] [--video "…"] [--text "…"]
@@ -75,6 +77,7 @@ function help(): void {
   filmbench review --shot ID [--asset A] [--reject]
   filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
   filmbench storyboard [--out path]
+  filmbench assets
   filmbench ledger [--json]
   filmbench export [--out film.yaml]
   filmbench verify
@@ -206,6 +209,37 @@ const cmdShot = (argv: string[]) => {
     });
     return;
   }
+  if (sub === "param") {
+    const { values } = parseArgs({
+      args: argv.slice(1),
+      options: { id: { type: "string" }, set: { type: "string", multiple: true }, unset: { type: "string", multiple: true } },
+    });
+    if (!values.id) throw new Error("shot param 需要 --id");
+    withService((svc) => {
+      const shot = svc.state().shots.find((s) => s.id === values.id);
+      if (!shot) throw new Error(`镜头不存在: ${values.id}`);
+      const params: Record<string, string | number | boolean> = { ...shot.binder.params };
+      for (const pair of values.set ?? []) {
+        const eq = pair.indexOf("=");
+        if (eq <= 0) throw new Error(`--set 需要 key=value：${pair}`);
+        const raw = pair.slice(eq + 1);
+        params[pair.slice(0, eq)] = raw === "true" ? true : raw === "false" ? false : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
+      }
+      for (const key of values.unset ?? []) delete params[key];
+      const { event } = svc.patchShot(shot.id, { binder: { params } }, { actor: { kind: "human", id: "cli" } });
+      out(`已更新 ${shot.id} 的参数（事件 #${event.seq}）：${JSON.stringify(params)}`);
+    });
+    return;
+  }
+  if (sub === "remove") {
+    const { values } = parseArgs({ args: argv.slice(1), options: { id: { type: "string" } } });
+    if (!values.id) throw new Error("shot remove 需要 --id");
+    withService((svc) => {
+      const { event } = svc.removeShot(values.id!, { actor: { kind: "human", id: "cli" } });
+      out(`已删除 ${values.id}（事件 #${event.seq}）`);
+    });
+    return;
+  }
   if (sub === "patch") {
     const { values } = parseArgs({
       args: argv.slice(1),
@@ -328,7 +362,9 @@ const cmdPlan = () =>
       const approved = selected ? state.reviews.get(`${shot.id}:${selected}`) === "approved" : false;
       const next = !produce
         ? job && job.phase === "rejected"
-          ? `被预算拒绝：${job.reason}`
+          ? job.rejectCause === "budget"
+            ? `被预算拒绝：${job.reason}`
+            : `上一次被取消，重新提交：filmbench jobs submit --shot ${shot.id}`
           : `filmbench jobs submit --shot ${shot.id}`
         : shot.mutatedAt > produce.atSeq
           ? `filmbench jobs submit --shot ${shot.id}`
@@ -485,6 +521,20 @@ const cmdStoryboard = (argv: string[]) =>
     writeFileSync(target, html);
     const blocked = doc.shots.filter((s) => (s.checks ?? []).some((c) => c.status === "fail")).length;
     out(`故事板 ${target}\n  ${doc.shots.length} 镜 · ${blocked} 镜有阻塞 · 修订 #${doc.revision.seq}`);
+  });
+
+const cmdAssets = () =>
+  withService((svc) => {
+    const state = svc.state();
+    if (!state.assets.size) return out("还没有登记素材");
+    const rows = [...state.assets.values()].map((a) => [
+      a.asset,
+      a.mime,
+      `${(a.bytes / 1024).toFixed(0)} KB`,
+      a.lineage?.provider ?? "—",
+      a.path,
+    ]);
+    out(table(rows, ["素材", "类型", "体积", "来源", "路径"]));
   });
 
 const cmdLedger = (argv: string[]) =>
@@ -776,6 +826,8 @@ async function main(): Promise<void> {
         return await cmdBuild(rest);
       case "storyboard":
         return await cmdStoryboard(rest);
+      case "assets":
+        return await cmdAssets();
       case "ledger":
         return await cmdLedger(rest);
       case "export":

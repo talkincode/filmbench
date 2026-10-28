@@ -1,0 +1,159 @@
+apiVersion: filmbench/v1
+kind: Film
+metadata:
+  name: last-delivery
+  title: 最后一单
+format:
+  width: 1344
+  height: 768
+  fps: 30
+budget:
+  currency: USD
+  limit: 3
+shots:
+  - id: door
+    title: 门厅 · 雨夜
+    durationFrames: 150
+    intent:
+      description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
+      action: 静止，雨声，灯管轻微频闪
+      prompt: rain-soaked lobby of a condemned apartment building at night, single
+        bare bulb, wet cracked tiles, peeling paint, cardboard boxes by the
+        wall, 35mm cinematic still, cold teal and amber, no people, no text, no
+        watermark
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: imagine
+      task: image
+      params:
+        model: MAI-Image-2.6-Flash
+        width: 1344
+        height: 768
+    subjects: []
+    references: []
+    dependsOn: []
+  - id: courier
+    title: 快递员 · 放下包裹
+    durationFrames: 120
+    intent:
+      description: 穿深色雨衣的快递员背对镜头，把一个小纸箱放在门口脚垫上
+      action: 弯腰、放下、起身，肩膀上有雨
+      prompt: a courier in a dark raincoat seen from behind, bending to place a small
+        cardboard parcel on a wet doormat, cold fluorescent light, rain on
+        shoulders, cinematic 35mm still, shallow depth of field, no text, no
+        watermark
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: imagine
+      task: image
+      params:
+        model: MAI-Image-2.6-Flash
+        width: 1344
+        height: 768
+    subjects: []
+    references:
+      - asset: asset-227d03dbf105
+        role: environment
+    dependsOn:
+      - shot: door
+        kind: continuity
+  - id: lift
+    title: 电梯 · 空轿厢
+    durationFrames: 90
+    intent:
+      description: 电梯门打开，里面是空的，灯管在闪
+      action: 门开、停顿、灯闪三次
+      prompt: empty elevator car, doors opening, flickering tube
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: filmbench/colorcard
+      task: clip
+      params:
+        color: "0x0d1114"
+    subjects: []
+    references: []
+    dependsOn:
+      - shot: courier
+        kind: continuity
+  - id: hall
+    title: 走廊 · 门缝的光
+    durationFrames: 120
+    intent:
+      description: 走廊尽头那扇门缝里漏出暖光，地上有湿脚印
+      action: 极缓慢前推，脚印从镜头下缘延伸出去
+      prompt: long dim corridor of an old apartment building, one door at the far end
+        leaking warm light, wet footprints on the floor leading toward it, 35mm
+        anamorphic cinematic still, teal shadows and amber spill, no people, no
+        text, no watermark
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: imagine
+      task: image
+      params:
+        model: MAI-Image-2.6-Flash
+        width: 1344
+        height: 768
+    subjects: []
+    references:
+      - asset: asset-227d03dbf105
+        role: environment
+    dependsOn:
+      - shot: lift
+        kind: continuity
+  - id: number
+    title: 门牌 · 14 号
+    durationFrames: 60
+    intent:
+      description: " scratched brass number plate beside the door"
+      action: 特写，焦点从划痕移到数字
+      prompt: extreme close-up of a scratched brass apartment number plate showing the
+        number 14 beside a dark doorway, shallow depth of field, cold light with
+        warm rim, 35mm cinematic still, no text other than the number, no
+        watermark
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: imagine
+      task: image
+      params:
+        model: MAI-Image-2.6-Flash
+        width: 1344
+        height: 768
+    subjects: []
+    references: []
+    dependsOn:
+      - shot: hall
+        kind: continuity
+  - id: last
+    title: 脚垫 · 只剩水渍
+    durationFrames: 60
+    intent:
+      description: 包裹不见了，脚垫上只留一圈水渍，门已经关上
+      action: 静止两秒，然后切黑
+      prompt: close-up of a wet doormat in a dim hallway, a round water stain where a
+        parcel used to be, door closed, single overhead light, 35mm cinematic
+        still, melancholic, no people, no text, no watermark
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: imagine
+      task: image
+      params:
+        model: MAI-Image-2.6-Flash
+        width: 1344
+        height: 768
+    subjects: []
+    references: []
+    dependsOn:
+      - shot: number
+        kind: continuity
