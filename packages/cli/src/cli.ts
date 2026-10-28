@@ -11,6 +11,7 @@ import {
   Service,
   ValidationError,
   ensurePosters,
+  shotStale,
   lintPrompt,
   build,
   compile,
@@ -61,7 +62,7 @@ function help(): void {
 用法:
   filmbench init <dir> [--name] [--title] [--width 1920] [--height 1080] [--fps 30] [--budget 0]
   filmbench shot add --id --title --frames --provider --task [--prompt] [--desc] [--action] [--after]
-  filmbench shot patch --id [--title] [--frames] [--prompt]
+  filmbench shot patch --id [--title] [--frames] [--prompt] [--provider] [--task]
   filmbench shot param --id [--set k=v]... [--unset k]...
   filmbench shot remove --id
   filmbench ref add --shot ID --asset A [--role identity|wardrobe|environment|first_frame|...]
@@ -249,6 +250,8 @@ const cmdShot = (argv: string[]) => {
         title: { type: "string" },
         frames: { type: "string" },
         prompt: { type: "string" },
+        provider: { type: "string" },
+        task: { type: "string" },
       },
     });
     if (!values.id) throw new Error("shot patch 需要 --id");
@@ -257,6 +260,12 @@ const cmdShot = (argv: string[]) => {
       if (values.title) patch.title = values.title;
       if (values.frames) patch.durationFrames = Number(values.frames);
       if (values.prompt) patch.intent = { prompt: values.prompt };
+      if (values.provider || values.task) {
+        patch.binder = {
+          ...(values.provider ? { provider: values.provider } : {}),
+          ...(values.task ? { task: values.task } : {}),
+        };
+      }
       const { event, replayed } = svc.patchShot(values.id!, patch, { actor: { kind: "human", id: "cli" } });
       out(replayed ? `${values.id} 没有变化，未写入事件` : `已更新 ${values.id}（事件 #${event.seq}）`);
     });
@@ -356,7 +365,7 @@ const cmdPlan = () =>
     if (!state.project) throw new Error("项目尚未创建");
     const rows = state.shots.map((shot) => {
       const produce = shot.produce;
-      const status = !produce ? "缺产物" : shot.mutatedAt > produce.atSeq ? "过期" : "就位";
+      const status = !produce ? "缺产物" : shotStale(state, shot) ? "过期" : "就位";
       const job = [...state.jobs.values()].find((j) => j.shot === shot.id);
       const sel = state.selections.get(shot.id);
       const selected = sel?.video ?? sel?.image ?? sel?.audio;
@@ -367,7 +376,7 @@ const cmdPlan = () =>
             ? `被预算拒绝：${job.reason}`
             : `上一次被取消，重新提交：filmbench jobs submit --shot ${shot.id}`
           : `filmbench jobs submit --shot ${shot.id}`
-        : shot.mutatedAt > produce.atSeq
+        : shotStale(state, shot)
           ? `filmbench jobs submit --shot ${shot.id}`
           : !selected
             ? `filmbench select --shot ${shot.id}`
@@ -396,7 +405,7 @@ const cmdJobs = (argv: string[]) =>
       const state = svc.state();
       const targets = values.all
         ? state.shots
-            .filter((s) => !s.produce || s.mutatedAt > s.produce.atSeq)
+            .filter((s) => !s.produce || shotStale(state, s))
             .map((s) => s.id)
         : values.shot
           ? [values.shot]

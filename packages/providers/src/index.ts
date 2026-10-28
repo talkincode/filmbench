@@ -58,6 +58,21 @@ function envWithFile(file: string | undefined): Record<string, string> {
   return env;
 }
 
+async function probeSize(path: string): Promise<{ width: number; height: number } | null> {
+  try {
+    const proc = Bun.spawn(
+      ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", path],
+      { stdout: "pipe", stderr: "ignore" },
+    );
+    const data = JSON.parse(await new Response(proc.stdout).text());
+    await proc.exited;
+    const s = data.streams?.[0];
+    return s ? { width: s.width, height: s.height } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function probe(path: string): Promise<{ width: number; height: number } | null> {
   try {
     const proc = Bun.spawn(
@@ -253,6 +268,64 @@ export function colab(): Provider {
   };
 }
 
+/** imagine 的视频形态：首帧 + 视频 prompt → 短视频（Gemini Omni / Seedance 等） */
+export function imagineVideo(): Provider {
+  return {
+    id: "imagine/video",
+    tasks: ["video"],
+    determinism: "nondeterministic",
+    modality: "video",
+    requiresPrompt: true,
+    maxReferences: 1,
+    estimate: ({ shot }) => {
+      const unit = Number(shot.binder.params.unitPrice ?? process.env.IMAGINE_UNIT_PRICE ?? "NaN");
+      const known = Number.isFinite(unit);
+      return { amount: known ? unit : 0, currency: "USD", units: "clip", priceUnknown: !known };
+    },
+    health: () => (has("imagine") ? { ok: true, detail: "imagine 已安装" } : { ok: false, detail: "缺少 imagine CLI" }),
+    async run(input: ProviderRunInput) {
+      if (!has("imagine")) throw new Error("imagine 未安装");
+      const { shot, params, projectDir, format, onLog } = input;
+      const model = params.model ?? process.env.IMAGINE_VIDEO_MODEL;
+      if (!model) throw new Error("未指定视频模型：params.model 或 IMAGINE_VIDEO_MODEL");
+      const prompt = (params.prompt as string) ?? (shot.intent.prompts?.video || shot.intent.prompt);
+      if (!prompt) throw new Error(`${shot.id} 没有视频提示词`);
+      const seconds = Number(params.duration ?? shot.durationFrames / format.fps);
+      const first = (shot.references ?? [])[0];
+      const firstPath = first ? input.references?.[first.asset] : undefined;
+      if (!firstPath) throw new Error(`${shot.id} 需要一张首帧参考（role 建议 first_frame）`);
+
+      const tmp = join(projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${shot.id}.mp4`);
+      const args = [
+        "imagine", "generate", "-m", String(model), "-p", prompt, "-o", out,
+        "--image", firstPath, "--duration", String(seconds), "--json", "--authorize-spend",
+      ];
+      const env = envWithFile(String(params.envFile ?? process.env.FILMBENCH_IMAGINE_ENV_FILE ?? ""));
+      const { code, stderr } = await run(args, projectDir, onLog, env, input.signal);
+      if (code !== 0) throw new Error(`imagine 视频失败：${stderr.split("\n").slice(-6).join("\n")}`);
+      if (!existsSync(out)) throw new Error("imagine 没有写出视频");
+
+      // 实测时长：短了就是短了，不能谎报
+      const probe = Bun.spawnSync([
+        "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out,
+      ]);
+      const actual = Number(probe.stdout.toString().trim());
+      if (Number.isFinite(actual) && actual + 0.15 < seconds) {
+        throw new Error(`视频只有 ${actual.toFixed(2)}s，短于镜头要求的 ${seconds}s`);
+      }
+      const size = (await probeSize(out)) ?? { width: format.width, height: format.height };
+      const unit = Number(params.unitPrice ?? process.env.IMAGINE_UNIT_PRICE ?? "NaN");
+      const known = Number.isFinite(unit);
+      return {
+        files: [{ kind: "video" as const, path: out, mime: "video/mp4", width: size.width, height: size.height, durationFrames: shot.durationFrames }],
+        ...(known ? { cost: { kind: "api" as const, units: "clip", unitPrice: unit, amount: unit, currency: "USD" } } : { priceUnknown: true }),
+      };
+    },
+  };
+}
+
 /** 通用本地命令：把任意 CLI（qwentts / scorekit / hyperframes / remotion）接成 provider */
 export function localProc(config: {
   id: string;
@@ -309,6 +382,6 @@ export function localProc(config: {
 
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
-  for (const p of [colorcard(), imagine(), colab()]) registry.set(p.id, p);
+  for (const p of [colorcard(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
   return registry;
 }

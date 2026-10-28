@@ -10,6 +10,8 @@ export function shotStale(state: ProjectState, shot: ShotState): boolean {
   if (!shot.produce) return false;
   const job = state.jobs.get(shot.produce.jobId);
   if (!job) return shot.mutatedAt > shot.produce.atSeq;
-  const current = inputsHash(shot, state.project?.format.fps ?? 30, shot.binder.params, shot.produce.kind);
+  // 用作业当时记录的 provider 模态；老作业没有该字段时退回产物类型
+  const modality = job.modality === undefined ? shot.produce.kind : job.modality;
+  const current = inputsHash(shot, state.project?.format.fps ?? 30, shot.binder.params, modality);
   return job.inputsHash !== current;
 }

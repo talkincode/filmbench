@@ -90,7 +90,7 @@ filmbench build             # 1344×768 / 210 帧 / 7.000s
 | 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件 | `packages/core/src/detail.ts` |
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
 | 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
-| 调用 imagine 生成素材 | ✅ 已用 MAI-Image-2.6-Flash 真跑通：出图 → 内容寻址 → 编译 → 成片 | `packages/providers` |
+| 调用 imagine 生成素材 | ✅ 图片：MAI-Image-2.6-Flash 真跑通；🎬 视频：provider + 首帧 + 视频提示词已接好，付费云视频需显式 `IMAGINE_SPEND_OK=1` 授权 | `packages/providers` |
 | 调用 colab | ✅ 可复用会话：装一次环境/模型，之后复用；30 分钟空闲自动停（本地 reap + VM watchdog） | `workflows/comfy-h3` · `packages/providers/src/colab.ts` |
 | 内置 pi agent 核心 | ✅ pi 1.4.0 已装，真会话跑通（调用 `project_state` 并正确汇总） | `packages/agent` |
 | 消耗统计 | ✅ 账本 = 事件投影：按 provider / 计量 / 镜头聚合，未知价格单列 | `packages/core/src/cost.ts` |

@@ -32,6 +32,7 @@ export interface JobState {
   shot: string;
   provider: string;
   task: string;
+  modality?: "image" | "video" | null;
   params: Record<string, string | number | boolean>;
   estimate: { amount: number; currency: string; units: string; priceUnknown: boolean };
   inputsHash: string;
@@ -207,6 +208,7 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
           shot: p.shot,
           provider: p.provider,
           task: p.task,
+          modality: p.modality,
           params: p.params,
           estimate: p.estimate,
           inputsHash: p.inputsHash,

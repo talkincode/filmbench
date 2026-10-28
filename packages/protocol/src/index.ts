@@ -114,7 +114,7 @@ export const SHOT_PATCH = z.object({
     .optional(),
   binder: z
     .object({
-      provider: ident.optional(),
+      provider: providerId.optional(),
       task: ident.optional(),
       params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
     })
@@ -172,6 +172,8 @@ export const EVENT_PAYLOADS = {
     shot: ident,
     provider: providerId,
     task: ident,
+    /** provider 声明的模态；null 表示这个 provider 不消费 prompt（如纯色片段） */
+    modality: z.enum(["image", "video"]).nullable().optional(),
     params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
     estimate: z.object({ amount: money, currency: z.string().length(3), units: z.string(), priceUnknown: z.boolean() }),
     inputsHash: sha,

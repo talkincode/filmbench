@@ -89,7 +89,16 @@ export function submit(service: Service, registry: ProviderRegistry, input: Subm
   // 先记录请求：被预算拒绝的作业也必须留在队列历史里，否则"为什么没生成"查不到
   service.append(
     "job.requested",
-    { jobId, shot: shot.id, provider: provider.id, task: shot.binder.task, params, estimate, inputsHash: hash },
+    {
+      jobId,
+      shot: shot.id,
+      provider: provider.id,
+      task: shot.binder.task,
+      modality: provider.modality ?? null,
+      params,
+      estimate,
+      inputsHash: hash,
+    },
     { actor: input.actor, opid: input.opid },
   );
 
