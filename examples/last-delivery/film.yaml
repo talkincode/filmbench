@@ -80,16 +80,21 @@ shots:
           电影剧照，浅景深，画面里没有文字，没有水印
         video: 镜头保持不动，快递员弯腰放下包裹后直起身，雨衣上的水珠滑落，肩头滴下一串水
     binder:
-      provider: imagine
-      task: image
+      provider: colab
+      task: video
       params:
         model: MAI-Image-2.6-Flash
         width: 1344
         height: 768
+        workflow: h3-i2v
+        draft: false
+        steps: 24
+        seed: 7101
+        length: 107
     subjects: []
     references:
-      - asset: asset-7d0a95eafcf8
-        role: environment
+      - asset: asset-c40aa2f0cbd5
+        role: first_frame
     dependsOn:
       - shot: door
         kind: continuity
@@ -130,16 +135,21 @@ shots:
           变形宽银幕电影剧照，青蓝阴影与琥珀色光斑，画面里没有人，没有文字，没有水印
         video: 镜头沿走廊缓慢向前推进，尽头门缝的暖光轻微呼吸，地上的湿脚印在光里反光
     binder:
-      provider: imagine
-      task: image
+      provider: colab
+      task: video
       params:
         model: MAI-Image-2.6-Flash
         width: 1344
         height: 768
+        workflow: h3-i2v
+        draft: false
+        steps: 24
+        seed: 7101
+        length: 107
     subjects: []
     references:
-      - asset: asset-e83deb1f57d4
-        role: environment
+      - asset: asset-d73e02ef0a60
+        role: first_frame
     dependsOn:
       - shot: lift
         kind: continuity

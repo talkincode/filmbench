@@ -19,9 +19,9 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | --- | --- | --- | --- | --- |
 | 01 | `title` | 60f / 2.0s | filmbench/title | 片名卡：门厅剧照压暗 + 宋体片名 + 红线 + 剧情副标题 + 署名行（本地 SVG，零成本；同时是封面） |
 | 02 | `door` | 90f / 3.0s | imagine | 雨夜门厅空镜；后续两镜把它当 `environment` 参考 |
-| 03 | `courier` | 120f / 4.0s | imagine | 快递员放下包裹（参考 01） |
+| 03 | `courier` | 120f / 4.0s | **colab · H3** | 定稿静帧当首帧 → MiniMax H3 图生视频（107f/24fps 原生 1344×768，裁剪到 4s） |
+| 05 | `hall` | 120f / 4.0s | **colab · H3** | 同上；两镜都走「静帧 → H3 i2v」
 | 04 | `lift` | 90f / 3.0s | colorcard | 电梯空轿厢，纯色占位（零成本、确定性） |
-| 05 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
 | 06 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
 | 07 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
 | ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调 2/4、10 小节；钢琴主题在 6s / 14s 两次模进，定音鼓在 0s / 10s / 16s 各一下，合成低音托底，**无弦乐**；`fit: exact` 卡点 |
@@ -45,6 +45,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 审计故事板 | `0 镜有阻塞`，底账为空 |
 | 标题卡 | `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits），剧照压暗 + 暗角 + 颗粒 |
 | 封面 | 标题卡本身就是封面（`filmbench cover --shot title`），与片头同一套设计语言 |
+| H3 图生视频 | 两镜改为「定稿静帧 → ComfyUI MiniMax H3 图生视频」：原生 1344×768 / 107 帧 / 24fps，带音轨（成片用我们的配乐+旁白），A100 上正式档约 5–6 分钟/条 |
 | 配乐 | `music/score.yaml`：**不用弦乐**，只留钢琴（两次模进）+ 合成低音 + 定音鼓；产物作为音轨混入，成片 AAC 48kHz 立体声 |
 | 旁白 | 两条（`vo-open` @2s、`vo-door` @12s），**男声独白**（base 克隆，参考 `锅哥男声.mp3`），入点都落在剪辑点；音乐自动避让旁白；build 顺带产出 `narration.srt` |
 | 音轨卡点 | `music/score.cues.json`（2/4、60bpm、10 小节）+ `fit: exact`；`filmbench cues` 显示 8 个剪辑点全部 0 偏差 |
