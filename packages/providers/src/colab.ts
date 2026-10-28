@@ -71,22 +71,17 @@ export function readColabSpec(dir: string): ColabSpec {
   return JSON.parse(readFileSync(join(dir, "workflow.json"), "utf8")) as ColabSpec;
 }
 
-/** 工作流包的内容哈希：改了任何脚本/图，哈希就变，setup 自动重跑 */
-export function colabWorkflowHash(dir: string): string {
+/**
+ * 会话身份哈希：只看"环境定义"（workflow.json + setup.py）。
+ * 改 run.py / graph.json 不该重建会话、重下模型——那些脚本每次作业前会上传。
+ */
+export function colabWorkflowHash(dir: string, files = ["workflow.json", "setup.py"]): string {
   const hash = createHash("sha256");
-  const walk = (d: string) => {
-    for (const name of readdirSync(d).sort()) {
-      if (name === "node_modules" || name === "__pycache__") continue;
-      const p = join(d, name);
-      const st = statSync(p);
-      if (st.isDirectory()) walk(p);
-      else {
-        hash.update(relative(dir, p));
-        hash.update(readFileSync(p));
-      }
-    }
-  };
-  walk(dir);
+  for (const name of [...files].sort()) {
+    const p = join(dir, name);
+    hash.update(name);
+    hash.update(existsSync(p) ? readFileSync(p) : "");
+  }
   return hash.digest("hex");
 }
 
@@ -343,6 +338,14 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
   await ensureRemoteDirs(state.session, dir, [jobDir, `${jobDir}/refs`, `${remote}/out`], projectDir, {
     FILMBENCH_REMOTE: remote,
   }, { onLog });
+
+  // 每次作业前把可执行的脚本/图同步上去：改 run.py / graph.json 不必重建会话
+  for (const f of ["run.py", "graph.json"]) {
+    const local = join(dir, f);
+    if (!existsSync(local)) continue;
+    const r = await runColab(["upload", local, `${remote}/${f}`, "--session", state.session], projectDir, { onLog });
+    if (r.code !== 0) throw new Error(`上传 ${f} 失败：${r.err.slice(-300)}`);
+  }
   const remoteOut = (spec.out ?? `${remote}/out/{jobId}.mp4`).replace("{jobId}", input.jobId);
 
   // 参考图先传：按镜头声明顺序，最多 provider 上限

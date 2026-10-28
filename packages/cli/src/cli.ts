@@ -2,8 +2,9 @@
 /**
  * filmbench CLI。所有命令都是 Service 的薄壳——没有任何一条命令绕过事件日志。
  */
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { stringify as toYaml } from "yaml";
 import {
@@ -73,6 +74,7 @@ function help(): void {
   filmbench shot param --id [--set k=v]... [--unset k]...
   filmbench shot remove --id
   filmbench shot move --id <id> (--before <id> | --after <id>)
+  filmbench asset add --file <path> [--name <name>]
   filmbench ref add --shot ID --asset A [--role identity|wardrobe|environment|first_frame|...]
   filmbench ref list|remove --shot ID [--asset A]
   filmbench prompt set --shot ID [--image "…"] [--video "…"] [--text "…"]
@@ -429,6 +431,29 @@ const cmdCheck = () =>
     }
     out(`\n${report.ok ? "验收通过" : "验收未通过"} · ${report.shots} 镜 / ${report.frames} 帧`);
     if (!report.ok) process.exitCode = 1;
+  });
+
+const cmdAsset = (argv: string[]) =>
+  withService((svc, dir) => {
+    if (argv[0] !== "add") throw new Error("用法: filmbench asset add --file <path> [--name <name>]");
+    const { values } = parseArgs({ args: argv.slice(1), options: { file: { type: "string" }, name: { type: "string" } } });
+    if (!values.file) throw new Error("asset add 需要 --file");
+    const src = resolve(values.file);
+    const bytes = readFileSync(src);
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    const asset = `asset-${digest.slice(0, 12)}`;
+    const name = values.name ?? basename(src);
+    const rel = join("assets", digest, name);
+    const dest = join(dir, rel);
+    mkdirSync(dirname(dest), { recursive: true });
+    if (!existsSync(dest)) writeFileSync(dest, bytes);
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    const mime = ext === "png" ? "image/png" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "application/octet-stream";
+    const { event } = svc.registerAsset(
+      { asset, sha256: digest, bytes: bytes.byteLength, mime, path: rel },
+      { actor: { kind: "human", id: "cli" } },
+    );
+    out(`已登记 ${asset}（${rel}）· 事件 #${event.seq}`);
   });
 
 const cmdRef = (argv: string[]) =>
@@ -996,6 +1021,8 @@ async function main(): Promise<void> {
         return await cmdInfo();
       case "check":
         return await cmdCheck();
+      case "asset":
+        return await cmdAsset(rest);
       case "ref":
         return await cmdRef(rest);
       case "prompt":

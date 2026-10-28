@@ -1,0 +1,14 @@
+{
+  "name": "h3-i2v",
+  "title": "ComfyUI · MiniMax H3 图生视频",
+  "gpu": "A100",
+  "remoteDir": "/content/filmbench",
+  "persist": "/content/filmbench/persist",
+  "idleMinutes": 30,
+  "pips": [],
+  "models": [],
+  "run": "run.py",
+  "setup": "setup.py",
+  "out": "/content/filmbench/out/{jobId}.mp4",
+  "notes": "首帧定稿 → H3 图生视频，原生 768×1024 / 107 帧 / 24fps；草稿挂 turbo LoRA 8 步，正式 24 步"
+}
