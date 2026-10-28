@@ -82,29 +82,65 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       const { service, dir } = svc(args.project as string | undefined);
       const state = service.state();
       const coverAsset = state.cover ? state.assets.get(state.cover.asset) : null;
+      const cost = summarize(state);
+      const perShot = new Map(cost.byShot.map((r) => [r.shot, r.amount]));
+      const check = runChecks(service, registry);
+      let cursor = 0;
+      const shots = state.shots.map((s, i) => {
+        const start = cursor;
+        cursor += s.durationFrames;
+        return {
+          id: s.id,
+          order: i + 1,
+          title: s.title,
+          durationFrames: s.durationFrames,
+          startFrame: start,
+          endFrame: cursor,
+          provider: s.binder.provider,
+          task: s.binder.task,
+          hasOutput: Boolean(s.produce),
+          stale: s.produce ? shotStale(state, s) : false,
+          selected: (() => {
+            const sel = state.selections.get(s.id);
+            return sel?.video ?? sel?.image ?? sel?.audio ?? null;
+          })(),
+          cost: perShot.get(s.id) ?? 0,
+        };
+      });
       return {
         dir,
         project: state.project,
         script: state.script ?? null,
         cover: state.cover
-          ? {
-              shot: state.cover.shot,
-              asset: state.cover.asset,
-              absPath: coverAsset ? join(dir, coverAsset.path) : null,
-            }
+          ? { shot: state.cover.shot, asset: state.cover.asset, absPath: coverAsset ? join(dir, coverAsset.path) : null }
           : null,
         policy: readPolicy(dir),
         head: state.head,
-        totalFrames: state.shots.reduce((n, s) => n + s.durationFrames, 0),
-        shots: state.shots.map((s, i) => ({
-          id: s.id,
-          order: i + 1,
-          title: s.title,
-          durationFrames: s.durationFrames,
-          provider: s.binder.provider,
-          hasOutput: Boolean(s.produce),
-        })),
-        cost: summarize(state),
+        totalFrames: cursor,
+        shots,
+        cost,
+        checks: check,
+        renders: state.renders.slice(-3),
+        events: state.events.slice(-40).map((e) => {
+          const p = e.payload as Record<string, unknown>;
+          const brief =
+            e.op === "shot.added"
+              ? String((p.shot as any)?.title ?? "")
+              : e.op === "shot.patched"
+                ? Object.keys((p.patch as object) ?? {}).join(",")
+                : e.op.startsWith("job.")
+                  ? String(p.jobId ?? "")
+                  : e.op === "cost.recorded"
+                    ? `${p.provider} ${p.amount} ${p.currency}`
+                    : e.op === "script.set"
+                      ? "剧本"
+                      : e.op === "cover.set"
+                        ? String(p.shot ?? "")
+                        : e.op === "selection.set"
+                          ? `${p.shot} → ${p.asset}`
+                          : "";
+          return { seq: e.seq, op: e.op, actor: `${e.actor.kind}:${e.actor.id}`, at: e.at, brief };
+        }),
       };
     }
     case "script_set": {

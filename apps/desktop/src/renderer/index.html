@@ -114,6 +114,31 @@
   .tab.on{background:var(--paper-hi);border-color:var(--rule);color:var(--ink);font-weight:600}
   .tpanel{display:none;flex-direction:column;gap:10px}
   .tpanel.on{display:flex}
+  .film{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;height:100%;min-height:0}
+  .film-left{overflow:auto;padding-right:4px}
+  .film-left .cover img{width:100%;height:auto;display:block;border-radius:6px;border:1px solid var(--rule)}
+  .film-left .slot.empty{display:block;padding:16px;border:1px dashed var(--rule);border-radius:6px;color:var(--ink-3);font-family:var(--mono);font-size:11px}
+  .film-right{display:flex;flex-direction:column;min-height:0}
+  .film-tabs{display:flex;gap:3px;border-bottom:1px solid var(--rule);margin-bottom:10px}
+  .film-tab{padding:5px 11px;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;
+    font-family:var(--mono);font-size:12px;color:var(--ink-2);cursor:pointer;margin-bottom:-1px}
+  .film-tab.on{background:var(--paper-hi);border-color:var(--rule);color:var(--ink);font-weight:600}
+  .film-body{overflow:auto;flex:1;min-height:0;padding-right:4px}
+  .film-pane{display:none;flex-direction:column;gap:10px}
+  .film-pane.on{display:flex}
+  .tl-bar{display:flex;gap:2px;height:34px;margin:4px 0 10px}
+  .tl-cell{position:relative;height:100%;border-radius:3px;background:rgba(43,95,80,.22);overflow:hidden}
+  .tl-cell[data-ok="0"]{background:rgba(163,41,26,.35)}
+  .tl-cell span{position:absolute;left:4px;top:3px;font-family:var(--mono);font-size:9px;color:var(--ink-2)}
+  .film-row{display:grid;grid-template-columns:28px minmax(0,1.6fr) 70px 120px 70px 1fr;gap:8px;align-items:baseline;
+    padding:5px 0;border-bottom:1px solid var(--rule-hi);font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+  .film-row b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .film-row .st[data-s="ok"]{color:var(--ok)}.film-row .st[data-s="bad"]{color:var(--block)}
+  .film-pane .script-full{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;
+    background:var(--paper);border:1px solid var(--rule-hi);border-radius:6px;padding:12px 14px;flex:1;overflow:auto;min-height:180px}
+  .film-pane .ev-row{display:grid;grid-template-columns:46px 130px minmax(0,1fr) 110px;gap:8px;font-family:var(--mono);font-size:10.5px;
+    padding:3px 0;border-bottom:1px solid var(--rule-hi);color:var(--ink-2)}
+  .film-pane .ev-row .t{color:var(--ink-3)}
   .ov{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}
   .ov .cover img{width:100%;border-radius:6px;border:1px solid var(--rule);display:block}
   .ov h4{margin:0 0 6px;font-family:var(--serif);font-size:15px;font-weight:600}
@@ -293,14 +318,18 @@
 </aside>
 
 <div class="modal" id="overviewModal">
-  <div class="panel" style="width:min(920px,94vw)">
-    <header><h3 id="ovTitle">总览</h3>
+  <div class="panel" style="width:min(1180px,96vw);height:min(86vh,900px)">
+    <header>
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+        <h3 id="ovTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">总览</h3>
+        <span id="ovMeta" style="font-family:var(--mono);font-size:11px;color:var(--ink-3)"></span>
+      </div>
       <div style="display:flex;gap:6px">
         <button class="sm" id="ovScriptEdit">编辑剧本</button>
         <button class="sm" id="ovClose">关闭</button>
       </div>
     </header>
-    <div class="list" id="ovBody" style="padding:14px"></div>
+    <div id="ovBody" style="padding:14px;min-height:0;flex:1"></div>
   </div>
 </div>
 
@@ -824,58 +853,120 @@ function stepShot(delta) {
   if (next) openDetail(next.id);
 }
 
-/* —— 总览（剧本/封面/流程） —— */
-async function openOverview() {
+/* —— 整片详情：剧本 / 时间轴 / 检查 / 账本 / 事件 —— */
+let ovTab = "script";
+async function openOverview(tab) {
+  if (tab) ovTab = tab;
   try {
     const o = await rpc("overview");
     if (!o.project) { toast("项目尚未创建"); return; }
+    const fps = o.project.format.fps;
     $("ovTitle").textContent = o.project.title;
-    const shots = o.shots.map((s) => `<div class="shot-row">
+    $("ovMeta").textContent = `${o.project.name} · ${o.project.format.width}×${o.project.format.height}@${fps} · 修订 #${o.head.seq} · ${o.shots.length} 镜 / ${(o.totalFrames / fps).toFixed(2)}s`;
+
+    const tabs = [["script", "剧本"], ["timeline", "时间轴"], ["checks", "检查"], ["ledger", "账本"], ["events", "事件"]];
+    const pane = (id, body) => `<div class="film-pane${ovTab === id ? " on" : ""}" data-pane="${id}">${body}</div>`;
+
+    const scriptBody = o.script?.body ?? "";
+    const scriptPane = pane(
+      "script",
+      `<p class="logline">${esc(o.script?.logline ?? "还没有一句话简介")}</p>
+       <p class="syn">${esc(o.script?.synopsis ?? "还没有梗概")}</p>
+       <pre class="script-full">${esc(scriptBody || "还没有剧本。点右上「编辑剧本」，或 filmbench script set --file script.md")}</pre>`,
+    );
+
+    const maxFrames = Math.max(...o.shots.map((s) => s.durationFrames), 1);
+    const bar = o.shots
+      .map((s) => `<div class="tl-cell" data-ok="${s.hasOutput && !s.stale ? 1 : 0}" style="flex:${s.durationFrames}"
+        title="${esc(`${s.order} ${s.title} · ${(s.startFrame / fps).toFixed(2)}–${(s.endFrame / fps).toFixed(2)}s`)}"><span>${s.order}</span></div>`)
+      .join("");
+    const rows = o.shots
+      .map((s) => `<div class="film-row">
         <span>${String(s.order).padStart(2, "0")}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span>
-        <span>${(s.durationFrames / o.project.format.fps).toFixed(2)}s</span>
-        <span style="color:var(--ink-3)">${esc(s.provider)}${s.hasOutput ? "" : " · 缺产物"}</span>
-      </div>`).join("");
-    $("ovBody").innerHTML = `<div class="ov">
-      <div>
-        <div class="cover">${o.cover?.absPath ? `<img src="${fileUrl(o.cover.absPath)}?v=${o.cover.asset}" alt="封面">` : `<div class="slot empty">还没有封面（filmbench cover --shot <id>）</div>`}</div>
-        <div class="flow">
-          <b>这支片子怎么跑</b><br>
-          ① <b>提交待办</b>：把缺产物/过期的镜头排进队列，不花钱<br>
-          ② <b>执行队列</b>：按顺序真正调用模型生成，<b>会花钱</b><br>
-          ③ <b>出片</b>：本地 ffmpeg 合成 mp4，不花钱
-        </div>
-        <div class="flow" style="margin-top:10px">
-          <b>渠道策略</b><br>
-          agent 可用：${o.policy.allowedProviders.join(" / ")}<br>
-          视频渠道：${o.policy.allowVideo ? "允许" : "禁止（需人工 --approve）"}<br>
-          价格未知：${o.policy.allowUnknownPrice ? "允许" : "禁止"}
-        </div>
+        <b>${esc(s.title)}</b>
+        <span>${(s.durationFrames / fps).toFixed(2)}s</span>
+        <span>${(s.startFrame / fps).toFixed(2)} → ${(s.endFrame / fps).toFixed(2)}</span>
+        <span>${s.cost ? s.cost.toFixed(2) : "0.00"}</span>
+        <span class="st" data-s="${s.hasOutput && !s.stale ? "ok" : "bad"}">${!s.hasOutput ? "缺产物" : s.stale ? "过期" : "就位"} · ${esc(s.provider)}</span>
+      </div>`)
+      .join("");
+    const timelinePane = pane(
+      "timeline",
+      `<div class="tl-bar">${bar}</div>
+       <div class="film-row" style="border-bottom:1.5px solid var(--ink);color:var(--ink-3)">
+         <span>#</span><span>镜头</span><span>时长</span><span>起止（秒）</span><span>花费</span><span>状态</span></div>
+       ${rows}
+       <p class="dim" style="margin-top:8px">整片 ${o.totalFrames} 帧 / ${(o.totalFrames / fps).toFixed(2)}s · 播放顺序即镜头顺序 · 无用例音频轨</p>`,
+    );
+
+    const checksPane = pane(
+      "checks",
+      `<p class="dim">${o.checks.ok ? "验收通过" : "验收未通过"} · ${o.checks.shots} 镜 / ${o.checks.frames} 帧</p>` +
+        o.checks.items
+          .map((i) => `<div class="ck-row" data-ok="${i.ok ? 1 : i.blocking ? 0 : "warn"}">
+            <span class="m">${i.ok ? "✓" : i.blocking ? "✗" : "!"}</span><span>${esc(i.id)}</span>
+            <span style="color:var(--ink-2)">${esc(i.detail)}</span></div>`)
+          .join(""),
+    );
+
+    const c = o.cost;
+    const ledgerPane = pane(
+      "ledger",
+      `<div class="kv2">
+        <span>币种</span><b>${esc(c.currency)}</b>
+        <span>已花</span><b>${c.spent.toFixed(2)}</b>
+        <span>价格未知</span><b>${c.unknownPriceCalls} 次（未计入）</b>
+        <span>预算</span><b>${o.project.budget ? `${o.project.budget.limit.toFixed(2)} · 余 ${(o.project.budget.limit - c.spent).toFixed(2)}` : "未设"}</b>
       </div>
-      <div>
-        <h4>${esc(o.project.title)}</h4>
-        <p class="logline">${esc(o.script?.logline ?? "还没有一句话简介")}</p>
-        <p class="syn">${esc(o.script?.synopsis ?? "还没有梗概")}</p>
-        <pre class="script">${esc(o.script?.body ?? "还没有剧本。filmbench script set --file script.md")}</pre>
-        <div class="shots">
-          <h4 style="font-size:13px">镜头 ${o.shots.length} · ${o.totalFrames} 帧 / ${(o.totalFrames / o.project.format.fps).toFixed(2)}s</h4>
-          ${shots}
-        </div>
+      <h4 style="margin:10px 0 4px">按 provider</h4>
+      ${c.byProvider.map((r) => `<div class="kv2"><span>${esc(r.provider)}</span><b>${r.calls} 次 · ${r.amount.toFixed(2)}</b></div>`).join("") || `<p class="dim">还没有花费</p>`}
+      <h4 style="margin:12px 0 4px">按镜头</h4>
+      ${c.byShot.map((r) => `<div class="kv2"><span>${esc(r.shot)}</span><b>${r.calls} 次 · ${r.amount.toFixed(2)}</b></div>`).join("") || `<p class="dim">还没有花费</p>`}`,
+    );
+
+    const eventsPane = pane(
+      "events",
+      o.events
+        .slice()
+        .reverse()
+        .map(
+          (e) => `<div class="ev-row"><span>#${e.seq}</span><span>${esc(e.op)}</span>
+            <span style="color:var(--ink)">${esc(e.brief)}</span><span class="t">${esc(e.actor)}</span></div>`,
+        )
+        .join("") || `<p class="dim">还没有事件</p>`,
+    );
+
+    $("ovBody").innerHTML = `<div class="film">
+      <div class="film-left">
+        <div class="cover">${o.cover?.absPath ? `<img src="${fileUrl(o.cover.absPath)}?v=${o.cover.asset}" alt="封面">` : `<div class="slot empty">还没有封面（filmbench cover --shot <id>）</div>`}</div>
+        <div class="flow" style="margin-top:10px"><b>三步流程</b><br>
+          ① 提交待办：排队，不花钱<br>② 执行队列：调用模型，<b>会花钱</b><br>③ 出片：本地 ffmpeg，不花钱</div>
+        <div class="flow" style="margin-top:8px"><b>渠道策略</b><br>
+          agent：${o.policy.allowedProviders.join(" / ")}<br>
+          视频：${o.policy.allowVideo ? "允许" : "禁止（需 --approve）"} · 价格未知：${o.policy.allowUnknownPrice ? "允许" : "禁止"}</div>
+        <div class="flow" style="margin-top:8px"><b>成片</b><br>
+          ${o.renders.length ? o.renders.map((r) => `<div>${(r.durationFrames / fps).toFixed(2)}s · ${(r.bytes / 1024 / 1024).toFixed(1)}MB · ${esc(r.sha256.slice(0, 10))}</div>`).join("") : "还没有渲染过"}</div>
+      </div>
+      <div class="film-right">
+        <div class="film-tabs">${tabs.map(([id, label]) => `<button class="film-tab${ovTab === id ? " on" : ""}" data-otab="${id}">${label}</button>`).join("")}</div>
+        <div class="film-body">${scriptPane}${timelinePane}${checksPane}${ledgerPane}${eventsPane}</div>
       </div>
     </div>`;
+
+    $("ovBody").querySelectorAll("[data-otab]").forEach((b) => (b.onclick = () => openOverview(b.dataset.otab)));
     $("ovScriptEdit").onclick = async () => {
       const body = window.prompt("剧本正文（Markdown/纯文本）", o.script?.body ?? "");
       if (body === null) return;
       const logline = window.prompt("一句话简介", o.script?.logline ?? "");
       if (logline === null) return;
-      try { await rpc("script_set", { body, logline, title: o.project.title }); toast("剧本已保存"); await openOverview(); }
+      try { await rpc("script_set", { body, logline, title: o.project.title }); toast("剧本已保存"); await openOverview("script"); }
       catch (e) { toast(e.message); }
     };
     $("overviewModal").classList.add("open");
   } catch (e) { toast(e.message); }
 }
 $("ovClose").onclick = () => $("overviewModal").classList.remove("open");
-$("bOverview").onclick = openOverview;
+$("bOverview").onclick = () => openOverview();
 
 /* —— 内置预览 —— */
 function openPreview() {
