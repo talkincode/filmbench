@@ -41,7 +41,7 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
     }
 
     if (produce) {
-      if (produce.width !== format.width || produce.height !== format.height) {
+      if (produce.kind === "video" && (produce.width !== format.width || produce.height !== format.height)) {
         checks.push({
           id: "artifact.spec",
           status: "fail",

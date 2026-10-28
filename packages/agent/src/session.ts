@@ -26,6 +26,7 @@ export async function runAgent(service: Service, dir: string, prompt: string): P
   const specs = toolSpecs(dir);
   const loader = new sdk.DefaultResourceLoader({
     cwd: dir,
+    agentDir: sdk.getAgentDir(),
     extensionFactories: [
       (pi: any) => {
         for (const spec of specs) {

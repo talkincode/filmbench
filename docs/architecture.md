@@ -94,7 +94,7 @@ interface Provider {
 | provider | 能力 | 说明 |
 | --- | --- | --- |
 | `filmbench/colorcard` | 视频 | 用 ffmpeg lavfi 生成纯色片段，离线、零成本，用来跑通整条链路与做回归 |
-| `imagine` | 图片 | 调 `imagine generate`，`--authorize-spend`；价格来自 `unitPrice` / `IMAGINE_UNIT_PRICE`，没配就是未知 |
+| `imagine` | 图片 | 调 `imagine generate`，`--authorize-spend`；用 ffprobe 回读真实尺寸；凭据可用 `FILMBENCH_IMAGINE_ENV_FILE` 指向 KEY=VALUE 文件；价格来自 `unitPrice` / `IMAGINE_UNIT_PRICE`，没配就是未知 |
 | `colab` | 视频 | 一个会话跑一条自备脚本，产物下载后 **finally 里无条件 stop** |
 | `local-proc` | 自定义 | 任意 CLI 模板（qwentts / scorekit / hyperframes / remotion）接成 provider |
 

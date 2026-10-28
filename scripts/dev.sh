@@ -59,6 +59,12 @@ if [[ $RESET -eq 1 ]]; then
   rm -rf "$PROJECT"
 fi
 
+# imagine 的凭据通常放在 ~/.imagine/azure.env（KEY=VALUE）；显式加载并告知，不做暗箱读取
+if [[ -z "${FILMBENCH_IMAGINE_ENV_FILE:-}" && -f "$HOME/.imagine/azure.env" ]]; then
+  export FILMBENCH_IMAGINE_ENV_FILE="$HOME/.imagine/azure.env"
+  say "imagine 凭据：$FILMBENCH_IMAGINE_ENV_FILE"
+fi
+
 if [[ ! -d "$PROJECT/journal" ]]; then
   say "生成 demo 项目 $PROJECT"
   bun packages/cli/src/cli.ts demo "$PROJECT" >/dev/null

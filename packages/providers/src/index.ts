@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Provider, ProviderRegistry, ProviderRunInput } from "@filmbench/core";
 
@@ -10,8 +10,18 @@ function colorFor(seed: string): string {
   return PALETTE[n % PALETTE.length];
 }
 
-async function run(cmd: string[], cwd: string, onLog?: (l: string) => void): Promise<{ code: number; stderr: string }> {
-  const proc = Bun.spawn(cmd, { cwd, stdout: "pipe", stderr: "pipe" });
+async function run(
+  cmd: string[],
+  cwd: string,
+  onLog?: (l: string) => void,
+  env?: Record<string, string>,
+): Promise<{ code: number; stderr: string }> {
+  const proc = Bun.spawn(cmd, {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: env ?? (process.env as Record<string, string>),
+  });
   const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
   const code = await proc.exited;
   if (out.trim()) onLog?.(out.trim().split("\n").slice(-2).join("\n"));
@@ -19,6 +29,37 @@ async function run(cmd: string[], cwd: string, onLog?: (l: string) => void): Pro
 }
 
 const has = (bin: string) => Boolean(Bun.which(bin));
+
+/** 读 KEY=VALUE / export KEY=VALUE 形式的凭据文件，只补缺失的变量 */
+function envWithFile(file: string | undefined): Record<string, string> {
+  const env = { ...(process.env as Record<string, string>) };
+  if (!file || !existsSync(file)) return env;
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    const line = raw.trim().replace(/^export\s+/, "");
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (!env[key]) env[key] = value;
+  }
+  return env;
+}
+
+async function probe(path: string): Promise<{ width: number; height: number } | null> {
+  try {
+    const proc = Bun.spawn(
+      ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", path],
+      { stdout: "pipe", stderr: "ignore" },
+    );
+    const data = JSON.parse(await new Response(proc.stdout).text());
+    await proc.exited;
+    const stream = data.streams?.[0];
+    return stream ? { width: stream.width, height: stream.height } : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 本地产线卡：用 ffmpeg 的 lavfi 生成纯色片段。
@@ -109,12 +150,16 @@ export function imagine(): Provider {
       const tmp = join(projectDir, ".filmbench", "tmp");
       mkdirSync(tmp, { recursive: true });
       const out = join(tmp, `${shot.id}.png`);
-      const args = ["imagine", "generate", "-m", String(model), "-p", prompt, "-o", out, "--width", String(format.width), "--height", String(format.height), "--json"];
+      const width = Number(params.width ?? format.width);
+      const height = Number(params.height ?? format.height);
+      const args = ["imagine", "generate", "-m", String(model), "-p", prompt, "-o", out, "--width", String(width), "--height", String(height), "--json"];
       if (params.dryRun) args.push("--dry-run");
       else args.push("--authorize-spend");
-      const { code, stderr } = await run(args, projectDir, onLog);
+      const env = envWithFile(String(params.envFile ?? process.env.FILMBENCH_IMAGINE_ENV_FILE ?? ""));
+      const { code, stderr } = await run(args, projectDir, onLog, env);
       if (code !== 0) throw new Error(`imagine 失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error("imagine 没有写出图片");
+      const size = (await probe(out)) ?? { width, height };
       const unit = Number(params.unitPrice ?? process.env.IMAGINE_UNIT_PRICE ?? "NaN");
       const known = Number.isFinite(unit);
       return {
@@ -123,8 +168,8 @@ export function imagine(): Provider {
             kind: "image" as const,
             path: out,
             mime: "image/png",
-            width: format.width,
-            height: format.height,
+            width: size.width,
+            height: size.height,
             durationFrames: shot.durationFrames,
           },
         ],

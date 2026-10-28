@@ -58,7 +58,7 @@ export function compile(state: ProjectState, baseDir = "."): { ir: RenderIR | nu
       continue;
     }
     const p = shot.produce;
-    if (p.width !== state.project.format.width || p.height !== state.project.format.height) {
+    if (p.kind === "video" && (p.width !== state.project.format.width || p.height !== state.project.format.height)) {
       issues.push({
         code: "spec-mismatch",
         shot: shot.id,

@@ -41,8 +41,35 @@ mkdir -p dist && unzip -q /tmp/electron.zip -d dist
 printf 'Electron.app/Contents/MacOS/Electron' > path.txt
 ```
 
-内置 agent 需要 pi 核心：`bun add @earendil-works/pi-coding-agent`，然后在项目目录里
-`bun ../packages/cli/src/cli.ts agent "把第二镜改短 6 帧"`。
+## 真实生成（已在这台机器上跑通）
+
+`imagine` 的凭据放在 `~/.imagine/azure.env`，显式给 engine：
+
+```bash
+export FILMBENCH_IMAGINE_ENV_FILE=~/.imagine/azure.env   # dev.sh 会自动带上并打印
+filmbench init /tmp/night --name night --title "夜行试片" --width 1344 --height 768 --budget 3
+cd /tmp/night
+filmbench shot add --id shot-river --title "空镜 · 江边步道" --frames 120 \
+  --provider imagine --task image \
+  --prompt "cinematic still: empty riverside promenade at night, wet asphalt, teal and amber" \
+  --param model=MAI-Image-2.6-Flash --param width=1344 --param height=768
+filmbench jobs submit --all
+filmbench jobs run          # 真调 imagine（约 13s，价格未知会如实记账）
+filmbench select --shot shot-river && filmbench review --shot shot-river
+filmbench build             # 1344×768 / 210 帧 / 7.000s
+```
+
+试过的结论：
+
+- `MAI-Image-2.6-Flash`（Azure）可用，**height 必须 ≥ 768**，所以 16:9 取 1344×768。
+- `doubao-seedream-4/5`、`doubao-seedance-*` 在这台机器的 ARK 账号上 **404（无端点/无权限）**，不是配置问题。
+- 图片尺寸和成片不一致是允许的（编译期会 scale+pad）；视频尺寸不一致会直接报 `spec-mismatch`。
+- imagine 没有价格数据，账本记 `priceUnknown` 而不是 0；要定价在镜头参数里给 `unitPrice`。
+
+内置 agent 已可用（`pi 1.4.0`）：`filmbench agent "读一下 project_state，告诉我还能不能出片"`。
+它会通过同一张工具表调用引擎，写操作以 `actor=agent` 落事件。
+
+`filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC) / imagine（已配置模型数、凭据来源）。
 
 把工具接到别的 agent（Claude Code / Codex / pi）：
 
@@ -63,9 +90,9 @@ printf 'Electron.app/Contents/MacOS/Electron' > path.txt
 | 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件 | `packages/core/src/detail.ts` |
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
 | 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
-| 调用 imagine 生成素材 | ✅ provider（`imagine generate`，`--authorize-spend`，价格可配） | `packages/providers` |
+| 调用 imagine 生成素材 | ✅ 已用 MAI-Image-2.6-Flash 真跑通：出图 → 内容寻址 → 编译 → 成片 | `packages/providers` |
 | 调用 colab | ✅ 会话适配器：new → exec → download → **finally 无条件 stop** | 同上 |
-| 内置 pi agent 核心 | ✅ pi SDK 会话 + 同源工具注入（需 `bun add @earendil-works/pi-coding-agent`） | `packages/agent` |
+| 内置 pi agent 核心 | ✅ pi 1.4.0 已装，真会话跑通（调用 `project_state` 并正确汇总） | `packages/agent` |
 | 消耗统计 | ✅ 账本 = 事件投影：按 provider / 计量 / 镜头聚合，未知价格单列 | `packages/core/src/cost.ts` |
 | 全功能 stdio MCP | ✅ 与 agent 同一张工具表；真 MCP 客户端测试覆盖读写 | `packages/mcp` |
 | sqlite + 本地文件 | ✅ 文件事件日志是真相，sqlite 是索引，删库可重建 | `packages/core/src/{journal,db}.ts` |
@@ -103,6 +130,7 @@ filmbench build                    # 编译 + ffmpeg 出片
 filmbench storyboard               # 审计故事板 HTML
 filmbench ledger --json
 filmbench ui [--shot ID]           # 打开桌面界面（单实例）
+filmbench doctor
 filmbench status | verify | reindex | export
 filmbench mcp                      # stdio MCP（给外部 agent）
 filmbench agent "<任务描述>"        # 内置 pi agent

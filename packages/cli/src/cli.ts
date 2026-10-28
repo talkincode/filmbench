@@ -71,6 +71,7 @@ function help(): void {
   filmbench export [--out film.yaml]
   filmbench verify
   filmbench reindex
+  filmbench doctor
   filmbench ui [--shot ID]
   filmbench mcp
   filmbench agent "<任务描述>"
@@ -149,25 +150,30 @@ const cmdShot = (argv: string[]) => {
         action: { type: "string", default: "" },
         after: { type: "string" },
         color: { type: "string" },
+        param: { type: "string", multiple: true },
       },
     });
     if (!values.id || !values.title || !values.frames || !values.provider || !values.task) {
       throw new Error("shot add 需要 --id --title --frames --provider --task");
     }
     withService((svc) => {
+      const params: Record<string, string | number | boolean> = {};
+      for (const pair of values.param ?? []) {
+        const eq = pair.indexOf("=");
+        if (eq <= 0) throw new Error(`--param 需要 key=value：${pair}`);
+        const key = pair.slice(0, eq);
+        const raw = pair.slice(eq + 1);
+        params[key] = raw === "true" ? true : raw === "false" ? false : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
+      }
+      if (values.color) params.color = values.color;
       const state = svc.state();
-      const byId = new Map(state.shots.map((s) => [s.id, s]));
       const { event } = svc.addShot(
         {
           id: values.id!,
           title: values.title!,
           durationFrames: Number(values.frames),
           intent: { description: values.desc!, action: values.action!, prompt: values.prompt! },
-          binder: {
-            provider: values.provider!,
-            task: values.task!,
-            params: values.color ? { color: values.color } : {},
-          },
+          binder: { provider: values.provider!, task: values.task!, params },
           subjects: [],
           references: [],
           dependsOn: values.after ? [{ shot: values.after, kind: "continuity" as const }] : [],
@@ -175,7 +181,6 @@ const cmdShot = (argv: string[]) => {
         { actor: { kind: "human", id: "cli" } },
       );
       out(`已加镜头 ${values.id}（事件 #${event.seq}）`);
-      void byId;
     });
     return;
   }
@@ -382,6 +387,79 @@ const cmdReindex = () =>
     out(`索引已从事件重建（${events} 条）`);
   });
 
+const sh = (cmd: string[]) => {
+  try {
+    const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" });
+    return { ok: r.exitCode === 0, out: r.stdout.toString().trim(), err: r.stderr.toString().trim() };
+  } catch (e) {
+    return { ok: false, out: "", err: (e as Error).message };
+  }
+};
+
+const cmdDoctor = async () => {
+  const rows: [string, boolean, string][] = [];
+  const ff = sh(["ffmpeg", "-version"]);
+  rows.push(["ffmpeg", ff.ok, ff.ok ? ff.out.split("\n")[0].slice(0, 40) : "缺少 ffmpeg（brew install ffmpeg）"]);
+  rows.push(["ffprobe", Boolean(Bun.which("ffprobe")), Bun.which("ffprobe") ?? "缺少 ffprobe"]);
+
+  const electron = join(resolve(import.meta.dir, "../../.."), "apps/desktop/node_modules/.bin/electron");
+  rows.push(["electron", existsSync(electron), existsSync(electron) ? "已安装（开发模式）" : "bun install 后可用"]);
+
+  let piVersion = "";
+  try {
+    const pi = await import("@earendil-works/pi-coding-agent");
+    piVersion = String((pi as any).VERSION ?? "installed");
+    rows.push(["pi 核心", true, `已安装 ${piVersion} · 内置 agent 可用`]);
+  } catch {
+    rows.push(["pi 核心", false, "未安装：bun add @earendil-works/pi-coding-agent"]);
+  }
+
+  const colab = sh(["colab", "version"]);
+  const colabAuth = colab.ok ? sh(["colab", "--auth", "adc", "sessions"]) : { ok: false, out: "", err: "" };
+  rows.push([
+    "colab",
+    colab.ok,
+    colab.ok ? `v${(colab.out.match(/\d+\.\d+\.\d+/) ?? ["?"])[0]}${colabAuth.ok ? " · ADC 可用" : " · 未登录（colab --auth adc sessions）"}` : "未安装",
+  ]);
+
+  const imagine = sh(["imagine", "version"]);
+  let usable = 0;
+  let modelHint = "";
+  if (imagine.ok) {
+    const models = sh(["imagine", "models", "--json"]);
+    try {
+      const list = JSON.parse(models.out) as any[];
+      const ok = list.filter((m) => ["configured", "ok", "not_required", "present"].includes(m.credential_status));
+      usable = ok.length;
+      modelHint = ok.slice(0, 4).map((m) => m.name).join(", ");
+    } catch {}
+  }
+  const envKeys = ["AZURE_OPENAI_APIKEY", "ARK_API_KEY", "GEMINI_API_KEY"].filter((k) => Boolean(process.env[k]));
+  rows.push([
+    "imagine",
+    imagine.ok && usable > 0,
+    imagine.ok
+      ? `${usable} 个已配置模型${modelHint ? `（${modelHint}${usable > 4 ? " …" : ""}）` : ""}${
+          envKeys.length ? ` · 环境变量 ${envKeys.join("/")}` : " · 没有凭据环境变量"
+        }${process.env.FILMBENCH_IMAGINE_ENV_FILE ? ` · envFile ${process.env.FILMBENCH_IMAGINE_ENV_FILE}` : ""}`
+      : "未安装（brew install jamiesun/tap/imagine 或官方脚本）",
+  ]);
+
+  for (const [name, ok, detail] of rows) out(`${ok ? "✓" : "✗"} ${name.padEnd(10)} ${detail}`);
+  if (rows.some((r) => !r[1])) {
+    out("\n有组件不可用：带 ✗ 的项按提示补齐。缺 ffmpeg 会直接导致出片失败；缺 imagine/colab/pi 只影响对应能力。");
+  }
+  out("\n“已配置”只说明凭据在，能不能真调到要跑一次：filmbench jobs submit --shot <id> && filmbench jobs run");
+  const state = (() => {
+    try {
+      return Service.open(findProject()).state();
+    } catch {
+      return null;
+    }
+  })();
+  if (state?.project) out(`\n当前项目 ${state.project.name} · ${state.shots.length} 镜 · 事件 #${state.head.seq}`);
+};
+
 const cmdUi = (argv: string[]) =>
   withService((svc, dir) => {
     const { values } = parseArgs({ args: argv, options: { shot: { type: "string" } } });
@@ -515,6 +593,8 @@ async function main(): Promise<void> {
         return cmdVerify();
       case "reindex":
         return cmdReindex();
+      case "doctor":
+        return cmdDoctor();
       case "ui":
         return cmdUi(rest);
       case "mcp":
