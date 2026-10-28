@@ -71,7 +71,9 @@ export class Journal {
     const seq = events.length + 1;
     const ref = input.ref ?? "main";
     const prev = events.length > 0 ? events[events.length - 1].hash : ZERO_HASH;
-    const payload = parsePayload(input.op, input.payload);
+    // 统一成"纯 JSON"：zod 会把显式 undefined 留在对象里，而 JSON.stringify 会丢掉它，
+    // 两边不一致就会让哈希对不上（曾经因此误报过一次"事件被改过"）
+    const payload = JSON.parse(JSON.stringify(parsePayload(input.op, input.payload)));
     const body = {
       apiVersion: "filmbench/v1",
       kind: "Event",

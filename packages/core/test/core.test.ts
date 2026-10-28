@@ -39,6 +39,16 @@ describe("事件日志与单写路径", () => {
     svc.close();
   });
 
+  test("带 undefined 字段的事件也能通过哈希校验", () => {
+    const { svc } = project("undefined-payload");
+    svc.setScript({ body: "正文" }); // logline / synopsis / title 都是 undefined
+    const result = svc.verify();
+    expect(result.ok).toBe(true);
+    expect(result.problems).toEqual([]);
+    expect(svc.state().script?.body).toBe("正文");
+    svc.close();
+  });
+
   test("重写同样的值不产生新事件（幂等写入）", () => {
     const { svc } = project("noop-patch");
     const before = svc.head().seq;
