@@ -11,6 +11,7 @@ import {
   Service,
   build,
   projectStoryboard,
+  reconcileOrphans,
   runJobs,
   shotDetail,
   submit,
@@ -20,6 +21,7 @@ import { builtinProviders } from "@filmbench/providers";
 import { renderDocument } from "@filmbench/storyboard-audit";
 
 const registry = builtinProviders();
+const reconciled: string[] = [];
 const defaultProject = resolve(process.argv[2] ?? process.cwd());
 const services = new Map<string, Service>();
 
@@ -36,8 +38,12 @@ function svc(dir?: string): { service: Service; dir: string } {
 
 async function handle(cmd: string, args: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "hello":
-      return { engine: "filmbench-engine/0.0.1", defaultProject };
+    case "hello": {
+      const { service } = svc(args.project as string | undefined);
+      const n = reconcileOrphans(service);
+      if (n > 0) reconciled.push(`${n} 个孤立作业`);
+      return { engine: "filmbench-engine/0.0.1", defaultProject, reconciled };
+    }
     case "state": {
       const { service, dir } = svc(args.project as string | undefined);
       const state = service.state();

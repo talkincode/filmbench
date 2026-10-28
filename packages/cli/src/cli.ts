@@ -14,6 +14,7 @@ import {
   build,
   compile,
   projectStoryboard,
+  reconcileOrphans,
   runJobs,
   submit,
   summarize,
@@ -381,6 +382,8 @@ const cmdJobs = (argv: string[]) =>
     }
     if (sub === "run" || sub === undefined) {
       const { values } = parseArgs({ args: argv.slice(1), options: { job: { type: "string" } } });
+      const orphans = reconcileOrphans(svc);
+      if (orphans > 0) out(`清理了 ${orphans} 个中断的作业（上次进程没跑完）`);
       const results = await runJobs(svc, registry, {
         jobId: values.job,
         onLog: (l) => process.stderr.write(`  ${l}\n`),

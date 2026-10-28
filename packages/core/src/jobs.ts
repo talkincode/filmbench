@@ -129,6 +129,21 @@ async function materialize(service: Service, file: { path: string; mime: string 
   return { asset, digest, bytes: bytes.byteLength, path: relative(service.dir, dest) };
 }
 
+/**
+ * 引擎/CLI 启动时清理孤立作业：进程崩溃后 job.started 的事件会留在 running，
+ * 它既不会自己完成，也不该被当成"正在跑"。标记失败，让用户知道要去 provider 侧确认花费。
+ */
+export function reconcileOrphans(service: Service): number {
+  const orphaned = [...service.state().jobs.values()].filter((j) => j.phase === "running");
+  for (const job of orphaned) {
+    service.append("job.failed", {
+      jobId: job.jobId,
+      reason: "进程中断：作业停在 running 状态，可能已产生费用，请到 provider 侧确认",
+    });
+  }
+  return orphaned.length;
+}
+
 /** 执行队列。一次一个：本地渲染与 GPU 会话都不适合并发抢资源。 */
 export async function runJobs(
   service: Service,
@@ -143,6 +158,18 @@ export async function runJobs(
   const outcomes: RunOutcome[] = [];
 
   for (const job of pending) {
+    // 预算是"花之前"的闸门：排队期间别的作业可能已经花掉余额，所以执行前重新核对一次
+    const live = service.state();
+    if (live.project?.budget && !job.estimate.priceUnknown) {
+      const remaining = (remainingBudget(live) ?? 0) + job.estimate.amount;
+      if (job.estimate.amount > remaining) {
+        const reason = `执行前预算不足：需要 ${job.estimate.amount.toFixed(2)} ${job.estimate.currency}，剩余 ${remaining.toFixed(2)}`;
+        service.append("job.rejected", { jobId: job.jobId, reason, cause: "budget" });
+        outcomes.push({ jobId: job.jobId, shot: job.shot, ok: false, reason });
+        continue;
+      }
+    }
+
     const shot = state.shots.find((s) => s.id === job.shot);
     if (!shot) {
       service.append("job.failed", { jobId: job.jobId, reason: `镜头已删除: ${job.shot}` });
@@ -157,6 +184,9 @@ export async function runJobs(
     }
 
     service.append("job.started", { jobId: job.jobId });
+    const timeoutMs = Number(process.env.FILMBENCH_JOB_TIMEOUT_MS ?? 20 * 60 * 1000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const references: Record<string, string> = {};
       for (const ref of shot.references) {
@@ -169,6 +199,7 @@ export async function runJobs(
         projectDir: service.dir,
         format: state.project.format,
         references,
+        signal: controller.signal,
         onLog: options.onLog,
       });
       if (!result.files.length) throw new Error("provider 没有产出任何文件");
@@ -217,9 +248,14 @@ export async function runJobs(
 
       outcomes.push({ jobId: job.jobId, shot: job.shot, ok: true, asset: stored.asset, path: stored.path });
     } catch (err) {
-      const reason = (err as Error).message;
+      const aborted = controller.signal.aborted;
+      const reason = aborted
+        ? `超时：超过 ${Math.round(timeoutMs / 1000)}s 未完成，已终止子进程（产物可能不完整）`
+        : (err as Error).message;
       service.append("job.failed", { jobId: job.jobId, reason });
       outcomes.push({ jobId: job.jobId, shot: job.shot, ok: false, reason });
+    } finally {
+      clearTimeout(timer);
     }
   }
 

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, lintPrompt, projectStoryboard, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, compile, lintPrompt, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -175,6 +175,64 @@ describe("作业、预算与账本", () => {
     expect(existsSync(join(sub, produce.path))).toBe(true);
     expect(produce.bytes).toBeGreaterThan(0);
     expect(summarize(state).spent).toBe(0);
+    svc.close();
+  });
+});
+
+describe("执行队列的边界", () => {
+  test("执行前重新核对预算：排队期间钱花掉了，作业被拒而不是透支", async () => {
+    const { svc } = project("run-budget");
+    svc.close();
+    const sub = join(dir, "run-budget");
+    rmSync(sub, { recursive: true, force: true });
+    const s2 = Service.open(sub);
+    s2.createProject({ name: "p", title: "T", format: { width: 320, height: 180, fps: 30 }, budget: { currency: "USD", limit: 2 } });
+    s2.addShot({
+      id: "shot-a",
+      title: "A",
+      durationFrames: 30,
+      intent: { description: "", action: "", prompt: "a wide river at night, wet asphalt, teal light" },
+      binder: { provider: "imagine", task: "image", params: { model: "m", unitPrice: 1 } },
+      subjects: [],
+      references: [],
+      dependsOn: [],
+    });
+    const r = submit(s2, registry, { shot: "shot-a" });
+    expect(r.phase).toBe("requested");
+    // 排队之后，别的开销把预算花掉
+    s2.append("cost.recorded", {
+      kind: "api",
+      provider: "imagine",
+      units: "image",
+      unitPrice: 2,
+      amount: 2,
+      currency: "USD",
+      priceUnknown: false,
+    });
+    const outcomes = await runJobs(s2, registry);
+    expect(outcomes[0].ok).toBe(false);
+    expect(outcomes[0].reason).toContain("预算不足");
+    expect(s2.state().jobs.get(r.jobId)?.phase).toBe("rejected");
+    s2.close();
+  });
+
+  test("进程中断留下的 running 作业会被清理，不会永远挂着", () => {
+    const { svc } = project("orphan");
+    svc.append("job.requested", {
+      jobId: "job-x",
+      shot: "shot-a",
+      provider: "filmbench/colorcard",
+      task: "clip",
+      params: {},
+      estimate: { amount: 0, currency: "USD", units: "clip", priceUnknown: false },
+      inputsHash: "0".repeat(64),
+    });
+    svc.append("job.started", { jobId: "job-x" });
+    expect(svc.state().jobs.get("job-x")?.phase).toBe("running");
+    const n = reconcileOrphans(svc);
+    expect(n).toBe(1);
+    expect(svc.state().jobs.get("job-x")?.phase).toBe("failed");
+    expect(svc.state().jobs.get("job-x")?.reason).toContain("进程中断");
     svc.close();
   });
 });

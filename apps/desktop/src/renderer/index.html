@@ -677,7 +677,39 @@ async function act(label, fn, silent = false) {
 }
 
 $("bSubmit").onclick = () => act("提交待办", () => rpc("submit", {})).catch(() => {});
-$("bRun").onclick = () => act("执行队列", () => rpc("run", {})).catch(() => {});
+let busy = false;
+async function runQueue() {
+  if (busy) return;
+  busy = true;
+  const btn = $("bRun");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "执行中…";
+  $("bSubmit").disabled = true;
+  $("bBuild").disabled = true;
+  $("bSnap").disabled = true;
+  // 执行期间每 1.2s 拉一次状态：rail 里能看到 排队 → 执行中 → 完成
+  const timer = setInterval(() => { load().catch(() => {}); }, 1200);
+  try {
+    const results = await rpc("run", {});
+    const ok = results.filter((r) => r.ok).length;
+    const failed = results.length - ok;
+    toast(results.length ? `执行完成：成功 ${ok}${failed ? ` · 失败 ${failed}` : ""}` : "队列是空的", 3500);
+  } catch (e) {
+    toast(`执行失败：${e.message}`, 5000);
+  } finally {
+    clearInterval(timer);
+    busy = false;
+    btn.disabled = false;
+    btn.textContent = label;
+    $("bSubmit").disabled = false;
+    $("bBuild").disabled = false;
+    $("bSnap").disabled = false;
+    await load();
+    if (S.shotId) await openDetail(S.shotId, { keepScroll: true });
+  }
+}
+$("bRun").onclick = runQueue;
 $("bBuild").onclick = () => act("出片", () => rpc("build", {})).catch(() => {});
 $("bStory").onclick = async () => {
   try {

@@ -15,6 +15,7 @@ async function run(
   cwd: string,
   onLog?: (l: string) => void,
   env?: Record<string, string>,
+  signal?: AbortSignal,
 ): Promise<{ code: number; stderr: string }> {
   const proc = Bun.spawn(cmd, {
     cwd,
@@ -22,10 +23,18 @@ async function run(
     stderr: "pipe",
     env: env ?? (process.env as Record<string, string>),
   });
-  const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-  const code = await proc.exited;
-  if (out.trim()) onLog?.(out.trim().split("\n").slice(-2).join("\n"));
-  return { code, stderr: err };
+  const onAbort = () => {
+    try { proc.kill(); } catch {}
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+    const code = await proc.exited;
+    if (out.trim()) onLog?.(out.trim().split("\n").slice(-2).join("\n"));
+    return { code, stderr: err };
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 const has = (bin: string) => Boolean(Bun.which(bin));
@@ -100,6 +109,8 @@ export function colorcard(): Provider {
         ],
         projectDir,
         onLog,
+        undefined,
+        input.signal,
       );
       if (code !== 0) throw new Error(`ffmpeg 生成片段失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error("ffmpeg 没有写出文件");
@@ -168,7 +179,7 @@ export function imagine(): Provider {
       if (params.dryRun) args.push("--dry-run");
       else args.push("--authorize-spend");
       const env = envWithFile(String(params.envFile ?? process.env.FILMBENCH_IMAGINE_ENV_FILE ?? ""));
-      const { code, stderr } = await run(args, projectDir, onLog, env);
+      const { code, stderr } = await run(args, projectDir, onLog, env, input.signal);
       if (code !== 0) throw new Error(`imagine 失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error("imagine 没有写出图片");
       const size = (await probe(out)) ?? { width, height };
@@ -227,12 +238,12 @@ export function colab(): Provider {
       const local = join(projectDir, ".filmbench", "tmp", `${shot.id}.mp4`);
       mkdirSync(join(projectDir, ".filmbench", "tmp"), { recursive: true });
 
-      const created = await run(["colab", "new", "--gpu", gpu, "--name", session], projectDir, onLog);
+      const created = await run(["colab", "new", "--gpu", gpu, "--name", session], projectDir, onLog, undefined, input.signal);
       if (created.code !== 0) throw new Error(`colab new 失败：${created.stderr.slice(-300)}`);
       try {
-        const exec = await run(["colab", "exec", "--session", session, "--file", join(projectDir, script)], projectDir, onLog);
+        const exec = await run(["colab", "exec", "--session", session, "--file", join(projectDir, script)], projectDir, onLog, undefined, input.signal);
         if (exec.code !== 0) throw new Error(`colab exec 失败：${exec.stderr.slice(-300)}`);
-        const pull = await run(["colab", "download", "--session", session, remote, local], projectDir, onLog);
+        const pull = await run(["colab", "download", "--session", session, remote, local], projectDir, onLog, undefined, input.signal);
         if (pull.code !== 0) throw new Error(`colab download 失败：${pull.stderr.slice(-300)}`);
       } finally {
         await run(["colab", "stop", "--session", session], projectDir, onLog);
@@ -291,7 +302,7 @@ export function localProc(config: {
           .replaceAll("{fps}", String(input.format.fps))
           .replaceAll("{shot}", input.shot.id);
       const args = config.command.map(fill);
-      const { code, stderr } = await run(args, input.projectDir, input.onLog);
+      const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`${config.id} 失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error(`${config.id} 没有写出 {out}`);
       return {

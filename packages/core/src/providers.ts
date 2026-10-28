@@ -19,6 +19,8 @@ export interface ProviderFile {
 
 export interface ProviderRunInput {
   shot: Shot;
+  /** 超时/取消时由执行器触发；provider 必须杀掉自己起的子进程 */
+  signal?: AbortSignal;
   params: Record<string, string | number | boolean>;
   projectDir: string;
   format: Format;
