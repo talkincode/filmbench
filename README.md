@@ -13,9 +13,10 @@ cd filmbench
 bun install
 bun test                    # 24 例：哈希链 / 幂等 / 预算 / 真实 ffmpeg 出片 / MCP 客户端
 bun run demo                # 在 ./demo-project 造一个 4 镜项目并跑完作业
+(cd packages/cli && bun link)   # 把 filmbench 装进 PATH（~/.bun/bin），只需一次
 
 cd demo-project
-bun ../packages/cli/src/cli.ts status
+filmbench status            # 没做 bun link 的话用 bun ../packages/cli/src/cli.ts status
 bun ../packages/cli/src/cli.ts build       # build/final.mp4
 bun ../packages/cli/src/cli.ts storyboard  # build/storyboard.html（直接双击打开）
 bun ../packages/cli/src/cli.ts ledger

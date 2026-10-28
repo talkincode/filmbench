@@ -23,6 +23,13 @@ import { renderDocument } from "@filmbench/storyboard-audit";
 
 const VERSION = "0.0.1";
 
+// 管道里被 head 之类提前关掉时不要抛栈：CLI 应该安静退出
+process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EPIPE") process.exit(0);
+  throw err;
+});
+process.stderr.on("error", () => {});
+
 function findProject(start = process.cwd()): string {
   let dir = resolve(start);
   for (;;) {
