@@ -75,6 +75,8 @@ export type Dependency = z.infer<typeof DEPENDENCY>;
 export const SHOT = z.object({
   id: ident,
   title: z.string().min(1),
+  /** picture 进画面，music/voice 只进音轨 */
+  role: z.enum(["picture", "music", "voice"]).default("picture"),
   durationFrames: frames,
   intent: z.object({
     description: z.string().default(""),
@@ -101,6 +103,7 @@ export type Shot = z.infer<typeof SHOT>;
  */
 export const SHOT_PATCH = z.object({
   title: z.string().min(1).optional(),
+  role: z.enum(["picture", "music", "voice"]).optional(),
   durationFrames: frames.optional(),
   intent: z
     .object({
@@ -191,12 +194,12 @@ export const EVENT_PAYLOADS = {
   "job.started": z.object({ jobId: z.string() }),
   "job.completed": z.object({
     jobId: z.string(),
-    kind: z.enum(["video", "image"]).default("video"),
+    kind: z.enum(["video", "image", "audio"]).default("video"),
     asset: ident,
     sha256: sha,
     bytes: z.number().int(),
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
+    width: z.number().int().nonnegative().default(0),
+    height: z.number().int().nonnegative().default(0),
     durationFrames: frames,
     mime: z.string(),
     path: z.string(),

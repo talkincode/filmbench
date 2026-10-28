@@ -13,6 +13,7 @@ budget:
 shots:
   - id: title
     title: 片名卡
+    role: picture
     durationFrames: 60
     intent:
       description: 黑底片名，细红线，副标题
@@ -41,6 +42,7 @@ shots:
     dependsOn: []
   - id: door
     title: 门厅 · 雨夜
+    role: picture
     durationFrames: 90
     intent:
       description: 要拆的旧公寓门厅，雨从门缝里灌进来，只剩一盏顶灯
@@ -63,6 +65,7 @@ shots:
     dependsOn: []
   - id: courier
     title: 快递员 · 放下包裹
+    role: picture
     durationFrames: 120
     intent:
       description: 穿深色雨衣的快递员背对镜头，把一个小纸箱放在门口脚垫上
@@ -89,6 +92,7 @@ shots:
         kind: continuity
   - id: lift
     title: 电梯 · 空轿厢
+    role: picture
     durationFrames: 90
     intent:
       description: 电梯门打开，里面是空的，灯管在闪
@@ -109,6 +113,7 @@ shots:
         kind: continuity
   - id: hall
     title: 走廊 · 门缝的光
+    role: picture
     durationFrames: 120
     intent:
       description: 走廊尽头那扇门缝里漏出暖光，地上有湿脚印
@@ -136,6 +141,7 @@ shots:
         kind: continuity
   - id: number
     title: 门牌 · 14 号
+    role: picture
     durationFrames: 60
     intent:
       description: " scratched brass number plate beside the door"
@@ -158,6 +164,7 @@ shots:
         kind: continuity
   - id: last
     title: 脚垫 · 只剩水渍
+    role: picture
     durationFrames: 60
     intent:
       description: 包裹不见了，脚垫上只留一圈水渍，门已经关上
@@ -178,3 +185,25 @@ shots:
     dependsOn:
       - shot: number
         kind: continuity
+  - id: score
+    title: 配乐 · 雨夜铺底
+    role: music
+    durationFrames: 600
+    intent:
+      description: A 小调、慢速弦乐垫底 + 低音提琴 + 稀疏音盒；只用 5 小节循环，避免盖过雨声
+      action: ""
+      prompt: ""
+      prompts:
+        image: ""
+        video: ""
+    binder:
+      provider: filmbench/scorekit
+      task: music
+      params:
+        scene: music/score.yaml
+        volume: 0.9
+        fadeIn: 2
+        fadeOut: 3
+    subjects: []
+    references: []
+    dependsOn: []

@@ -58,7 +58,7 @@ agent    ┘       2. operationId 幂等（重放返回原事件，不写第二�
 - 视频按 `trim=duration=` 截到声明帧数；
 - 统一 `scale/pad/setsar/fps/format` 后 `concat`。
 
-因此混合来源（图片 + 视频 + 不同分辨率）不需要预先归一化。IR 逐字节确定，测试里两次编译必须完全相同。
+因此混合来源（图片 + 视频 + 不同分辨率）不需要预先归一化。音轨单独走一条链：`loudnorm` 拉平响度 → `volume` → 淡入淡出 → `amix`，最后与画面一起编码。IR 逐字节确定，测试里两次编译必须完全相同。
 
 出片前要求：产物存在、规格匹配、**并且已选定且已审阅批准的素材**。选片是独立一步（`filmbench select`），不是默认生效——这是"未经审阅的产物不能进成片"的结构性保证，而不是文案警告。
 
@@ -94,6 +94,7 @@ interface Provider {
 | provider | 能力 | 说明 |
 | --- | --- | --- |
 | `filmbench/colorcard` | 视频 | 用 ffmpeg lavfi 生成纯色片段，离线、零成本，用来跑通整条链路与做回归 |
+| `filmbench/scorekit` | 音频 | 调 `scorekit build` 把 scene.yaml 编译成 WAV；作为 `role: music` 的音轨混入 |
 | `filmbench/title` | 图片 | 本地渲染片名卡/封面（SVG → PNG，宋体标题 + 红线；可选参考图当底并压暗） |
 | `imagine` | 图片 | 调 `imagine generate`，`--authorize-spend`；用 ffprobe 回读真实尺寸；凭据可用 `FILMBENCH_IMAGINE_ENV_FILE` 指向 KEY=VALUE 文件；价格来自 `unitPrice` / `IMAGINE_UNIT_PRICE`，没配就是未知 |
 | `colab` | 视频 | 可复用会话：`workflows/<name>` 打包上传，首次 setup（persist 命中跳过），之后复用；空闲 30 分钟由本地 reap 与 VM watchdog 停止 |

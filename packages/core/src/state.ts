@@ -12,7 +12,7 @@ export interface AssetState {
 }
 
 export interface ProduceState {
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   asset: string;
   sha256: string;
   bytes: number;
@@ -319,7 +319,10 @@ export function fold(events: StoredEvent[], ref = "main", head = { seq: 0, hash:
 }
 
 /* —— 派生查询：多个模块共用，避免各自解释一遍状态 —— */
-export const totalFrames = (s: ProjectState) => s.shots.reduce((n, x) => n + x.durationFrames, 0);
+export const pictureShots = (s: ProjectState) => s.shots.filter((x) => (x.role ?? "picture") === "picture");
+
+export const totalFrames = (s: ProjectState) =>
+  pictureShots(s).reduce((n, x) => n + x.durationFrames, 0);
 
 export const spent = (s: ProjectState, currency?: string) =>
   Math.round(

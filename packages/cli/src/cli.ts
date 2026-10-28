@@ -65,7 +65,7 @@ function help(): void {
 
 用法:
   filmbench init <dir> [--name] [--title] [--width 1920] [--height 1080] [--fps 30] [--budget 0]
-  filmbench shot add --id --title --frames --provider --task [--prompt] [--desc] [--action] [--after]
+  filmbench shot add --id --title --frames --provider --task [--role picture|music|voice] [--prompt] [--desc] [--action] [--after]
   filmbench shot patch --id [--title] [--frames] [--prompt] [--provider] [--task]
   filmbench shot param --id [--set k=v]... [--unset k]...
   filmbench shot remove --id
@@ -181,6 +181,7 @@ const cmdShot = (argv: string[]) => {
         action: { type: "string", default: "" },
         after: { type: "string" },
         color: { type: "string" },
+        role: { type: "string", default: "picture" },
         param: { type: "string", multiple: true },
       },
     });
@@ -202,6 +203,7 @@ const cmdShot = (argv: string[]) => {
         {
           id: values.id!,
           title: values.title!,
+          role: (values.role as "picture" | "music" | "voice") ?? "picture",
           durationFrames: Number(values.frames),
           intent: {
             description: values.desc!,
@@ -479,6 +481,7 @@ const cmdPlan = () =>
     const rows = state.shots.map((shot) => {
       const produce = shot.produce;
       const status = !produce ? "缺产物" : shotStale(state, shot) ? "过期" : "就位";
+      const role = (shot.role ?? "picture") === "picture" ? "" : ` · ${shot.role === "music" ? "配乐" : "人声"}`;
       const job = [...state.jobs.values()].find((j) => j.shot === shot.id);
       const sel = state.selections.get(shot.id);
       const selected = sel?.video ?? sel?.image ?? sel?.audio;
@@ -498,7 +501,7 @@ const cmdPlan = () =>
               : !approved
                 ? `filmbench review --shot ${shot.id}`
                 : "—";
-      return [shot.id, `${shot.durationFrames}f`, shot.binder.provider, status, next];
+      return [shot.id, `${shot.durationFrames}f`, `${shot.binder.provider}${role}`, status, next];
     });
     out(table(rows, ["镜头", "时长", "provider", "状态", "下一步"]));
     out(`\n合计 ${totalFrames(state)} 帧（${(totalFrames(state) / state.project.format.fps).toFixed(2)}s）`);

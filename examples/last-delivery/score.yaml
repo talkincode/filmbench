@@ -1,0 +1,20 @@
+title: 最后一单 · 雨夜铺底
+tempo: 60
+key: A_minor
+time_signature: 4/4
+bars: 5
+loop: false
+harmony: [i, VI, III, VII]
+performance:
+  humanize: { timing_ms: 12, velocity: 6, seed: 7 }
+  dynamics: { start: pp, peak: mp }
+motifs:
+  bell:
+    - { degree: 5, beats: 2 }
+    - { degree: 3, beats: 2 }
+    - { degree: 8, beats: 2 }
+    - { degree: 5, beats: 2 }
+tracks:
+  - { id: pad, instrument: slow_strings, pattern: sustain, intensity: 0.35 }
+  - { id: drone, instrument: contrabass, pattern: bass, intensity: 0.3 }
+  - { id: bell, instrument: music_box, pattern: melody, motif: bell, intensity: 0.2 }

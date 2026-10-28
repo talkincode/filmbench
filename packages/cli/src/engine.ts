@@ -11,6 +11,7 @@ import {
   Service,
   build,
   ensurePosters,
+  pictureShots,
   readPolicy,
   runChecks,
   shotStale,
@@ -55,10 +56,11 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
         dir,
         project: state.project,
         head: state.head,
-        totalFrames: state.shots.reduce((n, s) => n + s.durationFrames, 0),
+        totalFrames: pictureShots(state).reduce((n, s) => n + s.durationFrames, 0),
         shots: state.shots.map((s, i) => ({
           id: s.id,
           order: i + 1,
+          role: s.role ?? "picture",
           title: s.title,
           durationFrames: s.durationFrames,
           startFrame: state.shots.slice(0, i).reduce((n, x) => n + x.durationFrames, 0),
@@ -104,6 +106,7 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
         return {
           id: s.id,
           order: i + 1,
+          role: s.role ?? "picture",
           title: s.title,
           durationFrames: s.durationFrames,
           startFrame: start,

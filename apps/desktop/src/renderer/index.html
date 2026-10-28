@@ -78,6 +78,15 @@
   .p-step.hot{border-color:var(--rule);background:var(--paper-hi)}
   .p-arrow{color:var(--ink-3)}
   .scroll{overflow:auto;padding:18px 26px 40px;flex:1}
+  .music-row{display:none;gap:8px;flex-direction:column;margin:0 0 16px}
+  .music-row.on{display:flex}
+  .music-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--rule);border-radius:8px;
+    background:var(--paper-hi);cursor:pointer;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .music-item:hover{border-color:var(--ink-2)}
+  .music-item .ic{font-size:14px}
+  .music-item b{color:var(--ink);font-weight:600}
+  .music-item .st{margin-left:auto;color:var(--ink-3)}
+  .music-item .st[data-s="ok"]{color:var(--ok)}.music-item .st[data-s="bad"]{color:var(--block)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:16px}
   .card{position:relative;background:var(--paper-hi);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);
     cursor:pointer;text-align:left;padding:0;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease,border-color .16s}
@@ -323,7 +332,10 @@
       </div>
     </div>
     <div class="pipeline" id="pipeline"></div>
-    <div class="scroll" id="scroll"><div class="grid" id="grid"></div></div>
+    <div class="scroll" id="scroll">
+      <div class="music-row" id="musicRow"></div>
+      <div class="grid" id="grid"></div>
+    </div>
   </main>
 </div>
 
@@ -507,12 +519,23 @@ function render() {
   $("meta").textContent = st.project
     ? `${st.project.name} · ${st.project.format.width}×${st.project.format.height}@${st.project.format.fps}fps · 修订 #${st.head.seq}`
     : "";
-  $("sShots").textContent = st.shots.length;
+  const pictureCount = st.shots.filter((s) => (s.role ?? "picture") === "picture").length;
+  const audioCount = st.shots.length - pictureCount;
+  $("sShots").textContent = audioCount ? `${pictureCount}+${audioCount}♪` : String(pictureCount);
   $("sFrames").textContent = st.totalFrames;
   $("sReady").textContent = `${st.shots.filter((s) => s.hasOutput && !s.stale).length}/${st.shots.length}`;
   $("sCost").textContent = `${(st.cost?.spent ?? 0).toFixed(2)}`;
 
-  $("grid").innerHTML = st.shots.map((s) => {
+  const audioShots = st.shots.filter((s) => (s.role ?? "picture") !== "picture");
+  $("musicRow").classList.toggle("on", audioShots.length > 0);
+  $("musicRow").innerHTML = audioShots.map((s) => `<div class="music-item" data-shot="${esc(s.id)}">
+      <span class="ic">♪</span><b>${esc(s.title)}</b>
+      <span>${(s.durationFrames / (st.project?.format.fps || 30)).toFixed(2)}s · ${esc(s.provider)}</span>
+      <span class="st" data-s="${s.hasOutput && !s.stale ? "ok" : "bad"}">${!s.hasOutput ? "缺音频" : s.stale ? "过期" : "就位"}</span>
+    </div>`).join("");
+  $("musicRow").querySelectorAll("[data-shot]").forEach((el) => (el.onclick = () => openDetail(el.dataset.shot)));
+
+  $("grid").innerHTML = st.shots.filter((s) => (s.role ?? "picture") === "picture").map((s) => {
     const [label, cls] = stateChip(s);
     const sel = s.selected && s.selected === s.asset;
     return `<button class="card${S.shotId === s.id ? " active" : ""}" data-shot="${esc(s.id)}">

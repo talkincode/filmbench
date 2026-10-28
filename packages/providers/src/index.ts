@@ -502,6 +502,50 @@ export function titleCard(): Provider {
   };
 }
 
+/** filmbench/scorekit：用 scorekit 把一份 scene.yaml 编译成配乐 WAV */
+export function scorekit(): Provider {
+  return {
+    id: "filmbench/scorekit",
+    tasks: ["music"],
+    determinism: "deterministic",
+    maxReferences: 0,
+    estimate: () => ({ amount: 0, currency: "USD", units: "track", priceUnknown: false }),
+    health: () => (has("scorekit") ? { ok: true, detail: "scorekit 已安装" } : { ok: false, detail: "缺少 scorekit" }),
+    async run(input: ProviderRunInput) {
+      if (!has("scorekit")) throw new Error("scorekit 未安装");
+      const scene = String(input.params.scene ?? "");
+      if (!scene) throw new Error(`${input.shot.id} 需要 params.scene（scorekit 场景 YAML 路径）`);
+      const scenePath = scene.startsWith("/") ? scene : join(input.projectDir, scene);
+      if (!existsSync(scenePath)) throw new Error(`场景文件不存在: ${scenePath}`);
+      const tmp = join(input.projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${input.shot.id}.wav`);
+      const { code, stderr } = await run(
+        ["scorekit", "build", "--output", out, scenePath, "--json"],
+        input.projectDir,
+        input.onLog,
+        undefined,
+        input.signal,
+      );
+      if (code !== 0) throw new Error(`scorekit 失败：${stderr.split("\n").slice(-6).join("\n")}`);
+      if (!existsSync(out)) throw new Error("scorekit 没有写出音频");
+      return {
+        files: [
+          {
+            kind: "audio" as const,
+            path: out,
+            mime: "audio/wav",
+            width: 0,
+            height: 0,
+            durationFrames: input.shot.durationFrames,
+          },
+        ],
+        cost: { kind: "local" as const, units: "track", unitPrice: 0, amount: 0, currency: "USD" },
+      };
+    },
+  };
+}
+
 /** 通用本地命令：把任意 CLI（qwentts / scorekit / hyperframes / remotion）接成 provider */
 export function localProc(config: {
   id: string;
@@ -558,6 +602,6 @@ export function localProc(config: {
 
 export function builtinProviders(): ProviderRegistry {
   const registry: ProviderRegistry = new Map();
-  for (const p of [colorcard(), titleCard(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
+  for (const p of [colorcard(), titleCard(), scorekit(), imagine(), imagineVideo(), colab()]) registry.set(p.id, p);
   return registry;
 }

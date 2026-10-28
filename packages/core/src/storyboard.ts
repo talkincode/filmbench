@@ -25,7 +25,8 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
   const abs = (p: string) => (p.startsWith("/") ? p : join(service.dir, p));
   const { ir } = compile(state, service.dir);
 
-  const shots = state.shots.map((shot) => {
+  const picture = state.shots.filter((s) => (s.role ?? "picture") === "picture");
+  const shots = picture.map((shot) => {
     const checks: Check[] = [];
     const produce = shot.produce;
     const fileExists = produce ? existsSync(join(service.dir, produce.path)) : false;
@@ -205,7 +206,20 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
     },
     revision: { ref, seq: state.head.seq, hash: state.head.hash },
     shots,
-    audioTracks: [],
+    audioTracks: state.shots
+      .filter((s) => (s.role ?? "picture") !== "picture" && s.produce)
+      .map((s) => {
+        const sel = state.selections.get(s.id);
+        const asset = sel?.audio ?? sel?.video ?? sel?.image ?? s.produce!.asset;
+        return {
+          id: s.id,
+          role: (s.role === "voice" ? "voiceover" : "bgm") as "voiceover" | "bgm",
+          asset,
+          startFrame: 0,
+          durationFrames: s.produce!.durationFrames,
+          approved: state.reviews.get(`${s.id}:${asset}`) === "approved",
+        };
+      }),
     provenance: {
       engine: "filmbench-engine/0.0.1",
       irHash: ir ? sha(ir) : undefined,

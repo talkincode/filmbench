@@ -100,6 +100,7 @@ filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC
 | agent 唤起界面 | ✅ `filmbench ui --shot <id>`；MCP 工具 `open_ui`；单实例聚焦并定位镜头 | `packages/tools` |
 | 截图 + 框选标注 | ✅ ⌘⇧S 截图 → 框选/矩形/箭头/文字 → 复制图片 或 保存到 `review/` 并复制路径 | `apps/desktop` |
 | 调用 imagine 生成素材 | ✅ 图片：MAI-Image-2.6-Flash 真跑通；🎬 视频：provider + 首帧 + 视频提示词已接好，付费云视频需显式 `IMAGINE_SPEND_OK=1` 授权 | `packages/providers` |
+| 配乐 | ✅ `filmbench/scorekit`：scene.yaml → WAV，作为 `role: music` 的音轨混入成片（响度归一 + 淡入淡出） | `packages/providers` |
 | 调用 colab | ✅ 可复用会话：装一次环境/模型，之后复用；30 分钟空闲自动停（本地 reap + VM watchdog） | `workflows/comfy-h3` · `packages/providers/src/colab.ts` |
 | 内置 pi agent 核心 | ✅ pi 1.4.0 已装，真会话跑通（调用 `project_state` 并正确汇总） | `packages/agent` |
 | 消耗统计 | ✅ 账本 = 事件投影：按 provider / 计量 / 镜头聚合，未知价格单列 | `packages/core/src/cost.ts` |
@@ -140,6 +141,24 @@ filmbench colab down                     # 立即停
 - **30 分钟空闲自动停**：engine 每 60 秒 reap 一次；即使 filmbench 关掉，VM 里的 watchdog 也会自己 unassign。
 
 作业里指定工作流：`--param workflow=comfy-h3`；换 GPU：`filmbench colab up --gpu A100`。
+
+## 配乐
+
+音乐不是"背景音随便垫一下"，它和画面一样是可审计的产物：
+
+```bash
+filmbench shot add --id score --title "配乐 · 雨夜铺底" --frames 600 --role music \
+  --provider filmbench/scorekit --task music \
+  --param scene=music/score.yaml --param volume=0.9 --param fadeIn=2 --param fadeOut=3
+filmbench jobs submit --shot score && filmbench jobs run
+filmbench select --shot score && filmbench review --shot score
+filmbench build      # 混入成片：AAC 48kHz 立体声
+```
+
+- `scene.yaml` 用 [scorekit](https://github.com/talkincode/scorekit) 的场景 DSL（key/tempo/bars/harmony/tracks）；
+- 音轨镜头 `role: music` **不占画面时间**，帧数统计与故事板卡片都会把它排除，只出现在音轨泳道；
+- 混音链：`loudnorm(I=-18,TP=-2)` → `volume` → 淡入/淡出，多个音轨走 `amix`；
+- 产物同样走内容寻址、选定、审阅，`filmbench check` 会把它算进"每镜有产物"。
 
 ## 命令
 

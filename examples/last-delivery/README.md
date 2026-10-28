@@ -24,6 +24,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 05 | `hall` | 120f / 4.0s | imagine | 走廊尽头门缝的光（参考 01）；这一镜先失败再修好 |
 | 06 | `number` | 60f / 2.0s | imagine | 门牌 14 号特写 |
 | 07 | `last` | 60f / 2.0s | imagine | 脚垫上的水渍，切黑收尾 |
+| ♪ | `score` | 600f / 20.0s | filmbench/scorekit | 配乐：A 小调慢速弦乐 + 低音提琴 + 音盒，5 小节，淡入 2s / 淡出 3s（不进画面） |
 
 依赖：courier/hall → door（continuity）。封面取自 `door`；剧本在 `script.md`（`filmbench script set --file`）。
 
@@ -44,6 +45,7 @@ open ~/github/filmbench-demo/last-delivery/build/storyboard.html
 | 审计故事板 | `0 镜有阻塞`，底账为空 |
 | 标题卡 | `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits），剧照压暗 + 暗角 + 颗粒 |
 | 封面 | 标题卡本身就是封面（`filmbench cover --shot title`），与片头同一套设计语言 |
+| 配乐 | `music/score.yaml` 用 scorekit 场景 DSL 写；产物作为音轨混入，成片 AAC 48kHz 立体声 |
 | 一键验收 | `filmbench check`：事件链/剧本/产物/选定/审阅/提示词/编译/审计/预算/封面 12 项 |
 
 ## 复现命令（要真实凭据）

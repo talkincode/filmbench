@@ -15,7 +15,7 @@ export interface Policy {
 export const policyPath = (projectDir: string) => join(projectDir, ".filmbench", "policy.json");
 
 export const DEFAULT_POLICY: Policy = {
-  allowedProviders: ["filmbench/colorcard", "filmbench/title", "imagine"],
+  allowedProviders: ["filmbench/colorcard", "filmbench/title", "filmbench/scorekit", "imagine"],
   allowVideo: false,
   allowUnknownPrice: true,
 };

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { join } from "node:path";
 import type { Format } from "@filmbench/protocol";
 import { PATHS, ValidationError, type Service } from "./service.ts";
-import { totalFrames, type ProjectState } from "./state.ts";
+import { pictureShots, totalFrames, type ProjectState } from "./state.ts";
 import { shotStale } from "./stale.ts";
 
 /**
@@ -22,6 +22,13 @@ export interface RenderIR {
     sha256: string;
     path: string;
     durationFrames: number;
+  }[];
+  audio: {
+    shot: string;
+    path: string;
+    volume: number;
+    fadeInFrames: number;
+    fadeOutFrames: number;
   }[];
   requirements: ("ffmpeg" | "ffprobe")[];
   output: { container: "mp4"; videoCodec: "libx264"; pixelFormat: "yuv420p"; audio: "none" };
@@ -48,10 +55,35 @@ export function compile(
 ): { ir: RenderIR | null; issues: CompileIssue[] } {
   const issues: CompileIssue[] = [];
   if (!state.project) return { ir: null, issues: [{ code: "no-project", detail: "项目尚未创建" }] };
-  if (state.shots.length === 0) issues.push({ code: "no-shots", detail: "没有任何镜头" });
+  const { format } = state.project;
+  if (pictureShots(state).length === 0) issues.push({ code: "no-shots", detail: "没有任何画面镜头" });
 
   const clips: RenderIR["clips"] = [];
+  const audio: RenderIR["audio"] = [];
+
   for (const shot of state.shots) {
+    if ((shot.role ?? "picture") !== "picture") {
+      if (!shot.produce) {
+        issues.push({ code: "missing-output", shot: shot.id, detail: "音轨没有产物" });
+        continue;
+      }
+      const file = join(baseDir, shot.produce.path);
+      if (!existsSync(file)) {
+        issues.push({ code: "asset-file-missing", shot: shot.id, detail: `音频不存在: ${shot.produce.path}` });
+        continue;
+      }
+      const fadeIn = Number(shot.binder.params.fadeIn ?? 1.5);
+      const fadeOut = Number(shot.binder.params.fadeOut ?? 2);
+      audio.push({
+        shot: shot.id,
+        path: shot.produce.path,
+        volume: Number(shot.binder.params.volume ?? 0.55),
+        fadeInFrames: Math.round(fadeIn * format.fps),
+        fadeOutFrames: Math.round(fadeOut * format.fps),
+      });
+      continue;
+    }
+
     if (!shot.produce) {
       issues.push({ code: "missing-output", shot: shot.id, detail: "没有已完成作业的产物" });
       continue;
@@ -114,6 +146,7 @@ export function compile(
       format: state.project.format,
       totalFrames: totalFrames(state),
       clips,
+      audio,
       requirements: ["ffmpeg", "ffprobe"],
       output: { container: "mp4", videoCodec: "libx264", pixelFormat: "yuv420p", audio: "none" },
     },
@@ -135,9 +168,12 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
     if (clip.kind === "image") inputs.push("-loop", "1", "-t", secs(clip.durationFrames, fps), "-i", file);
     else inputs.push("-i", file);
   }
+  for (const track of ir.audio) {
+    inputs.push("-i", track.path.startsWith("/") ? track.path : join(baseDir, track.path));
+  }
+
   const norm = ir.clips
     .map((c, i) => {
-      // 一条 filterchain 是 `[in]filter,filter[out]`：标签不是 filter，不能用逗号接
       const chain = [
         `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
         `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
@@ -151,20 +187,42 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
     })
     .join(";");
   const concat = `${ir.clips.map((_, i) => `[v${i}]`).join("")}concat=n=${ir.clips.length}:v=1:a=0[v]`;
+
+  const durationSec = ir.totalFrames / fps;
+  const audioChains = ir.audio.map((track, i) => {
+    // 先把响度拉到统一水平，再按 track.volume 做最终配比，避免不同音源忽大忽小
+    const parts = ["loudnorm=I=-18:TP=-2:LRA=11", `volume=${track.volume}`];
+    if (track.fadeInFrames > 0) parts.push(`afade=t=in:st=0:d=${secs(track.fadeInFrames, fps)}`);
+    if (track.fadeOutFrames > 0) {
+      const start = Math.max(0, durationSec - track.fadeOutFrames / fps);
+      parts.push(`afade=t=out:st=${start.toFixed(3)}:d=${secs(track.fadeOutFrames, fps)}`);
+    }
+    return `[${ir.clips.length + i}:a]${parts.join(",")}[a${i}]`;
+  });
+  const mix =
+    ir.audio.length === 0
+      ? null
+      : ir.audio.length === 1
+        ? "[a0]anull[a]"
+        : `${ir.audio.map((_, i) => `[a${i}]`).join("")}amix=inputs=${ir.audio.length}:duration=longest:dropout_transition=0[a]`;
+
+  const graph = [norm, concat, ...audioChains, ...(mix ? [mix] : [])].join(";");
   return [
     "-y",
     ...inputs,
     "-filter_complex",
-    `${norm};${concat}`,
+    graph,
     "-map",
     "[v]",
+    ...(mix ? ["-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"] : ["-an"]),
     "-c:v",
     ir.output.videoCodec,
     "-pix_fmt",
     ir.output.pixelFormat,
     "-r",
     String(fps),
-    "-an",
+    "-t",
+    durationSec.toFixed(3),
     "-movflags",
     "+faststart",
     out,

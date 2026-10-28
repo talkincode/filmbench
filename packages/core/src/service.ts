@@ -135,6 +135,7 @@ export class Service {
       shots: state.shots.map((s) => ({
         id: s.id,
         title: s.title,
+        role: s.role ?? "picture",
         durationFrames: s.durationFrames,
         intent: {
           description: s.intent.description,
