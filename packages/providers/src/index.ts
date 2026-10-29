@@ -530,12 +530,36 @@ export function scorekit(): Provider {
       if (orchestration) args.push("--orchestration", orchestration);
       if (soundfont) args.push("--soundfont", soundfont);
       if (input.params.gain !== undefined) args.push("--gain", String(input.params.gain));
+      // scorekit 0.9：房间与响度是构建输入（scene 里的 reverb 只是送进房间的量）
+      // sfizz 没有环境级，--space 非 dry 会被它拒绝；房间里的事用 postFilter 做
+      if (input.params.space !== undefined) args.push("--space", String(input.params.space));
+      if (input.params.master !== undefined) args.push("--master", String(input.params.master));
+      if (input.params.masterTruePeak !== undefined) {
+        args.push("--master-true-peak", String(input.params.masterTruePeak));
+      }
       const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`scorekit 失败：${stderr.split("\n").slice(-6).join("\n")}`);
       if (!existsSync(raw)) throw new Error("scorekit 没有写出音频");
       // 母带小修（高通 / 高音架）跟渲染在同一个作业里完成，不另开手工链路
       const post = String(input.params.postFilter ?? "");
-      if (post) {
+      // 卷积混响：sfizz 没有环境级，房间用一条 IR 在 ffmpeg 里做（两路输入：干声 + IR）
+      const ir = String(input.params.postIR ?? "");
+      if (ir) {
+        const irPath = ir.startsWith("/") ? ir : join(input.projectDir, ir);
+        if (!existsSync(irPath)) throw new Error(`脉冲响应不存在: ${ir}`);
+        const room = String(input.params.postIRMix ?? "dry=8:wet=5:irgain=0.95:irnorm=1");
+        const graph =
+          `[0:a]aresample=48000[src];[src][1:a]afir=${room}[roomy];` +
+          (post ? `[roomy]${post}[out]` : `[roomy]anull[out]`);
+        const mixed = await run(
+          ["ffmpeg", "-y", "-i", raw, "-i", irPath, "-filter_complex", graph, "-map", "[out]", "-c:a", "pcm_s16le", out],
+          input.projectDir,
+          input.onLog,
+          undefined,
+          input.signal,
+        );
+        if (mixed.code !== 0) throw new Error(`混响处理失败：${mixed.stderr.split("\n").slice(-6).join("\n")}`);
+      } else if (post) {
         const master = await run(
           ["ffmpeg", "-y", "-i", raw, "-af", post, "-c:a", "pcm_s16le", out],
           input.projectDir,

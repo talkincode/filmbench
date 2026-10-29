@@ -86,7 +86,9 @@
 | `renderer` | `sfizz` 用 SFZ 采样库逐轨渲染，比默认 SF2 高一档；`fluidsynth` / `timidity` 仍是默认兜底 |
 | `orchestration` | sfizz 专用的编排 profile（如 ScoreData 的 `hybrid-cinematic.yaml`），决定每个逻辑音色落到哪个真实库 |
 | `soundfont` | 非 sfizz 时指定 SF2 |
-| `postFilter` | 渲染完成后接的 ffmpeg 音频链，母带（高通 / 高音架 / 增益 / 限幅）跟渲染同属一个作业 |
+| `postFilter` | 渲染完成后接的 ffmpeg 音频链，母带（高通 / 高音架 / 增益 / 限幅 / 压缩）跟渲染同属一个作业 |
+| `postIR` / `postIRMix` | 卷积混响：干声 + 一条 IR 做 `afir`（sfizz 没有环境级，房间只能这么做） |
+| `space` / `master` / `masterTruePeak` | scorekit 0.9 的房间与响度；`space` 非 dry 只对 SF2 后端有效，sfizz 会被拒绝 |
 | `gain` | scorekit 自身的输出增益 |
 
 母带做完的音轨要同时给镜头加 `normalize=false`：编译期默认会跑 `loudnorm` 拉齐响度，
