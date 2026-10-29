@@ -159,3 +159,33 @@ filmbench jobs collect --job <jobId> --file .filmbench/collected/<jobId>.mp4 --r
 多条音轨相加很容易顶到 0 dBFS（尤其"配乐 + 声音设计"两层都有瞬态）。`build` 在 amix 之后固定挂一个
 `alimiter=limit=0.79:level=false`，再交给编码器；单轨的 `alimiter` 只管自己那一路，管不了总和。
 0.79（≈ −2 dBFS）是留给 AAC 预留的：真峰值在编码后会比采样峰值高 1 dB 左右。
+
+## 九宫格审片
+
+一镜出问题，通常是"细节错误"——构件悬空、锤子砸在手、水面静止、旗幡上有伪汉字。
+这些机器判不了，但可以把它摆到一张图上，让人或 agent 一眼看全。
+
+```bash
+filmbench review-shot --shot h5-river            # 抽 9 帧拼 3×3，跑机器规则
+filmbench review-shot --shot h5-river --record \
+  --finding "前景水面波纹九帧不变，只有锤落处有水花" --severity error
+filmbench review-shot --open                      # 全部镜头过一遍，直接打开第一张
+```
+
+产出：
+
+| 东西 | 内容 |
+| --- | --- |
+| `build/reviews/<shot>-grid.png` | 3×3 九宫格，帧号写进 JSON（首尾各留 2%） |
+| 机器规则 | `black`（黑场）/ `freeze`（连续 0.5s 无变化）/ `flat`（画面内部对比度低）/ `static-background`（9 区里 6 区不动）/ `no-arc`（整段亮度没起伏） |
+| 指标 | `meanLuma`、`contrast`（每帧内部标准差取平均）、`lumaSpread`、`motion`、`staticRegions` |
+| 事件 | `shot.reviewed`：图路径、帧号、findings、指标；`--finding` 追加人看出来的语义问题 |
+
+两条设计取舍：
+
+- **冻结对设计类产物只报 info**：片名卡与图纸卡本来就接近静止，`filmbench/title` / `hyperframes` /
+  `colorcard` 的冻结不该算错。
+- **机器只报"能测的"**：`static-background` 在近景里是正常的（浅景深背景本来不动），
+  所以它是 warn 而不是 error；语义判断留给人或 agent，但结论一样进事件日志。
+
+MCP 侧同名工具 `review_shot`（`findings` 参数逐条写），agent 与 MCP 共用同一实现。

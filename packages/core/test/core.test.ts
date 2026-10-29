@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, collectJob, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, rehashJob, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, collectJob, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, recordReview, rehashJob, reviewShot, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -482,5 +482,20 @@ test("改混音参数（volume/fadeIn）不该让产物过期——binder 里也
   // 改真正的生成参数 → 过期
   svc.patchShot("shot-a", { binder: { ...svc.state().shots[0].binder, params: { ...svc.state().shots[0].binder.params, steps: 8 } } });
   expect(shotStale(svc.state(), svc.state().shots[0])).toBe(true);
+  svc.close();
+});
+
+test("九宫格审片：能抽帧拼图、能判冻结、结论能进事件日志", async () => {
+  const { svc } = project("review");
+  const registry = builtinProviders();
+  // colorcard 是纯色片段，天然"冻结"
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  await runJobs(svc, registry, { jobId });
+  const review = reviewShot(svc, "shot-a");
+  expect(existsSync(join(svc.dir, review.grid))).toBe(true);
+  expect(review.frames).toHaveLength(9);
+  expect(review.findings.some((f) => f.code === "freeze")).toBe(true);
+  const seq = recordReview(svc, review, { kind: "agent", id: "test" }, "审片");
+  expect(seq).toBeGreaterThan(0);
   svc.close();
 });

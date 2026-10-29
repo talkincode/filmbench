@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { Service, build, compile, projectStoryboard, runJobs, shotDetail, submit, summarize, totalFrames } from "@filmbench/core";
+import { Service, build, compile, projectStoryboard, recordReview, reviewShot, runJobs, shotDetail, submit, summarize, totalFrames } from "@filmbench/core";
 import { builtinProviders } from "@filmbench/providers";
 
 /**
@@ -188,6 +188,41 @@ export function toolSpecs(dir: string): ToolSpec[] {
         } finally {
           s.close();
         }
+      },
+    },
+    {
+      name: "review_shot",
+      label: "九宫格审片",
+      description:
+        "把一镜抽成 3×3 九宫格，跑机器能判的规则（黑场 / 冻结 / 发灰 / 背景不动），返回格子图路径、帧号与指标；" +
+        "agent 看完图后可以用 finding 参数把语义问题（凿子插进石头、旗幡上有伪汉字）一并写进账本。",
+      parameters: {
+        type: "object",
+        properties: {
+          shot: { type: "string" },
+          findings: {
+            type: "array",
+            items: { type: "string" },
+            description: "看图后确认的问题，逐条写",
+          },
+          severity: { type: "string", enum: ["error", "warn", "info"] },
+          note: { type: "string" },
+        },
+        required: ["shot"],
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        const s = svc();
+        const review = reviewShot(s, String(args.shot), {
+          extraFindings: ((args.findings as string[]) ?? []).map((detail) => ({
+            code: "manual",
+            severity: (args.severity as "error" | "warn" | "info") ?? "error",
+            detail,
+          })),
+          note: args.note as string | undefined,
+        });
+        const seq = recordReview(s, review, { kind: "agent", id: "mcp" }, args.note as string | undefined);
+        return { ...review, event: seq };
       },
     },
     {

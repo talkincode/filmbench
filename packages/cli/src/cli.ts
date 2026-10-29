@@ -26,6 +26,8 @@ import {
   projectStoryboard,
   reconcileOrphans,
   collectJob,
+  recordReview,
+  reviewShot,
   rehashJob,
   runJobs,
   submit,
@@ -89,6 +91,8 @@ function help(): void {
   filmbench status
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
+  filmbench review-shot [--shot ID] [--finding "..."] [--severity error|warn|info] [--record] [--open] [--json]
+                                        # 九宫格审片：抽 9 帧 + 机器规则 + 人工结论
   filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
   filmbench storyboard [--out path] [--embed]   # --embed：把预览图内联进单文件
   filmbench assets
@@ -702,6 +706,51 @@ const cmdReview = (argv: string[]) =>
     out(`已${decision === "approved" ? "批准" : "否决"} ${values.shot} / ${asset}（事件 #${event.seq}）`);
   });
 
+const cmdReviewShot = (argv: string[]) =>
+  withService((svc, dir) => {
+    const { values } = parseArgs({
+      args: argv,
+      options: {
+        shot: { type: "string" },
+        finding: { type: "string", multiple: true },
+        severity: { type: "string", default: "error" },
+        note: { type: "string" },
+        json: { type: "boolean" },
+        record: { type: "boolean" },
+        open: { type: "boolean" },
+      },
+    });
+    const shots = values.shot ? [values.shot] : svc.state().shots.filter((s) => s.produce && (s.role ?? "picture") === "picture").map((s) => s.id);
+    if (!shots.length) throw new Error("没有可审的镜头（先跑作业）");
+    const reviews = shots.map((id) =>
+      reviewShot(svc, id, {
+        extraFindings: (values.finding ?? []).map((detail) => ({
+          code: "manual",
+          severity: (values.severity as "error" | "warn" | "info") ?? "error",
+          detail,
+        })),
+        note: values.note,
+      }),
+    );
+    if (values.record) {
+      for (const r of reviews) recordReview(svc, r, { kind: "human", id: "cli" }, values.note);
+    }
+    if (values.json) {
+      out(JSON.stringify(reviews, null, 2));
+      return;
+    }
+    for (const r of reviews) {
+      const mark = r.ok ? "✓" : "✗";
+      out(`${mark} ${r.shot.padEnd(12)} ${r.findings.length} 条 · 亮度 ${r.metrics.meanLuma.toFixed(0)} · 对比 ${r.metrics.contrast.toFixed(0)} · 运动 ${r.metrics.motion.toFixed(2)} · 静止区 ${r.metrics.staticRegions}/9`);
+      for (const f of r.findings) out(`    [${f.severity}] ${f.code}${f.frame !== undefined ? ` @${f.frame}` : ""} — ${f.detail}`);
+      out(`    九宫格 ${join(dir, r.grid)}`);
+    }
+    if (values.open && reviews[0]) {
+      Bun.spawn(["open", join(dir, reviews[0].grid)]);
+    }
+    if (!values.json && reviews.some((r) => !r.ok)) process.exitCode = 1;
+  });
+
 const cmdStatus = () =>
   withService((svc, dir) => {
     const state = svc.state();
@@ -1062,6 +1111,8 @@ async function main(): Promise<void> {
         return await cmdSelect(rest);
       case "review":
         return await cmdReview(rest);
+      case "review-shot":
+        return await cmdReviewShot(rest);
       case "build":
         return await cmdBuild(rest);
       case "storyboard":

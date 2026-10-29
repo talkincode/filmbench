@@ -147,6 +147,33 @@ export const EVENT_PAYLOADS = {
   "shot.added": z.object({ shot: SHOT }),
   "shot.patched": z.object({ id: ident, patch: SHOT_PATCH }),
   "shot.removed": z.object({ id: ident }),
+  /** 审片：九宫格图的路径 + 机器判出的问题 + 人/agent 补的问题 */
+  "shot.reviewed": z.object({
+    shot: ident,
+    asset: ident,
+    grid: z.string(),
+    frames: z.array(z.number().int()).max(16),
+    findings: z
+      .array(
+        z.object({
+          code: z.string(),
+          severity: z.enum(["error", "warn", "info"]),
+          detail: z.string(),
+          frame: z.number().int().optional(),
+        }),
+      )
+      .max(40),
+    metrics: z
+      .object({
+        meanLuma: z.number(),
+        contrast: z.number(),
+        lumaSpread: z.number().optional(),
+        motion: z.number(),
+        staticRegions: z.number(),
+      })
+      .optional(),
+    note: z.string().max(2000).default(""),
+  }),
   "shot.moved": z
     .object({ id: ident, before: ident.optional(), after: ident.optional() })
     .refine((v) => Boolean(v.before) !== Boolean(v.after), { message: "before / after 二选一" }),
