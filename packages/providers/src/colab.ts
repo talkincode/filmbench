@@ -13,6 +13,11 @@ import { assertCapabilities, readWorkflowSpec, type Provider, type ProviderRunIn
 
 export interface ColabState {
   session: string;
+  /**
+   * provisioning：会话已建、环境可能只装了一半（进程被杀、连接断了都会停在这里）；
+   * ready：setup + heartbeat 都过了。缺字段的老状态按 ready 处理。
+   */
+  phase?: "provisioning" | "ready";
   gpu: string;
   workflow: string;
   workflowHash: string;
@@ -249,6 +254,23 @@ async function execTask(
  * 建会话或复用它。复用条件：会话还活着 + 工作流哈希一致。
  * 只有工作流真的变了才重建，避免每次都重装环境、重下模型。
  */
+/**
+ * 复用决策（纯函数，方便测试）：
+ *   reuse    状态在、会话活着、工作流没变、上次装完了 → 直接用
+ *   resume   状态在、会话活着、工作流没变，但上次停在 provisioning → 续装，别重建
+ *   recreate 其余情况（没状态、会话死了、工作流变了）
+ */
+export function colabReuseDecision(
+  existing: ColabState | null,
+  alive: string[],
+  hash: string,
+): "reuse" | "resume" | "recreate" {
+  if (!existing) return "recreate";
+  if (!alive.includes(existing.session)) return "recreate";
+  if (existing.workflowHash !== hash) return "recreate";
+  return existing.phase === "provisioning" ? "resume" : "reuse";
+}
+
 export async function colabUp(options: ColabUpOptions): Promise<ColabState> {
   const { projectDir, onLog } = options;
   const workflowName = options.workflow ?? "comfy-h3";
@@ -258,12 +280,27 @@ export async function colabUp(options: ColabUpOptions): Promise<ColabState> {
   const session = sessionName(projectDir, workflowName);
   const alive = await listColabSessions();
   const existing = readColabState(projectDir);
+  const decision = colabReuseDecision(existing, alive, hash);
 
-  if (existing && alive.includes(existing.session) && existing.workflowHash === hash) {
-    const next = { ...existing, lastActiveAt: new Date().toISOString() };
-    writeColabState(projectDir, next);
-    onLog?.(`复用会话 ${existing.session}（工作流未变）`);
-    return next;
+  if (existing && decision !== "recreate") {
+    if (decision === "reuse") {
+      const next = { ...existing, lastActiveAt: new Date().toISOString() };
+      writeColabState(projectDir, next);
+      onLog?.(`复用会话 ${existing.session}（工作流未变）`);
+      return next;
+    }
+    // 上次才装到一半就断了：不重建会话、不重新下载模型，把 setup 续上（脚本本身幂等）
+    onLog?.(`会话 ${existing.session} 上次没装完，续装（不重建、不重下模型）`);
+    const resumed = await provisionSession({
+      projectDir,
+      onLog,
+      dir,
+      session: existing.session,
+      remoteDir: existing.remoteDir,
+      idleMinutes: existing.idleMinutes,
+      state: existing,
+    });
+    return resumed;
   }
 
   if (alive.includes(session)) {
@@ -280,50 +317,80 @@ export async function colabUp(options: ColabUpOptions): Promise<ColabState> {
   const created = await runColab(["new", "--session", session, "--gpu", gpu], projectDir, { onLog });
   if (created.code !== 0) throw new Error(`colab new 失败：${created.err.slice(-400)}`);
 
-  try {
-    const pkg = packWorkflow(dir);
-    // 传到 /content 根目录：目标子目录此时还不存在，直接传进去会 500
-    const remotePkg = "/content/fb-pkg.tar.gz";
-    const up = await runColab(["upload", pkg, remotePkg, "--session", session], projectDir, { onLog });
-    if (up.code !== 0) throw new Error(`上传工作流失败：${up.err.slice(-400)}`);
-    rmSync(pkg, { force: true });
-
-    const env = { FILMBENCH_REMOTE: remoteDir, FILMBENCH_IDLE_MINUTES: String(idleMinutes) };
-    onLog?.("解包工作流…");
-    await execFile(session, join(dir, "bootstrap.py"), projectDir, env, 300, { onLog });
-    onLog?.("准备环境（后台执行，长任务不会掉连接）…");
-    await execTask(
-      session,
-      dir,
-      dir,
-      `${remoteDir}/setup.py`,
-      [],
-      projectDir,
-      env,
-      1800,
-      { onLog, signal: options.signal },
-    );
-    await execFile(session, join(dir, "heartbeat.py"), projectDir, env, 120, { onLog });
-  } catch (err) {
-    // 建会话失败要收尾，不然会话会挂着烧 CU
-    await runColab(["stop", "--session", session], projectDir, { onLog });
-    throw err;
-  }
-
-  const state: ColabState = {
+  const createdAt = new Date().toISOString();
+  // 建完就落盘：装环境要几十分钟，中途被杀掉时下一次才知道"这个会话是我的、还没装完"
+  const draft: ColabState = {
     session,
+    phase: "provisioning",
     gpu,
     workflow: workflowName,
     workflowHash: hash,
     remoteDir,
     persist,
     idleMinutes,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    lastActiveAt: createdAt,
+  };
+  writeColabState(projectDir, draft);
+
+  try {
+    return await provisionSession({
+      projectDir,
+      onLog,
+      dir,
+      session,
+      remoteDir,
+      idleMinutes,
+      state: draft,
+      signal: options.signal,
+    });
+  } catch (err) {
+    // 装环境失败要收尾，不然会话会挂着烧 CU
+    await runColab(["stop", "--session", session], projectDir, { onLog });
+    clearColabState(projectDir);
+    throw err;
+  }
+}
+
+interface ProvisionOptions {
+  projectDir: string;
+  dir: string;
+  session: string;
+  remoteDir: string;
+  idleMinutes: number;
+  state: ColabState;
+  signal?: AbortSignal;
+  onLog?: (line: string) => void;
+}
+
+/**
+ * 把环境装完（幂等）。新建会话和"上次没装完的会话"走同一条路：
+ * setup.py 自己看 marker，已经装好就跳过下载，所以续装只花启动 ComfyUI 的时间。
+ */
+async function provisionSession(options: ProvisionOptions): Promise<ColabState> {
+  const { projectDir, dir, session, remoteDir, idleMinutes, state, signal, onLog } = options;
+  const pkg = packWorkflow(dir);
+  // 传到 /content 根目录：目标子目录此时还不存在，直接传进去会 500
+  const remotePkg = "/content/fb-pkg.tar.gz";
+  const up = await runColab(["upload", pkg, remotePkg, "--session", session], projectDir, { onLog });
+  if (up.code !== 0) throw new Error(`上传工作流失败：${up.err.slice(-400)}`);
+  rmSync(pkg, { force: true });
+
+  const env = { FILMBENCH_REMOTE: remoteDir, FILMBENCH_IDLE_MINUTES: String(idleMinutes) };
+  onLog?.("解包工作流…");
+  await execFile(session, join(dir, "bootstrap.py"), projectDir, env, 300, { onLog });
+  onLog?.("准备环境（后台执行，长任务不会掉连接）…");
+  await execTask(session, dir, dir, `${remoteDir}/setup.py`, [], projectDir, env, 1800, { onLog, signal });
+  await execFile(session, join(dir, "heartbeat.py"), projectDir, env, 120, { onLog });
+
+  const ready: ColabState = {
+    ...state,
+    phase: "ready",
     lastActiveAt: new Date().toISOString(),
   };
-  writeColabState(projectDir, state);
+  writeColabState(projectDir, ready);
   onLog?.(`会话就绪：${session}`);
-  return state;
+  return ready;
 }
 
 /** 执行一个作业：传 spec 与参考图 → run.py → 取回产物 → heartbeat。 */

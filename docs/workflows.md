@@ -137,3 +137,16 @@ filmbench jobs collect --job <jobId> --file .filmbench/collected/<jobId>.mp4 --r
 
 `collect` 会用**当前**镜头状态重算输入哈希、按内容寻址落库、把作业标成 done，
 并在 `job.log` 里留下原因。它不验证内容对不对——那是审阅那一步的事。
+
+### 会话中途断掉之后
+
+`colab up` 在**建完会话的那一刻**就把状态写盘，phase 标成 `provisioning`；setup + heartbeat 都过了才改成 `ready`。
+装环境要几十分钟（pip + 几十 GB 模型），进程被杀、连接断掉都很常见，所以：
+
+| 下次 `up` 看到 | 行为 |
+| --- | --- |
+| 状态 `ready` + 会话活着 + 工作流没变 | 直接复用 |
+| 状态 `provisioning` + 会话活着 | **续装**：重传工作流、再跑一遍 setup.py（脚本自己看 marker，装好的部分跳过），不重建会话、不重下模型 |
+| 会话不在 / 工作流定义变了（`workflow.json` + `setup.py` 的哈希变了） | 停掉旧的，重建 |
+
+决策是纯函数 `colabReuseDecision()`，六种情况都有测试覆盖。
