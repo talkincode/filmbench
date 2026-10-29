@@ -70,7 +70,13 @@ export function inputsHash(
           ...(shot.role === "voice" && shot.intent.narration ? { narration: shot.intent.narration } : {}),
           prompt: promptFor(shot.intent, modality),
         },
-        binder: shot.binder,
+        // binder 里也带 params：这里必须用同一份"去掉混音参数"的副本，
+        // 否则改 volume/fadeIn 会从 binder 这条缝里漏进哈希，把产物误判成过期
+        binder: {
+          provider: shot.binder.provider,
+          task: shot.binder.task,
+          params: includeMixParams ? params : stripMixParams(params),
+        },
         params: includeMixParams ? params : stripMixParams(params),
         subjects: shot.subjects,
         references: shot.references,

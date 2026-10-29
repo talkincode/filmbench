@@ -466,5 +466,21 @@ test("多轨混音在总线后有固定限幅器（单轨限幅管不了总和�
   const graph = args[args.indexOf("-filter_complex") + 1];
   const tail = graph.split(";").slice(-2).join(";");
   expect(tail).toContain("amix=inputs=2");
-  expect(tail).toContain("alimiter=limit=0.79:level=false");
+  expect(tail).toContain("alimiter=limit=0.7:level=false");
+});
+
+test("改混音参数（volume/fadeIn）不该让产物过期——binder 里也带着 params", async () => {
+  const { svc } = project("mix-only");
+  const registry = builtinProviders();
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  await runJobs(svc, registry, { jobId });
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(false);
+  // 只改混音参数
+  const shot = svc.state().shots[0];
+  svc.patchShot("shot-a", { binder: { ...shot.binder, params: { ...shot.binder.params, volume: 0.4, fadeIn: 2 } } });
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(false);
+  // 改真正的生成参数 → 过期
+  svc.patchShot("shot-a", { binder: { ...svc.state().shots[0].binder, params: { ...svc.state().shots[0].binder.params, steps: 8 } } });
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(true);
+  svc.close();
 });

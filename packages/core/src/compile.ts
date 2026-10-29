@@ -289,7 +289,7 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
   }
 
   // 多轨相加会顶到 0 dBFS：总线后面挂一个限幅器，别让编码前的峰值越界
-  const master = mix ? `${mix.replace(/\[a\]$/, "[apre]")};[apre]alimiter=limit=0.79:level=false:attack=5:release=120[a]` : null;
+  const master = mix ? `${mix.replace(/\[a\]$/, "[apre]")};[apre]alimiter=limit=0.7:level=false:attack=5:release=120[a]` : null;
   const graph = [norm, concat, ...audioChains, ...duck, ...(master ? [master] : [])].join(";");
   return [
     "-y",
