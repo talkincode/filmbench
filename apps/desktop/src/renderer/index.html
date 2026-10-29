@@ -152,6 +152,11 @@
     padding:5px 0;border-bottom:1px solid var(--rule-hi);font-family:var(--mono);font-size:11px;color:var(--ink-2)}
   .film-row b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .film-row .st[data-s="ok"]{color:var(--ok)}.film-row .st[data-s="bad"]{color:var(--block)}
+  .film-row.draggable{cursor:grab}
+  .film-row.dragging{opacity:.35}
+  .film-row.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+  .film-row.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
+  .tl-hint{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);margin-top:6px}
   .script-edit{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
   .script-edit label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:10px;
     letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
@@ -1000,7 +1005,7 @@ async function openOverview(tab) {
         title="${esc(`${s.order} ${s.title} · ${(s.startFrame / fps).toFixed(2)}–${(s.endFrame / fps).toFixed(2)}s`)}"><span>${s.order}</span></div>`)
       .join("");
     const rows = o.shots
-      .map((s) => `<div class="film-row">
+      .map((s) => `<div class="film-row draggable" data-shot="${esc(s.id)}" data-order="${s.order}">
         <span>${String(s.order).padStart(2, "0")}</span>
         <b>${esc(s.title)}</b>
         <span>${(s.durationFrames / fps).toFixed(2)}s</span>
@@ -1015,7 +1020,8 @@ async function openOverview(tab) {
        <div class="film-row" style="border-bottom:1.5px solid var(--ink);color:var(--ink-3)">
          <span>#</span><span>镜头</span><span>时长</span><span>起止（秒）</span><span>花费</span><span>状态</span></div>
        ${rows}
-       <p class="dim" style="margin-top:8px">整片 ${o.totalFrames} 帧 / ${(o.totalFrames / fps).toFixed(2)}s · 播放顺序即镜头顺序 · 无用例音频轨</p>`,
+       <p class="dim" style="margin-top:8px">整片 ${o.totalFrames} 帧 / ${(o.totalFrames / fps).toFixed(2)}s · 播放顺序即镜头顺序</p>
+       <p class="tl-hint">拖动任意一行可以调整顺序（音频轨不占画面时间，会留在自己那一行）</p>`,
     );
 
     const checksPane = pane(
@@ -1084,6 +1090,69 @@ async function openOverview(tab) {
       $("overviewModal").classList.remove("open");
       openFilm(o.renders.find((r) => r.out === el.dataset.render));
     }));
+    // 时间轴拖拽排序：pointer 事件（HTML5 drag 在合成输入下不可靠）
+    // 拖动超过 4px 才算拖；没超过就是一次普通点击（打开分镜详情）。
+    if (ovTab === "timeline") {
+      const rows = [...$("ovBody").querySelectorAll(".film-row.draggable")];
+      const clear = () => rows.forEach((r) => r.classList.remove("drop-before", "drop-after", "dragging"));
+      rows.forEach((row) => {
+        row.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          const startY = e.clientY;
+          const id = row.dataset.shot;
+          let dragging = false;
+          const onMove = (ev) => {
+            if (!dragging && Math.abs(ev.clientY - startY) < 4) return;
+            if (!dragging) {
+              dragging = true;
+              row.classList.add("dragging");
+              document.body.style.cursor = "grabbing";
+            }
+            ev.preventDefault();
+            clear();
+            row.classList.add("dragging");
+            const hit = rows.find((r) => {
+              const b = r.getBoundingClientRect();
+              return ev.clientY >= b.top && ev.clientY <= b.bottom;
+            });
+            if (hit && hit.dataset.shot !== id) {
+              const b = hit.getBoundingClientRect();
+              hit.classList.add(ev.clientY > b.top + b.height / 2 ? "drop-after" : "drop-before");
+              row.dataset.dropTarget = hit.dataset.shot;
+              row.dataset.dropAfter = ev.clientY > b.top + b.height / 2 ? "1" : "";
+            } else {
+              row.dataset.dropTarget = "";
+            }
+          };
+          const onUp = async () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            document.body.style.cursor = "";
+            const target = row.dataset.dropTarget;
+            const after = row.dataset.dropAfter === "1";
+            delete row.dataset.dropTarget;
+            delete row.dataset.dropAfter;
+            clear();
+            if (!dragging) {
+              openDetail(id);
+              return;
+            }
+            if (!target) return;
+            try {
+              await rpc("shot_move", after ? { id, after: target } : { id, before: target });
+              await load();
+              openOverview("timeline");
+              toast("顺序已更新");
+            } catch (err) {
+              toast(err.message);
+            }
+          };
+          document.addEventListener("mousemove", onMove);
+          document.addEventListener("mouseup", onUp);
+        });
+      });
+    }
+
     $("ovScriptEdit").onclick = () => { ovEdit = !ovEdit; openOverview("script"); };
     const save = $("seSave");
     if (save) {

@@ -174,6 +174,14 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
         { actor: { kind: "human", id: "desktop" } },
       ).event.seq;
     }
+    case "shot_move": {
+      const { service } = svc(args.project as string | undefined);
+      const anchor = args.before
+        ? { before: String(args.before) }
+        : { after: String(args.after ?? "") };
+      if (!anchor.before && !anchor.after) throw new Error("shot_move 需要 before 或 after");
+      return service.moveShot(String(args.id), anchor, { actor: { kind: "human", id: "desktop" } }).event.seq;
+    }
     case "cover_set": {
       const { service } = svc(args.project as string | undefined);
       return service.setCover(String(args.shot), { actor: { kind: "human", id: "desktop" } }).event.seq;

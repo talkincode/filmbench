@@ -113,7 +113,7 @@ provider 会用 ffprobe **实测**产物尺寸与帧数再登记，composition �
 | 去掉网络性质（服务端形态） | ✅ 无 Worker / 无 D1 / 无 R2 / 无 SSO；项目目录即全部。出站只剩 provider | `docs/architecture.md` |
 | Electron | ✅ 主进程 → Bun engine 子进程 → 渲染层（IPC，contextIsolation），单实例 | `apps/desktop` |
 | 成片预览 | ✅ 「成片预览」直接播最近一次渲染；③ 出片完成后自动打开；总览的成片记录可点播 | `apps/desktop` |
-| 界面支持编排 | ✅ 缩略图网格 · 项目切换 · 分镜详情抽屉 · 一键提交/执行/出片/故事板；⚠ 拖拽排时间轴未做 | `apps/desktop/src/renderer` |
+| 界面支持编排 | ✅ 缩略图网格 · 项目切换 · 分镜详情抽屉 · 一键提交/执行/出片/故事板 · **总览→时间轴拖动行即可重排镜头**（pointer 事件，拖动 4px 起算，未拖就是点击开详情） | `apps/desktop/src/renderer` |
 | 分镜详情（vflow 式） | ✅ 意图 / 绑定 / 主体版本 / 参考 / 候选与选定 / 产物与路径 / 依赖 / 检查 / 花费 / 时间轴 / 作业历史 / 事件；**内置预览**（视频/图片直接播，可接着截图标注） | `packages/core/src/detail.ts` |
 | 影片总览与剧本 | ✅ `filmbench script set/info`，界面「总览」看封面、剧本、镜头表、渠道策略与三步流程 | `packages/core` · `apps/desktop` |
 | 片名卡 / 封面 | ✅ `filmbench/title` 四层排版（kicker/title/rule/subtitle/credits）+ 三个预设 + 剧照压暗/暗角/颗粒；`filmbench cover --shot` 设封面 | `packages/providers` · [设计规范](docs/title-design.md) |
