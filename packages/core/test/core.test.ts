@@ -447,3 +447,24 @@ test("collect 收下远端产物：重算哈希、内容寻址、状态变 done"
   expect(shotStale(svc.state(), svc.state().shots[0])).toBe(false);
   svc.close();
 });
+
+test("多轨混音在总线后有固定限幅器（单轨限幅管不了总和）", () => {
+  const ir = {
+    ir: "filmbench/render-ir/v1" as const,
+    project: "p",
+    format: { width: 320, height: 180, fps: 30 },
+    totalFrames: 30,
+    clips: [],
+    audio: [
+      { shot: "a", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
+      { shot: "b", role: "music" as const, path: "b.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
+    ],
+    requirements: ["ffmpeg" as const],
+    output: { container: "mp4" as const, videoCodec: "libx264" as const, pixelFormat: "yuv420p" as const, audio: "none" as const },
+  };
+  const args = ffmpegArgs(ir, "/tmp", "/tmp/out.mp4");
+  const graph = args[args.indexOf("-filter_complex") + 1];
+  const tail = graph.split(";").slice(-2).join(";");
+  expect(tail).toContain("amix=inputs=2");
+  expect(tail).toContain("alimiter=limit=0.79:level=false");
+});
