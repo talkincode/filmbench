@@ -298,8 +298,18 @@ export async function runJobs(
       const stored = await materialize(service, { path: main.path, mime: main.mime }, job.jobId, provider.id);
       const bytes = stored.bytes;
 
+      // 用当前镜头状态重算输入哈希：provider 实际读到的就是这一份
+      const runtimeHash = inputsHash(
+        shot,
+        state.project.format.fps,
+        job.params,
+        provider.modality ?? null,
+        undefined,
+        hashReferencedFiles(service.dir, job.params),
+      );
       service.append("job.completed", {
         jobId: job.jobId,
+        inputsHash: runtimeHash,
         kind: main.kind,
         asset: stored.asset,
         sha256: stored.digest,
@@ -350,4 +360,35 @@ export async function runJobs(
   }
 
   return outcomes;
+}
+
+/**
+ * 修正作业记录的输入哈希：产物确实是用当前输入做出来的，但记录写的是旧值。
+ * 只允许带理由调用（落进事件日志），过期判定不会因此被"关掉"——下一次改输入照样会过期。
+ */
+export function rehashJob(
+  service: Service,
+  registry: ProviderRegistry,
+  jobId: string,
+  reason: string,
+  actor: Actor,
+): { jobId: string; inputsHash: string } {
+  const state = service.state();
+  const job = state.jobs.get(jobId);
+  if (!job) throw new ValidationError(`作业不存在: ${jobId}`);
+  if (!job.produce) throw new ValidationError(`${jobId} 还没有产物，没有可修正的哈希`);
+  const shot = state.shots.find((s) => s.id === job.shot);
+  if (!shot) throw new ValidationError(`镜头不存在: ${job.shot}`);
+  const provider = requireProvider(registry, shot.binder.provider);
+  const hash = inputsHash(
+    shot,
+    state.project.format.fps,
+    job.params,
+    provider.modality ?? null,
+    undefined,
+    hashReferencedFiles(service.dir, job.params),
+  );
+  if (hash === job.inputsHash) return { jobId, inputsHash: hash };
+  service.append("job.rehashed", { jobId, inputsHash: hash, reason }, { actor });
+  return { jobId, inputsHash: hash };
 }

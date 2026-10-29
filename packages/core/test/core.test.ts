@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, rehashJob, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -401,4 +401,30 @@ test("normalize:false 的音轨不跑 loudnorm，只留安全限幅", () => {
   expect(graph).toContain("alimiter=limit=0.95:level=false");
   expect(graph).not.toContain("loudnorm");
   expect(shot.durationFrames).toBe(30);
+});
+
+test("rehash 只在带理由时改哈希，且改完仍会因输入变化而过期", async () => {
+  const { svc } = project("rehash");
+  const registry = builtinProviders();
+  // 造一条已完成作业
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  await runJobs(svc, registry, { jobId });
+  const before = svc.state().jobs.get(jobId)!;
+  expect(before.produce).toBeTruthy();
+
+  // 改输入：参考图后挂 → 现在的哈希与记录不一致，判定过期
+  svc.patchShot("shot-a", { intent: { description: "changed", action: "", prompt: "p2" } });
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(true);
+
+  const result = rehashJob(svc, registry, jobId, "产物就是按当前输入做的，记录停在提交时", {
+    kind: "human",
+    id: "test",
+  });
+  expect(result.inputsHash).not.toBe(before.inputsHash);
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(false);
+
+  // 再改一次输入，仍然过期——rehash 不是后门
+  svc.patchShot("shot-a", { intent: { description: "changed again", action: "", prompt: "p3" } });
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(true);
+  svc.close();
 });

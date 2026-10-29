@@ -199,6 +199,8 @@ export const EVENT_PAYLOADS = {
   "job.started": z.object({ jobId: z.string() }),
   "job.completed": z.object({
     jobId: z.string(),
+    /** 实际运行时算的输入哈希：提交后补的参考图不该把产物判成过期 */
+    inputsHash: sha.optional(),
     kind: z.enum(["video", "image", "audio"]).default("video"),
     asset: ident,
     sha256: sha,
@@ -211,6 +213,11 @@ export const EVENT_PAYLOADS = {
   }),
   "job.failed": z.object({ jobId: z.string(), reason: z.string() }),
   "job.log": z.object({ jobId: z.string(), lines: z.array(z.string()).max(400) }),
+  /**
+   * 修正一条作业记录的输入哈希。只在"产物确实是用当前输入做出来的、但记录写的是旧哈希"时使用：
+   * 必须带理由，落进事件日志，可审计——不是给"过期"开的后门。
+   */
+  "job.rehashed": z.object({ jobId: z.string(), inputsHash: sha, reason: z.string().min(8).max(400) }),
   "job.rejected": z.object({
     jobId: z.string(),
     reason: z.string(),

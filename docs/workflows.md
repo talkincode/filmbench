@@ -15,7 +15,7 @@
 | `imagine/video` | `video` | 视频 | 首帧 + 视频 prompt（付费云视频，需 `IMAGINE_SPEND_OK=1`） |
 | `colab` | `video` | 视频 | 远端会话 + workflow（见下） |
 | `filmbench/remotion` | `render` | 视频 | `remotion render <entry> <composition> <out> --props=<tmp>`；产物按实测尺寸/帧数登记。例子见 `examples/remotion-edit` |
-| `filmbench/hyperframes` | `render` | 视频 | `npx hyperframes render <dir> -o <out> -f <fps> [-c <composition>]` |
+| `filmbench/hyperframes` | `render` | 视频 | `hyperframes render <dir> -o <out> -f <fps>`；产物按实测尺寸/帧数登记。例子见 `~/github/filmbench-demo/jingmen-site` |
 | `filmbench/browser` | `capture` | 视频 | headless Chrome 逐帧渲染 HTML/Three.js，页面暴露 `window.__seek(frame)` |
 | `filmbench/import` | `import` | 视频/图片/音频 | 把已有文件（外部录制、别人给的音乐）登记成一次作业产物，零转码；长度按实测校验 |
 
@@ -111,3 +111,17 @@
 - 渲染只负责"这一镜"，剪辑点与音轨仍由 filmbench 的编译 IR 决定，两者不互相越界。
 
 完整例子：`examples/remotion-edit/`（三维素材 + 交叉溶解 + 动态字幕 + 结尾压字，12 秒）。
+
+## 作业的输入哈希什么时候算
+
+`job.requested` 记一份，`job.completed` 再按**运行时**的镜头状态重算一份——provider 实际读到的是后者。
+提交之后才挂参考图，产物不会因此被判过期；改过参数、换了参考，下一次照样过期。
+
+历史记录里如果哈希停在提交时（旧版本行为），用显式命令修正，必须带理由并落事件日志：
+
+```bash
+filmbench jobs rehash --job job-h1-camp-6 --reason "参考图在提交后挂上，产物用的就是这张首帧"
+```
+
+它只改这一条记录的哈希；之后任何输入变化都会让镜头重新变成"过期"。这不是给过期开的后门，
+是修一条写错的记录。

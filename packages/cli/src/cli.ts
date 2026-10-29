@@ -25,6 +25,7 @@ import {
   compile,
   projectStoryboard,
   reconcileOrphans,
+  rehashJob,
   runJobs,
   submit,
   summarize,
@@ -580,6 +581,16 @@ const cmdJobs = (argv: string[]) =>
   withServiceAsync(async (svc) => {
     const sub = argv[0];
     const registry = builtinProviders();
+    if (sub === "rehash") {
+      const { values } = parseArgs({
+        args: argv.slice(1),
+        options: { job: { type: "string" }, reason: { type: "string" } },
+      });
+      if (!values.job || !values.reason) throw new Error("jobs rehash 需要 --job 与 --reason");
+      const result = rehashJob(svc, registry, values.job, values.reason, { kind: "human", id: "cli" });
+      out(`已修正 ${result.jobId} 的输入哈希 → ${result.inputsHash.slice(0, 12)}…`);
+      return;
+    }
     if (sub === "submit") {
       const { values } = parseArgs({
         args: argv.slice(1),

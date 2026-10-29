@@ -280,9 +280,22 @@ export function fold(
           jobId: p.jobId,
           atSeq: e.seq,
         };
-        if (job) Object.assign(job, { phase: "done", produce, updatedAt: e.seq });
+        if (job) {
+          // 产物对应的输入以"跑的时候"为准：提交之后再挂参考图，不该把这份产物判成过期
+          Object.assign(job, {
+            phase: "done",
+            produce,
+            updatedAt: e.seq,
+            ...(p.inputsHash ? { inputsHash: p.inputsHash } : {}),
+          });
+        }
         const shot = state.shots.find((s) => s.id === (job?.shot ?? ""));
         if (shot) shot.produce = produce;
+        break;
+      }
+      case "job.rehashed": {
+        const job = state.jobs.get(p.jobId);
+        if (job) job.inputsHash = p.inputsHash;
         break;
       }
       case "job.failed":
