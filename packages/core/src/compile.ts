@@ -288,7 +288,9 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
     mix = `${ir.audio.map((_, i) => `[a${i}]`).join("")}amix=inputs=${ir.audio.length}:duration=longest:dropout_transition=0:normalize=0[a]`;
   }
 
-  const graph = [norm, concat, ...audioChains, ...duck, ...(mix ? [mix] : [])].join(";");
+  // 多轨相加会顶到 0 dBFS：总线后面挂一个限幅器，别让编码前的峰值越界
+  const master = mix ? `${mix.replace(/\[a\]$/, "[apre]")};[apre]alimiter=limit=0.79:level=false:attack=5:release=120[a]` : null;
+  const graph = [norm, concat, ...audioChains, ...duck, ...(master ? [master] : [])].join(";");
   return [
     "-y",
     ...inputs,

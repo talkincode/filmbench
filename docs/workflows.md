@@ -152,3 +152,9 @@ filmbench jobs collect --job <jobId> --file .filmbench/collected/<jobId>.mp4 --r
 | 会话不在 / 工作流定义变了（`workflow.json` + `setup.py` 的哈希变了） | 停掉旧的，重建 |
 
 决策是纯函数 `colabReuseDecision()`，六种情况都有测试覆盖。
+
+## 总线限幅
+
+多条音轨相加很容易顶到 0 dBFS（尤其"配乐 + 声音设计"两层都有瞬态）。`build` 在 amix 之后固定挂一个
+`alimiter=limit=0.79:level=false`，再交给编码器；单轨的 `alimiter` 只管自己那一路，管不了总和。
+0.79（≈ −2 dBFS）是留给 AAC 预留的：真峰值在编码后会比采样峰值高 1 dB 左右。
