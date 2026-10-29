@@ -502,6 +502,80 @@ export function titleCard(): Provider {
   };
 }
 
+/**
+ * filmbench/lyria：Google Lyria（Gemini API 的音乐生成）。
+ *
+ * 两个踩过的点：
+ *   1. `imagine` 0.8 没有音乐后端（只有图像 / 视频 / TTS），所以这里直接走 Gemini API；
+ *   2. lyria-3 系列走 generateContent + responseModalities=["AUDIO"]，
+ *      不是 Vertex 上 lyria-002 的 :predict。
+ * 生成结果不可复现；长出来的部分由编译期按帧数裁掉。
+ */
+export function lyria(): Provider {
+  return {
+    id: "filmbench/lyria",
+    tasks: ["music"],
+    determinism: "nondeterministic",
+    maxReferences: 0,
+    requiresPrompt: true,
+    estimate: () => ({ amount: 0, currency: "USD", units: "clip", priceUnknown: true }),
+    health: () => {
+      const key = process.env.GEMINI_API_KEY ?? "";
+      return key
+        ? { ok: true, detail: "GEMINI_API_KEY 已设置（Lyria 走 Gemini API）" }
+        : { ok: false, detail: "缺少 GEMINI_API_KEY" };
+    },
+    async run(input: ProviderRunInput) {
+      const { shot, params, projectDir, onLog } = input;
+      const key = String(params.apiKey ?? process.env.GEMINI_API_KEY ?? "");
+      if (!key) throw new Error("缺少 GEMINI_API_KEY（Lyria 需要它）");
+      const model = String(params.model ?? "lyria-3-clip-preview");
+      const prompt = String(params.prompt ?? shot.intent.prompt ?? "");
+      if (!prompt) throw new Error(`${shot.id} 没有音乐提示词`);
+      const base = String(params.baseUrl ?? "https://generativelanguage.googleapis.com/v1beta");
+      const generationConfig: Record<string, unknown> = { responseModalities: ["AUDIO"] };
+      if (params.seed !== undefined) generationConfig.seed = Number(params.seed);
+
+      onLog?.(`lyria ${model} ← ${prompt.slice(0, 60)}…`);
+      const res = await fetch(`${base}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
+        signal: input.signal,
+      });
+      if (!res.ok) throw new Error(`Lyria 失败（${res.status}）：${(await res.text()).slice(0, 400)}`);
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[];
+      };
+      const parts = data.candidates?.[0]?.content?.parts ?? [];
+      const audio = parts
+        .map((p) => p.inlineData)
+        .find((d) => d?.data && String(d.mimeType ?? "").startsWith("audio/"));
+      if (!audio?.data) throw new Error("Lyria 没有返回音频（确认模型支持 AUDIO 输出）");
+      const mime = String(audio.mimeType ?? "audio/wav");
+      const ext = mime.includes("mpeg") || mime.includes("mp3") ? "mp3" : mime.includes("ogg") ? "ogg" : "wav";
+      const tmp = join(projectDir, ".filmbench", "tmp");
+      mkdirSync(tmp, { recursive: true });
+      const out = join(tmp, `${shot.id}.${ext}`);
+      writeFileSync(out, Buffer.from(audio.data, "base64"));
+
+      // 实测时长：短了直接报，不留给编译期才发现对不上
+      const probe = Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out]);
+      const seconds = Number(probe.stdout.toString().trim());
+      const frames = Number.isFinite(seconds) ? Math.round(seconds * input.format.fps) : shot.durationFrames;
+      if (Number.isFinite(seconds) && seconds + 0.2 < shot.durationFrames / input.format.fps) {
+        throw new Error(
+          `Lyria 只给了 ${seconds.toFixed(2)}s，短于镜头要求的 ${(shot.durationFrames / input.format.fps).toFixed(2)}s`,
+        );
+      }
+      return {
+        files: [{ kind: "audio" as const, path: out, mime, width: 0, height: 0, durationFrames: frames }],
+        priceUnknown: true,
+      };
+    },
+  };
+}
+
 /** filmbench/scorekit：用 scorekit 把一份 scene.yaml 编译成配乐 WAV */
 export function scorekit(): Provider {
   return {
@@ -786,6 +860,7 @@ export function builtinProviders(): ProviderRegistry {
     hyperframes(),
     browserCapture(),
     importFile(),
+    lyria(),
   ]) {
     registry.set(p.id, p);
   }

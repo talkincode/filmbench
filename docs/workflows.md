@@ -9,6 +9,7 @@
 | --- | --- | --- | --- |
 | `filmbench/colorcard` | `clip` | 视频 | ffmpeg 纯色片段，零成本，用于跑通链路 |
 | `filmbench/title` | `title` | 图片 | 片名卡/封面（SVG→PNG），四层排版 |
+| `filmbench/lyria` | `music` | 音频 | Google Lyria（Gemini API `generateContent` + `responseModalities:["AUDIO"]`）；需要 `GEMINI_API_KEY`；`imagine` 0.8 没有音乐后端，所以直接调 |
 | `filmbench/scorekit` | `music` | 音频 | scene.yaml → WAV；`params.renderer=sfizz` + `orchestration=<profile>` 走真实采样库，`postFilter` 是同一条作业里的母带链（ffmpeg -af） |
 | `filmbench/qwentts` | `voice` | 音频 | 本地 TTS；`referenceAudio` 走 base 克隆（男声默认锅哥） |
 | `imagine` | `image` | 图片 | `imagine generate`，真实计费 |
