@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Service, build, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, rehashJob, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
+import { Service, build, collectJob, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, rehashJob, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "filmbench-"));
@@ -426,5 +426,24 @@ test("rehash 只在带理由时改哈希，且改完仍会因输入变化而过�
   // 再改一次输入，仍然过期——rehash 不是后门
   svc.patchShot("shot-a", { intent: { description: "changed again", action: "", prompt: "p3" } });
   expect(shotStale(svc.state(), svc.state().shots[0])).toBe(true);
+  svc.close();
+});
+
+test("collect 收下远端产物：重算哈希、内容寻址、状态变 done", async () => {
+  const { svc, sub } = project("collect");
+  const registry = builtinProviders();
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  // 造一个"远端已经产出但本地没记"的文件
+  const file = join(sub, "remote.mp4");
+  writeFileSync(file, "not-a-real-video-but-enough-for-materialize");
+  const outcome = await collectJob(svc, registry, jobId, file, "CLI 被超时杀掉，远端产物已存在", {
+    kind: "human",
+    id: "test",
+  });
+  expect(outcome.ok).toBe(true);
+  const job = svc.state().jobs.get(jobId)!;
+  expect(job.phase).toBe("done");
+  expect(job.produce?.asset).toBe(outcome.asset);
+  expect(shotStale(svc.state(), svc.state().shots[0])).toBe(false);
   svc.close();
 });

@@ -25,6 +25,7 @@ import {
   compile,
   projectStoryboard,
   reconcileOrphans,
+  collectJob,
   rehashJob,
   runJobs,
   submit,
@@ -581,6 +582,19 @@ const cmdJobs = (argv: string[]) =>
   withServiceAsync(async (svc) => {
     const sub = argv[0];
     const registry = builtinProviders();
+    if (sub === "collect") {
+      const { values } = parseArgs({
+        args: argv.slice(1),
+        options: { job: { type: "string" }, file: { type: "string" }, reason: { type: "string" } },
+      });
+      if (!values.job || !values.file || !values.reason) throw new Error("jobs collect 需要 --job --file --reason");
+      const outcome = await collectJob(svc, registry, values.job, resolve(values.file), values.reason, {
+        kind: "human",
+        id: "cli",
+      });
+      out(`${outcome.jobId} 已收下 → ${outcome.asset}`);
+      return;
+    }
     if (sub === "rehash") {
       const { values } = parseArgs({
         args: argv.slice(1),

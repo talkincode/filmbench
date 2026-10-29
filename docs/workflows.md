@@ -125,3 +125,15 @@ filmbench jobs rehash --job job-h1-camp-6 --reason "参考图在提交后挂上�
 
 它只改这一条记录的哈希；之后任何输入变化都会让镜头重新变成"过期"。这不是给过期开的后门，
 是修一条写错的记录。
+
+## 作业断开之后：collect
+
+远端作业可能比本地 CLI 的 30 分钟超时更长，或者连接被掐断——产物仍在远端，不该为了记一笔账再花一次 GPU：
+
+```bash
+colab download --session <s> /content/filmbench/out/<jobId>.mp4 .filmbench/collected/<jobId>.mp4
+filmbench jobs collect --job <jobId> --file .filmbench/collected/<jobId>.mp4 --reason "CLI 超时被杀，远端已产出"
+```
+
+`collect` 会用**当前**镜头状态重算输入哈希、按内容寻址落库、把作业标成 done，
+并在 `job.log` 里留下原因。它不验证内容对不对——那是审阅那一步的事。

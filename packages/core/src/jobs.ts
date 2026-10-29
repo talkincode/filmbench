@@ -392,3 +392,72 @@ export function rehashJob(
   service.append("job.rehashed", { jobId, inputsHash: hash, reason }, { actor });
   return { jobId, inputsHash: hash };
 }
+
+/**
+ * 收下远端已经产出的文件：长作业在连接断开、CLI 被杀之后，产物还在远端，
+ * 不该为了"记一笔账"再花一次钱。仍然按运行时输入重算哈希、仍然走内容寻址。
+ */
+export async function collectJob(
+  service: Service,
+  registry: ProviderRegistry,
+  jobId: string,
+  file: string,
+  reason: string,
+  actor: Actor,
+): Promise<RunOutcome> {
+  const state = service.state();
+  const job = state.jobs.get(jobId);
+  if (!job) throw new ValidationError(`作业不存在: ${jobId}`);
+  if (job.phase === "done") throw new ValidationError(`${jobId} 已经完成，不需要再收一次`);
+  const shot = state.shots.find((s) => s.id === job.shot);
+  if (!shot) throw new ValidationError(`镜头不存在: ${job.shot}`);
+  if (!existsSync(file)) throw new ValidationError(`文件不存在: ${file}`);
+  const provider = requireProvider(registry, shot.binder.provider);
+
+  const probe = Bun.spawnSync([
+    "ffprobe", "-v", "error", "-select_streams", "v:0",
+    "-show_entries", "stream=width,height,nb_frames,avg_frame_rate",
+    "-of", "json", file,
+  ]);
+  let width = 0, height = 0, frames = 0;
+  try {
+    const info = JSON.parse(probe.stdout.toString());
+    const s = info.streams?.[0];
+    width = Number(s?.width ?? 0);
+    height = Number(s?.height ?? 0);
+    const [n, d] = String(s?.avg_frame_rate ?? "0/1").split("/").map(Number);
+    frames = Number(s?.nb_frames) || 0;
+    if (!frames && d) {
+      const dur = Number(
+        Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file])
+          .stdout.toString().trim(),
+      );
+      frames = Number.isFinite(dur) ? Math.round(dur * (n / d)) : 0;
+    }
+  } catch {}
+
+  const stored = await materialize(service, { path: file, mime: "video/mp4" }, jobId, provider.id);
+  const runtimeHash = inputsHash(
+    shot,
+    state.project.format.fps,
+    job.params,
+    provider.modality ?? null,
+    undefined,
+    hashReferencedFiles(service.dir, job.params),
+  );
+  service.append("job.completed", {
+    jobId,
+    inputsHash: runtimeHash,
+    kind: "video",
+    asset: stored.asset,
+    sha256: stored.digest,
+    bytes: stored.bytes,
+    width,
+    height,
+    durationFrames: frames || shot.durationFrames,
+    mime: "video/mp4",
+    path: stored.path,
+  }, { actor });
+  service.append("job.log", { jobId, lines: [`collected from ${file}：${reason}`] });
+  return { jobId, shot: shot.id, ok: true, asset: stored.asset, path: stored.path };
+}
