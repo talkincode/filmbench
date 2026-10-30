@@ -189,3 +189,20 @@ filmbench review-shot --open                      # 全部镜头过一遍，直�
   所以它是 warn 而不是 error；语义判断留给人或 agent，但结论一样进事件日志。
 
 MCP 侧同名工具 `review_shot`（`findings` 参数逐条写），agent 与 MCP 共用同一实现。
+
+## ControlNet（h3-i2v）
+
+`workflows/h3-i2v` 的 `controlVideo` 把一段控制视频喂给 `MiniMaxH3FunControlNetApply`：
+
+| 参数 | 含义 |
+| --- | --- |
+| `controlVideo` | 项目内相对路径；provider 会先上传到作业目录，run.py 再放进 ComfyUI/input |
+| `controlStrength` | 默认 1.0 |
+| `controlStart` / `controlEnd` | 默认 0.0 / 0.6 —— 后半段放开，让模型自己补细节 |
+
+接线的坑（记下来，别再踩）：`ModelPatchLoader`（节点 34）只是个载荷，必须显式接进采样链；
+正式档会删掉 turbo LoRA 节点，所以 patch 的 `model` 入参要指向底模节点 1，指向 2 会 `KeyError: '2'`。
+
+控制视频的写法：**只描述"东西在哪、往哪动"，不描述材质与光**。我们用的是"深度式灰模"——
+越近越亮，255 贴脸 / 20 远景，按画家顺序覆盖（不是取较亮者，否则远处的洞永远画不到崖壁上）。
+生成脚本见 `filmbench-demo/jingmen-site/scripts/make-control-h4.py`。
