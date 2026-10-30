@@ -743,6 +743,7 @@ const cmdReviewShot = (argv: string[]) =>
       const mark = r.ok ? "✓" : "✗";
       out(`${mark} ${r.shot.padEnd(12)} ${r.findings.length} 条 · 亮度 ${r.metrics.meanLuma.toFixed(0)} · 对比 ${r.metrics.contrast.toFixed(0)} · 运动 ${r.metrics.motion.toFixed(2)} · 静止区 ${r.metrics.staticRegions}/9`);
       for (const f of r.findings) out(`    [${f.severity}] ${f.code}${f.frame !== undefined ? ` @${f.frame}` : ""} — ${f.detail}`);
+      out(`    采样 ${r.samples.map((x) => `${x.timeSec.toFixed(2)}s`).join(" / ")}（镜头内时间）`);
       out(`    九宫格 ${join(dir, r.grid)}`);
     }
     if (values.open && reviews[0]) {

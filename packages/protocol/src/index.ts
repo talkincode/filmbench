@@ -153,6 +153,17 @@ export const EVENT_PAYLOADS = {
     asset: ident,
     grid: z.string(),
     frames: z.array(z.number().int()).max(16),
+    /** 每个格子对应的镜头内时间与成片绝对帧号 */
+    samples: z
+      .array(
+        z.object({
+          frame: z.number().int(),
+          timeSec: z.number(),
+          filmFrame: z.number().int(),
+        }),
+      )
+      .max(16)
+      .optional(),
     findings: z
       .array(
         z.object({

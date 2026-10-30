@@ -22,11 +22,22 @@ export interface ReviewFinding {
   frame?: number;
 }
 
+export interface ReviewSample {
+  /** 产物文件里的帧号 */
+  frame: number;
+  /** 镜头内的时间（秒，从镜头起点算） */
+  timeSec: number;
+  /** 在成片时间轴上的绝对帧号（含镜头起点） */
+  filmFrame: number;
+}
+
 export interface ShotReview {
   shot: string;
   asset: string;
   grid: string;
+  /** 兼容旧字段：产物里的帧号 */
   frames: number[];
+  samples: ReviewSample[];
   width: number;
   height: number;
   findings: ReviewFinding[];
@@ -63,19 +74,48 @@ const std = (a: number[]) => {
   return Math.sqrt(mean(a.map((v) => (v - m) ** 2)));
 };
 
-/** 抽 N 帧 + 拼 3×3。帧号均匀分布在整段上（首尾各留 2%）。 */
-export function buildGrid(service: Service, shot: ShotState, out: string, size = 480): { frames: number[]; path: string } {
+/**
+ * 抽 N 帧 + 拼 3×3。
+ *
+ * 采样按**镜头时长**切分，不是按固定帧间隔：镜头声明多长，就把它等分成 9 段、每段取中点。
+ * 于是九个格子对任何镜头都读作"开头 / 1/8 / 2/8 … / 结尾"，不同长度的镜头可以直接对比；
+ * 同时把每个格子在成片里的绝对帧号记下来（filmFrame），跟剪辑点对得上。
+ */
+export function buildGrid(
+  service: Service,
+  shot: ShotState,
+  out: string,
+  size = 480,
+): { frames: number[]; samples: ReviewSample[]; path: string } {
   const produce = shot.produce;
   if (!produce) throw new ValidationError(`${shot.id} 还没有产物，先跑作业`);
   const file = join(service.dir, produce.path);
   if (!existsSync(file)) throw new ValidationError(`产物文件不存在: ${produce.path}`);
-  const total = produce.durationFrames || shot.durationFrames;
-  const frames: number[] = [];
-  for (let i = 0; i < SAMPLE; i++) {
-    const t = 0.02 + (0.96 * i) / (SAMPLE - 1);
-    frames.push(Math.min(total - 1, Math.max(0, Math.round(t * (total - 1)))));
+
+  const fps = service.state().project?.format.fps ?? 24;
+  // 镜头在成片里的起点：只累加画面镜头，音轨不占时间
+  let filmStart = 0;
+  for (const s of service.state().shots) {
+    if (s.id === shot.id) break;
+    if ((s.role ?? "picture") === "picture") filmStart += s.durationFrames;
   }
-  const select = frames.map((f) => `eq(n\\,${f})`).join("+");
+  // 采样范围以"镜头声明时长"为准；产物更长就只用前段，更短就夹到文件末尾
+  const declared = shot.durationFrames;
+  const available = produce.durationFrames || declared;
+  const span = Math.min(declared, available);
+  const samples: ReviewSample[] = [];
+  for (let i = 0; i < SAMPLE; i++) {
+    // 第 i 段的中点：0.5/9, 1.5/9 … 8.5/9
+    const t = ((i + 0.5) / SAMPLE) * span;
+    const frame = Math.min(available - 1, Math.max(0, Math.round(t)));
+    samples.push({
+      frame,
+      timeSec: Number((frame / fps).toFixed(3)),
+      filmFrame: filmStart + Math.min(declared - 1, Math.max(0, Math.round(t))),
+    });
+  }
+  const frames = samples.map((s) => s.frame);
+  const select = frames.map((f) => `eq(n\,${f})`).join("+");
   mkdirSync(join(service.dir, PATHS.build, "reviews"), { recursive: true });
   const r = spawnSync(
     "ffmpeg",
@@ -83,7 +123,7 @@ export function buildGrid(service: Service, shot: ShotState, out: string, size =
     { maxBuffer: 1 << 30 },
   );
   if (r.status !== 0) throw new Error(`九宫格拼图失败：${r.stderr.toString().slice(-300)}`);
-  return { frames, path: out };
+  return { frames, samples, path: out };
 }
 
 /** 只跑机器能判的规则；看图得出的结论由调用方追加。 */
@@ -175,7 +215,9 @@ export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "me
   }
 
   // 发灰：画面内部对比度低（雾天确实会低，所以只报 warn）
-  if (contrast < 28) findings.push({ code: "flat", severity: "warn", detail: `画面内部对比度只有 ${contrast.toFixed(1)}，看着发灰` });
+  if (contrast < 28 && !design) {
+    findings.push({ code: "flat", severity: "warn", detail: `画面内部对比度只有 ${contrast.toFixed(1)}，看着发灰` });
+  }
   // 没有起伏：整段亮度几乎不变
   if (lumaSpread < 2 && !design) findings.push({ code: "no-arc", severity: "info", detail: `整段亮度波动只有 ${lumaSpread.toFixed(1)}，缺少明暗起伏` });
 
@@ -202,7 +244,7 @@ export function reviewShot(
   if (!shot) throw new ValidationError(`镜头不存在: ${shotId}`);
   if (!shot.produce) throw new ValidationError(`${shotId} 还没有产物`);
   const gridPath = join(PATHS.build, "reviews", `${shot.id}-grid.png`);
-  const { frames } = buildGrid(service, shot, join(service.dir, gridPath));
+  const { frames, samples } = buildGrid(service, shot, join(service.dir, gridPath));
   const { metrics, findings } = analyze(service, shot);
   const all = [...findings, ...(options.extraFindings ?? [])];
   return {
@@ -210,6 +252,7 @@ export function reviewShot(
     asset: shot.produce.asset,
     grid: gridPath,
     frames,
+    samples,
     width: shot.produce.width,
     height: shot.produce.height,
     metrics,

@@ -499,3 +499,17 @@ test("九宫格审片：能抽帧拼图、能判冻结、结论能进事件日�
   expect(seq).toBeGreaterThan(0);
   svc.close();
 });
+
+test("九宫格按镜头时长切 9 段取中点，并记下成片绝对帧号", async () => {
+  const { svc } = project("review-time");
+  const registry = builtinProviders();
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  await runJobs(svc, registry, { jobId });
+  const review = reviewShot(svc, "shot-a");
+  // 镜头 30 帧 → 第 i 段中点 ≈ (i+0.5)/9*30
+  expect(review.samples).toHaveLength(9);
+  expect(review.samples[0].frame).toBe(2); // round(0.5/9*30)=2
+  expect(review.samples[8].frame).toBe(28); // round(8.5/9*30)=28
+  expect(review.samples.every((s, i) => i === 0 || s.timeSec > review.samples[i - 1].timeSec)).toBe(true);
+  svc.close();
+});

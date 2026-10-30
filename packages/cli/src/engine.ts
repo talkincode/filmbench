@@ -21,6 +21,8 @@ import {
   shotDetail,
   submit,
   summarize,
+  reviewShot,
+  recordReview,
 } from "@filmbench/core";
 import { builtinProviders, colabReap } from "@filmbench/providers";
 import { renderDocument, resolvePreviews } from "@filmbench/storyboard-audit";
@@ -104,7 +106,9 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
       let cursor = 0;
       const shots = state.shots.map((s, i) => {
         const start = cursor;
-        cursor += s.durationFrames;
+        // 音轨不占画面时间：总时长只由画面镜头决定（之前把两条音乐也算进去了）
+        const picture = (s.role ?? "picture") === "picture";
+        if (picture) cursor += s.durationFrames;
         return {
           id: s.id,
           order: i + 1,
@@ -189,6 +193,27 @@ async function handle(cmd: string, args: Record<string, unknown>): Promise<unkno
     case "check": {
       const { service } = svc(args.project as string | undefined);
       return runChecks(service, registry);
+    }
+    case "review_shot": {
+      const { service, dir } = svc(args.project as string | undefined);
+      const shot = String(args.shot);
+      const review = reviewShot(service, shot, {
+        extraFindings: ((args.findings as string[]) ?? []).map((detail) => ({
+          code: "manual",
+          severity: (args.severity as "error" | "warn" | "info") ?? "error",
+          detail,
+        })),
+        note: args.note as string | undefined,
+      });
+      let seq: number | undefined;
+      if (args.record) seq = recordReview(service, review, { kind: "human", id: "desktop" }, args.note as string | undefined);
+      return { ...review, grid: join(dir, review.grid), event: seq };
+    }
+    case "review_grid": {
+      // 只读：已经有九宫格就直接给路径，没有就现生成（不写事件）
+      const { service, dir } = svc(args.project as string | undefined);
+      const review = reviewShot(service, String(args.shot));
+      return { ...review, grid: join(dir, review.grid) };
     }
     case "shot_detail": {
       const { service } = svc(args.project as string | undefined);

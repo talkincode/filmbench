@@ -157,6 +157,24 @@
   .film-row.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
   .film-row.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
   .tl-hint{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);margin-top:6px}
+  .rv-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .rv-head b{font-family:var(--serif);font-size:13px;letter-spacing:.04em}
+  .rv-grid{background:rgba(0,0,0,.06);border:1px solid var(--rule-hi);border-radius:3px;padding:4px}
+  .rv-grid img{display:block;width:100%;height:auto;border-radius:2px}
+  .rv-labelled{position:relative}
+  .rv-labels{position:absolute;inset:4px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+    pointer-events:none}
+  .rv-labels span{align-self:start;justify-self:start;margin:3px;padding:1px 4px;border-radius:2px;
+    background:rgba(8,6,4,.62);color:#efe7d6;font-family:var(--mono);font-size:9px;letter-spacing:.04em}
+  .rv-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;overflow:auto;min-height:0;padding-right:4px}
+  .rv-item{min-width:0}
+  .rv-item-top{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:10px;margin-bottom:4px}
+  .rv-note{display:flex;gap:6px;margin-top:8px}
+  .rv-note input{flex:1;font-family:var(--serif);font-size:12px;padding:5px 8px;border:1px solid var(--rule-hi);
+    border-radius:3px;background:var(--paper);color:var(--ink)}
+  .rv-find{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed var(--rule-hi);font-size:11px}
+  .rv-find[data-s="error"]{color:var(--block)}.rv-find[data-s="warn"]{color:var(--warn)}
+  .rv-find[data-s="info"]{color:var(--ink-3)}
   .script-edit{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
   .script-edit label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:10px;
     letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
@@ -259,6 +277,14 @@
   /* —— 项目选择 —— */
   .modal{position:fixed;inset:0;background:rgba(25,22,16,.45);display:none;place-items:center;z-index:60}
   .modal.open{display:grid}
+  .modal.zoom{background:rgba(12,10,8,.9);place-items:stretch;grid-template-rows:44px 1fr}
+  .modal.zoom.open{display:grid}
+  .zoom-bar{display:flex;align-items:center;gap:8px;padding:0 14px;background:rgba(24,20,16,.9);
+    color:var(--paper);font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(255,255,255,.14)}
+  .zoom-bar .dim{color:rgba(238,231,214,.6)}
+  .zoom-stage{position:relative;overflow:hidden;cursor:grab;display:grid;place-items:center}
+  .zoom-stage.dragging{cursor:grabbing}
+  .zoom-stage img{max-width:none;max-height:none;transform-origin:center center;user-select:none;-webkit-user-drag:none;box-shadow:0 12px 48px rgba(0,0,0,.6)}
   .modal .panel{width:min(620px,92vw);max-height:76vh;background:var(--paper-hi);border:1px solid var(--ink);border-radius:6px;
     display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.6)}
   .modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--rule)}
@@ -391,6 +417,21 @@
   </div>
 </div>
 
+<div class="modal zoom" id="zoomModal">
+  <div class="zoom-bar">
+    <b id="zoomName">九宫格</b>
+    <span class="dim" id="zoomPct">适应</span>
+    <span style="flex:1"></span>
+    <button class="sm ghost" id="zoomFit">适应</button>
+    <button class="sm ghost" id="zoom100">1:1</button>
+    <button class="sm ghost" id="zoomOut">−</button>
+    <button class="sm ghost" id="zoomIn">＋</button>
+    <button class="sm ghost" id="zoomOpen">打开文件</button>
+    <button class="sm" id="zoomClose">关闭</button>
+  </div>
+  <div class="zoom-stage" id="zoomStage"><img id="zoomImg" alt=""></div>
+</div>
+
 <div class="modal" id="previewModal">
   <div class="panel" style="width:min(1000px,96vw)">
     <header><h3 id="pvTitle">预览</h3>
@@ -508,6 +549,77 @@ const stateChip = (s) => (!s.hasOutput ? ["缺产物", "missing"] : s.stale ? ["
 async function rpc(cmd, args = {}) {
   return f.rpc(cmd, args);
 }
+
+/* —— 图片放大器：滚轮缩放、拖动平移、双击在 1:1 与适应之间切换 —— */
+const zoom = { scale: 1, fit: 1, x: 0, y: 0, src: null, path: null };
+function zoomApply() {
+  const img = $("zoomImg");
+  if (!img) return;
+  img.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`;
+  $("zoomPct").textContent = zoom.scale === zoom.fit ? "适应" : `${Math.round((zoom.scale / zoom.fit) * 100)}%`;
+}
+function zoomFit() {
+  const img = $("zoomImg");
+  if (!img || !img.naturalWidth) return;
+  const stage = $("zoomStage");
+  const k = Math.min(stage.clientWidth / img.naturalWidth, stage.clientHeight / img.naturalHeight);
+  zoom.fit = k;
+  zoom.scale = k;
+  zoom.x = 0;
+  zoom.y = 0;
+  zoomApply();
+}
+function zoomTo(mult) {
+  zoom.scale = Math.max(zoom.fit * 0.5, Math.min(zoom.fit * 8, zoom.fit * mult));
+  zoomApply();
+}
+function openZoom(src, name, path) {
+  zoom.src = src;
+  zoom.path = path ?? null;
+  $("zoomName").textContent = name ?? "九宫格";
+  const img = $("zoomImg");
+  img.onload = () => zoomFit();
+  img.src = src;
+  $("zoomModal").classList.add("open");
+  if (img.complete) zoomFit();
+}
+function closeZoom() {
+  $("zoomModal").classList.remove("open");
+  $("zoomImg").src = "";
+}
+window.addEventListener("DOMContentLoaded", () => {
+  const modal = $("zoomModal");
+  if (!modal) return;
+  const stage = $("zoomStage");
+  $("zoomClose").onclick = closeZoom;
+  $("zoomFit").onclick = zoomFit;
+  $("zoom100").onclick = () => zoomTo(1 / (zoom.fit || 1));
+  $("zoomIn").onclick = () => zoomTo((zoom.scale / zoom.fit) * 1.5);
+  $("zoomOut").onclick = () => zoomTo((zoom.scale / zoom.fit) / 1.5);
+  $("zoomOpen").onclick = () => zoom.path && f.openPath(zoom.path);
+  modal.onclick = (e) => { if (e.target === modal) closeZoom(); };
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const k = (zoom.scale / zoom.fit) * (e.deltaY < 0 ? 1.15 : 1 / 1.15);
+    zoomTo(k);
+  }, { passive: false });
+  stage.addEventListener("dblclick", () => {
+    const k = zoom.scale / zoom.fit;
+    zoomTo(k > 1.2 ? 1 : 2);
+  });
+  let drag = null;
+  stage.addEventListener("mousedown", (e) => {
+    drag = { x: e.clientX - zoom.x, y: e.clientY - zoom.y };
+    stage.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    zoom.x = e.clientX - drag.x;
+    zoom.y = e.clientY - drag.y;
+    zoomApply();
+  });
+  window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+});
 
 async function load() {
   const p = await f.project();
@@ -709,6 +821,7 @@ function renderDetail(d) {
   const TABS = [
     { id: "overview", label: "概览" },
     { id: "refs", label: `参考 ${s.references.length}/5` },
+    { id: "review", label: "审片" },
     { id: "checks", label: `检查 ${failing.length}` },
     { id: "history", label: `历史 ${d.jobs.length}` },
   ];
@@ -792,6 +905,22 @@ function renderDetail(d) {
       <p class="dim">参考图是喂给模型的输入；候选画面是本镜的输出。首/尾帧用来源镜头或独立图，别用本镜自己的产物。</p>
     </div>
 
+    <div class="tpanel${S.tab === "review" ? " on" : ""}" data-panel="review">
+      <div class="rv-head">
+        <b>九宫格审片</b>
+        <span class="dim" id="rvMeta">正在生成…</span>
+        <span style="flex:1"></span>
+        <button class="sm ghost" id="rvRun">重新审片</button>
+      </div>
+      <div class="rv-grid rv-labelled"><img id="rvImg" alt="九宫格" title="点一下放大；滚轮缩放，拖动平移"><div class="rv-labels" id="rvLabels"></div></div>
+      <div id="rvFindings" class="dim">—</div>
+      <div class="rv-note">
+        <input id="rvText" placeholder="看图后补一条问题，例如：凿子直插石头／水面九帧不动">
+        <button class="sm" id="rvAdd">记录</button>
+        <button class="sm ghost" id="rvOpen">打开原图</button>
+      </div>
+    </div>
+
     <div class="tpanel${S.tab === "checks" ? " on" : ""}" data-panel="checks">
       <p class="dim">${failing.filter((c) => c.status === "fail").length} 项阻断 · ${failing.filter((c) => c.status === "warn").length} 项警告 · ${allChecks.filter((c) => c.status === "pass").length} 项通过</p>
       ${checks}
@@ -839,6 +968,48 @@ function renderDetail(d) {
     btn.ondblclick = (e) => { e.preventDefault(); openPreview(); };
   });
   $("dBody").querySelectorAll("[data-log]").forEach((b) => (b.onclick = () => openJobLog(b.dataset.log)));
+
+  // 审片面板：只有切到这个 tab 时才去生成/加载九宫格
+  const loadReview = async (record, findings) => {
+    const meta = $("rvMeta"), img = $("rvImg"), box = $("rvFindings");
+    if (!meta) return;
+    meta.textContent = "正在抽帧…";
+    try {
+      const r = await rpc(record ? "review_shot" : "review_grid", {
+        shot: s.id,
+        record: Boolean(record),
+        findings: findings ?? [],
+        severity: "error",
+      });
+      img.src = fileUrl(r.grid) + `?v=${r.frames.join("-")}-${findings?.length ?? 0}`;
+      const labels = $("rvLabels");
+      if (labels) labels.innerHTML = (r.samples ?? []).map((x) => `<span>${x.timeSec.toFixed(2)}s</span>`).join("");
+      meta.textContent = `${r.frames.length} 帧 · 亮度 ${r.metrics.meanLuma.toFixed(0)} · 对比 ${r.metrics.contrast.toFixed(0)} · 运动 ${r.metrics.motion.toFixed(2)} · 静止区 ${r.metrics.staticRegions}/9`;
+      box.innerHTML = r.findings.length
+        ? r.findings.map((f) => `<div class="rv-find" data-s="${f.severity}"><b>${f.severity}</b><span>${esc(f.code)}${f.frame !== undefined ? ` @${f.frame}` : ""}</span><span>${esc(f.detail)}</span></div>`).join("")
+        : `<span class="dim">机器规则没有报问题——语义问题（构件悬空、锤子砸手、水面不动）要靠看图补</span>`;
+      const add = $("rvAdd");
+      if (add) add.onclick = async () => {
+        const text = $("rvText").value.trim();
+        if (!text) return toast("先写一句问题");
+        await loadReview(true, [text]);
+        $("rvText").value = "";
+        toast("已记入事件日志");
+      };
+      const run = $("rvRun");
+      if (run) run.onclick = () => loadReview(false);
+      const openBtn = $("rvOpen");
+      if (openBtn) openBtn.onclick = () => f.openPath(r.grid);
+      img.onclick = () => openZoom(img.src, `${s.title} · 九宫格`, r.grid);
+    } catch (e) {
+      meta.textContent = e.message;
+    }
+  };
+  if (S.tab === "review") loadReview(false);
+  $("dBody").querySelectorAll("[data-tab]").forEach((btn) => {
+    if (btn.dataset.tab !== "review") return;
+    btn.addEventListener("click", () => loadReview(false), { once: false });
+  });
 
   const runAction = async () => {
     if (next.disabled) {
@@ -980,7 +1151,7 @@ async function openOverview(tab) {
     $("ovScriptEdit").textContent = ovEdit ? "取消编辑" : "编辑剧本";
     $("ovMeta").textContent = `${o.project.name} · ${o.project.format.width}×${o.project.format.height}@${fps} · 修订 #${o.head.seq} · ${o.shots.length} 镜 / ${(o.totalFrames / fps).toFixed(2)}s`;
 
-    const tabs = [["script", "剧本"], ["timeline", "时间轴"], ["checks", "检查"], ["ledger", "账本"], ["events", "事件"]];
+    const tabs = [["script", "剧本"], ["timeline", "时间轴"], ["review", "审片"], ["checks", "检查"], ["ledger", "账本"], ["events", "事件"]];
     const pane = (id, body) => `<div class="film-pane${ovTab === id ? " on" : ""}" data-pane="${id}">${body}</div>`;
 
     const scriptBody = o.script?.body ?? "";
@@ -1022,6 +1193,23 @@ async function openOverview(tab) {
        ${rows}
        <p class="dim" style="margin-top:8px">整片 ${o.totalFrames} 帧 / ${(o.totalFrames / fps).toFixed(2)}s · 播放顺序即镜头顺序</p>
        <p class="tl-hint">拖动任意一行可以调整顺序（音频轨不占画面时间，会留在自己那一行）</p>`,
+    );
+
+    const pictureShots = o.shots.filter((s) => (s.role ?? "picture") === "picture");
+    const reviewPane = pane(
+      "review",
+      `<div class="rv-head"><b>全部画面镜头的九宫格</b><span class="dim">点任意一张可放大；机器规则只报能测的，语义问题看图补</span>
+        <span style="flex:1"></span><button class="sm ghost" id="ovReviewRun">重新生成全部</button></div>
+       <div class="rv-list">${pictureShots
+         .map(
+           (s) => `<div class="rv-item" data-shot="${esc(s.id)}">
+             <div class="rv-item-top"><b>${String(s.order).padStart(2, "0")} ${esc(s.title)}</b>
+               <span class="dim">${esc(s.provider)} · ${s.durationFrames}f</span></div>
+             <div class="rv-grid rv-labelled"><img data-grid="${esc(s.id)}" alt="${esc(s.title)}" title="点一下放大"><div class="rv-labels" data-grid-labels="${esc(s.id)}"></div></div>
+             <div class="dim" data-grid-meta="${esc(s.id)}">未生成</div>
+           </div>`,
+         )
+         .join("")}</div>`,
     );
 
     const checksPane = pane(
@@ -1081,9 +1269,57 @@ async function openOverview(tab) {
       </div>
       <div class="film-right">
         <div class="film-tabs">${tabs.map(([id, label]) => `<button class="film-tab${ovTab === id ? " on" : ""}" data-otab="${id}">${label}</button>`).join("")}</div>
-        <div class="film-body">${scriptPane}${timelinePane}${checksPane}${ledgerPane}${eventsPane}</div>
+        <div class="film-body">${scriptPane}${timelinePane}${reviewPane}${checksPane}${ledgerPane}${eventsPane}</div>
       </div>
     </div>`;
+
+    // 审片：切到该 tab 才逐张生成九宫格（15 张一起生成太慢）
+    if (ovTab === "review") {
+      const metas = [...$("ovBody").querySelectorAll("[data-grid-meta]")];
+      const load = async (id) => {
+        const meta = $("ovBody").querySelector(`[data-grid-meta="${id}"]`);
+        if (!meta) return;
+        meta.textContent = "抽帧中…";
+        try {
+          const r = await rpc("review_grid", { shot: id });
+          const img = $("ovBody").querySelector(`[data-grid="${id}"]`);
+          if (img) img.src = fileUrl(r.grid) + `?v=${r.frames.join("-")}`;
+          const labels = $("ovBody").querySelector(`[data-grid-labels="${id}"]`);
+          if (labels) labels.innerHTML = (r.samples ?? []).map((x) => `<span>${x.timeSec.toFixed(2)}s</span>`).join("");
+          const bad = r.findings.filter((f) => f.severity !== "info").length;
+          meta.textContent = `${bad ? `⚠ ${bad} 条` : "✓ 无机器告警"} · 对比 ${r.metrics.contrast.toFixed(0)} · 运动 ${r.metrics.motion.toFixed(2)} · 静止区 ${r.metrics.staticRegions}/9`;
+          meta.dataset.bad = String(bad);
+        } catch (e) {
+          meta.textContent = e.message;
+        }
+      };
+      // 串行跑，避免同时起 15 个 ffmpeg
+      (async () => {
+        for (const m of metas) await load(m.dataset.gridMeta);
+      })();
+      const run = $("ovReviewRun");
+      if (run) run.onclick = async () => { for (const m of metas) await load(m.dataset.gridMeta); toast("九宫格已刷新"); };
+      $("ovBody").querySelectorAll("[data-grid]").forEach((img) => {
+        img.onclick = async () => {
+          const id = img.dataset.grid;
+          const meta = $("ovBody").querySelector(`[data-grid-meta="${id}"]`);
+          try {
+            const r = await rpc("review_grid", { shot: id });
+            openZoom(fileUrl(r.grid) + `?v=${r.frames.join("-")}`, `${img.alt} · 九宫格`, r.grid);
+            if (meta) meta.dataset.bad = String(r.findings.filter((f) => f.severity !== "info").length);
+          } catch (e) {
+            toast(e.message);
+          }
+        };
+      });
+      $("ovBody").querySelectorAll(".rv-item-top").forEach((top) => {
+        top.style.cursor = "pointer";
+        top.onclick = () => {
+          openDetail(top.closest(".rv-item").dataset.shot);
+          S.tab = "review";
+        };
+      });
+    }
 
     $("ovBody").querySelectorAll("[data-otab]").forEach((b) => (b.onclick = () => openOverview(b.dataset.otab)));
     $("ovBody").querySelectorAll("[data-render]").forEach((el) => (el.onclick = () => {
