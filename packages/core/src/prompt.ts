@@ -14,9 +14,21 @@ export interface PromptIssue {
  * 能机器判定的那几条：模态 prompt 必填、图内不要文字、参考图必须是明确的用途槽位、
  * 有主体就要有身份参考、参考数量不能超过目标工具能力。
  */
-const TEXT_LEAK = /(字幕|编号|标注|标题|箭头|说明文字|水印|logo)/i;
+const TEXT_LEAK = /(字幕|编号|标注|标题|箭头|说明文字|水印|logo|匾额|旗号|木牌|刻字|碑文|告示)/i;
+/** 视频里"文字"最容易从旗幡、木牌、墙面刻字里冒出来——这条专门盯它 */
+const SIGNAGE = /(旗|幡|匾|牌|碑|门额|刻字|题字|楹联|告示|榜文)/;
+/** 写了"旗幡/木牌"但同时声明了素面/无字，就不算漏写——判定交给 NO_TEXT */
+
+/** 背景是否被交代了"自己的运动"：没有这层，成片就是前景动、背景像贴图 */
+const BG_MOTION =
+  /(河面|水面|水纹|波纹|浪|雾|云|火星|烟|尘埃|尘土|雨|旗(帜|幡)?|树叶|芦苇|光线|天光|远处.{0,6}(动|流|飘|移)|背景.{0,8}(动|流|飘|移))/;
+const FG_LAYER = /(前景|中景|远景|背景|虚焦)/;
+
+/** 动作类动词：判"物理关系"有没有写全 */
+const TOOL_ACTION = /(凿|锤|撬|推|拉|抡|敲|钉|锯|抬|扛|劈)/;
+const CONTACT = /(抵|触|嵌|贴|插|入|落在|压|顶住|接触|打进|钉入)/;
 const NO_TEXT =
-  /(no text|no caption|no watermark|without text|无文字|不要文字|没有文字|不含文字|无字幕|不加字幕|没有水印|无水印)/i;
+  /(no text|no caption|no watermark|without text|无文字|不要文字|没有文字|没有任何文字|不要出现任何文字|不含文字|无字|素布|空白|无字幕|不加字幕|没有水印|无水印)/i;
 
 export function lintPrompt(shot: Shot, provider: Provider | undefined): PromptIssue[] {
   const issues: PromptIssue[] = [];
@@ -43,6 +55,40 @@ export function lintPrompt(shot: Shot, provider: Provider | undefined): PromptIs
         status: "warn",
         detail: "prompt 里出现了文字类词（字幕/编号/标注…）但没有明确「不要文字」，图里很可能生成伪文字",
       });
+    }
+
+    if (modality === "video") {
+      // 旗幡/木牌/刻字是 AI 视频里伪汉字的主要来源：没说"不要文字"，几乎必出
+      if (SIGNAGE.test(prompt) && !NO_TEXT.test(prompt)) {
+        issues.push({
+          id: "prompt.signage-leak",
+          status: "warn",
+          detail: "镜头里有旗幡/木牌/刻字一类物件，但没有写「画面中不要出现任何文字」——大概率会出现伪汉字",
+        });
+      }
+      // 背景不写运动，模型就把它当静态贴图：前景在演、背景像图层拼合
+      if (!BG_MOTION.test(prompt)) {
+        issues.push({
+          id: "prompt.static-background",
+          status: "warn",
+          detail: "没有交代背景（河面/雾/云/火星…）自己的运动：成片容易像「前景在动、背景是贴图」",
+        });
+      }
+      // 有工具动作却不写接触关系，物理经常错（凿子插进石头、木槌砸到手）
+      if (TOOL_ACTION.test(prompt) && !CONTACT.test(prompt)) {
+        issues.push({
+          id: "prompt.physics",
+          status: "warn",
+          detail: "写了工具动作但没有写接触关系（抵住/嵌入/落在）：凿子插进石头、锤子砸到手这类错误就出在这里",
+        });
+      }
+      if (!FG_LAYER.test(prompt)) {
+        issues.push({
+          id: "prompt.layering",
+          status: "note",
+          detail: "没有分前景/中景/背景来写：分层描述是让模型产生纵深与视差的最便宜手段",
+        });
+      }
     }
   }
 

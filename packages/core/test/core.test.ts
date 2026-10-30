@@ -513,3 +513,29 @@ test("九宫格按镜头时长切 9 段取中点，并记下成片绝对帧号",
   expect(review.samples.every((s, i) => i === 0 || s.timeSec > review.samples[i - 1].timeSec)).toBe(true);
   svc.close();
 });
+
+test("视频提示词规则：文字泄漏 / 背景不动 / 物理 / 分层", () => {
+  const video = { id: "filmbench/browser", modality: "video" as const, requiresPrompt: true, maxReferences: 3 } as any;
+  const mk = (text: string) =>
+    ({ id: "s", durationFrames: 24, role: "picture", intent: { description: "", action: "", prompt: text, prompts: { video: text, image: "" } }, references: [], subjects: [], binder: { provider: "filmbench/browser", task: "capture", params: {} } }) as any;
+
+  // 有旗幡、没声明无字 → 报；声明了素布/任何文字不出现 → 不报
+  const a = lintPrompt(mk("一名工匠站在旗幡下，前景虚焦，河面水纹流动，背景的雾在飘"), video).map((i) => i.id);
+  expect(a).toContain("prompt.signage-leak");
+  const b = lintPrompt(mk("一名工匠站在素布旗幡下，画面中不要出现任何文字；前景虚焦，河面水纹流动，背景的雾在飘"), video).map((i) => i.id);
+  expect(b).not.toContain("prompt.signage-leak");
+
+  // 没有背景运动 → 报
+  const c = lintPrompt(mk("一名工匠低头走路，镜头缓慢前推，画面里没有任何文字"), video).map((i) => i.id);
+  expect(c).toContain("prompt.static-background");
+
+  // 有工具动作但没有接触关系 → 报；写了"嵌入/抵住" → 不报
+  const d = lintPrompt(mk("石匠用凿子凿石头，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
+  expect(d).toContain("prompt.physics");
+  const e = lintPrompt(mk("石匠把凿子抵在石面浅槽里，木槌敲凿尾，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
+  expect(e).not.toContain("prompt.physics");
+
+  // 没有分层描述 → note
+  const f = lintPrompt(mk("石匠把凿子抵在石面，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
+  expect(f).toContain("prompt.layering");
+});
