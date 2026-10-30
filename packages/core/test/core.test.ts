@@ -391,7 +391,8 @@ test("normalize:false 的音轨不跑 loudnorm，只留安全限幅", () => {
     totalFrames: 30,
     clips: [],
     audio: [
-      { shot: "m", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
+      { shot: "m", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false,
+      duck: { enabled: true, threshold: 0.05, ratio: 2.5, attackMs: 40, releaseMs: 800 } },
     ],
     requirements: ["ffmpeg" as const],
     output: { container: "mp4" as const, videoCodec: "libx264" as const, pixelFormat: "yuv420p" as const, audio: "none" as const },
@@ -456,8 +457,10 @@ test("多轨混音在总线后有固定限幅器（单轨限幅管不了总和�
     totalFrames: 30,
     clips: [],
     audio: [
-      { shot: "a", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
-      { shot: "b", role: "music" as const, path: "b.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false },
+      { shot: "a", role: "music" as const, path: "a.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false,
+        duck: { enabled: true, threshold: 0.05, ratio: 2.5, attackMs: 40, releaseMs: 800 } },
+      { shot: "b", role: "music" as const, path: "b.wav", startFrame: 0, durationFrames: 30, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, normalize: false,
+        duck: { enabled: true, threshold: 0.05, ratio: 2.5, attackMs: 40, releaseMs: 800 } },
     ],
     requirements: ["ffmpeg" as const],
     output: { container: "mp4" as const, videoCodec: "libx264" as const, pixelFormat: "yuv420p" as const, audio: "none" as const },

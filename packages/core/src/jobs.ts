@@ -39,7 +39,11 @@ export function hashReferencedFiles(projectDir: string, params: Record<string, u
 }
 
 /** 只影响混音、不影响产物的参数：改它们不该让素材过期 */
-const MIX_ONLY_KEYS = new Set(["volume", "fadeIn", "fadeOut", "startFrame", "fit", "cues", "tolerance"]);
+const MIX_ONLY_KEYS = new Set([
+  "volume", "fadeIn", "fadeOut", "startFrame", "fit", "cues", "tolerance",
+  // 避让只影响混音，不影响产物：改它不该让音轨重跑
+  "duck", "duckThreshold", "duckRatio", "duckAttack", "duckRelease",
+]);
 
 function stripMixParams(params: Record<string, string | number | boolean>) {
   const out: Record<string, string | number | boolean> = {};

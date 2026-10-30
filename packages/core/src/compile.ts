@@ -36,8 +36,8 @@ export interface RenderIR {
     fadeOutFrames: number;
     /** 已经做过母带的音轨（normalize:false）不再跑一遍 loudnorm：那会把力度曲线压平 */
     normalize: boolean;
-    /** 旁白避让的参数：默认慢起慢落，避免每个字都把音乐拽一下 */
-    duck: { threshold: number; ratio: number; attackMs: number; releaseMs: number };
+    /** 旁白避让：enabled=false 就完全不做 sidechain（旁白铺满全片时静态让位更自然） */
+    duck: { enabled: boolean; threshold: number; ratio: number; attackMs: number; releaseMs: number };
   }[];
   requirements: ("ffmpeg" | "ffprobe")[];
   output: { container: "mp4"; videoCodec: "libx264"; pixelFormat: "yuv420p"; audio: "none" };
@@ -120,6 +120,7 @@ export function compile(
         fadeOutFrames: Math.round(fadeOut * format.fps),
         normalize: shot.binder.params.normalize !== false,
         duck: {
+          enabled: shot.binder.params.duck !== false,
           threshold: Number(shot.binder.params.duckThreshold ?? 0.05),
           ratio: Number(shot.binder.params.duckRatio ?? 2.5),
           attackMs: Number(shot.binder.params.duckAttack ?? 40),
@@ -277,20 +278,21 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
   const duck: string[] = [];
   let mix: string | null = null;
 
+  const duckedMusic = musicIdx.filter((i) => ir.audio[i].duck.enabled);
   if (ir.audio.length === 0) {
     mix = null;
-  } else if (voiceIdx.length > 0 && musicIdx.length > 0) {
+  } else if (voiceIdx.length > 0 && duckedMusic.length > 0) {
     const voiceLabels = voiceIdx.map((i) => `[a${i}]`).join("");
     // 每条音乐轨都要一个 sidechain 输入：asplit 的份数 = 1（混音）+ 音乐轨数，
     // 两条音乐轨却只 asplit=2 时，第二路会复用同一个 [vsc]，ffmpeg 直接报 "
     // Error binding filtergraph inputs/outputs"
-    const vscCount = musicIdx.length;
-    const vscLabels = musicIdx.map((_, k) => `[vsc${k}]`);
+    const vscCount = duckedMusic.length;
+    const vscLabels = ir.audio.map((_, i) => `[vsc${i}]`);
     duck.push(
       `${voiceLabels}amix=inputs=${voiceIdx.length}:duration=longest:dropout_transition=0:normalize=0,` +
         `apad=whole_dur=${durationSec.toFixed(3)},asplit=${vscCount + 1}[vmix]${vscLabels.join("")}`,
     );
-    const ducked = musicIdx.map((i, k) => {
+    const ducked = duckedMusic.map((i, k) => {
       const d = ir.audio[i].duck;
       // 慢起慢落：默认 attack 40ms / release 800ms / ratio 2.5，
       // 原来 15ms/350ms/6 会跟着每个字抽气，听着像音乐在"喘"
@@ -300,7 +302,12 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
       );
       return `[duck${i}]`;
     });
-    mix = `${ducked.join("")}[vmix]amix=inputs=${musicIdx.length + 1}:duration=longest:dropout_transition=0:normalize=0[a]`;
+    // 没有参与避让的音乐轨（duck:false）直接跟人声相加，不再过 sidechain
+    const plain = musicIdx
+      .filter((i) => !duckedMusic.includes(i))
+      .map((i) => `[a${i}]`)
+      .join("");
+    mix = `${ducked.join("")}${plain}[vmix]amix=inputs=${duckedMusic.length + (plain ? 1 : 0) + 1}:duration=longest:dropout_transition=0:normalize=0[a]`;
   } else if (ir.audio.length === 1) {
     mix = "[a0]anull[a]";
   } else {
