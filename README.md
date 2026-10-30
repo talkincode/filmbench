@@ -4,6 +4,16 @@
 
 不做服务端、不做账号、不做协作后端。出站的只有你自己配置的生成 provider（imagine / colab / 自定义 CLI）。
 
+## 出片方法（默认按这个来）
+
+遇到画面不达标时按顺序升级：**改静帧 → 改提示词 → 上 ControlNet 灰模 → 换构图 → 换素材**。
+"东西长什么样"改静帧，"东西在哪、往哪动"上 controlnet——纯靠提示词硬拗空间关系是这几轮返工的根因。
+
+硬规则：静帧先出再让它动；画面里不许有字；背景必须有自己的运动；动作要写接触关系；每镜分前景/中景/远景写。
+四条能机器判的已经进 `filmbench prompt lint`（`signage-leak` / `static-background` / `physics` / `layering`）。
+
+完整版：[docs/method.md](docs/method.md)；给 agent 的硬边界：[AGENTS.md](AGENTS.md)。
+
 ## 运行
 
 前置：Bun ≥ 1.2、`ffmpeg` / `ffprobe`（`brew install ffmpeg`）。

@@ -256,6 +256,46 @@ const cmdShot = (argv: string[]) => {
     });
     return;
   }
+  if (sub === "control") {
+    // 上/改/清控制视频：构图与物体关系靠 controlnet 约束，不靠提示词硬拗
+    const { values } = parseArgs({
+      args: argv.slice(1),
+      options: {
+        id: { type: "string" },
+        video: { type: "string" },
+        strength: { type: "string" },
+        start: { type: "string" },
+        end: { type: "string" },
+        clear: { type: "boolean" },
+      },
+    });
+    if (!values.id) throw new Error("shot control 需要 --id");
+    withService((svc, dir) => {
+      const shot = svc.state().shots.find((s) => s.id === values.id);
+      if (!shot) throw new Error(`镜头不存在: ${values.id}`);
+      const params: Record<string, string | number | boolean> = { ...shot.binder.params };
+      if (values.clear) {
+        for (const k of ["controlVideo", "controlStrength", "controlStart", "controlEnd"]) delete params[k];
+      } else {
+        if (!values.video) throw new Error("shot control 需要 --video（相对项目根的控制视频路径）");
+        const abs = resolve(dir, values.video);
+        if (!existsSync(abs)) throw new Error(`控制视频不存在: ${values.video}`);
+        params.controlVideo = values.video;
+        params.controlStrength = Number(values.strength ?? 1.0);
+        params.controlStart = Number(values.start ?? 0);
+        params.controlEnd = Number(values.end ?? 0.6);
+      }
+      const { event, replayed } = svc.patchShot(shot.id, { binder: { params } }, { actor: { kind: "human", id: "cli" } });
+      if (replayed) return out(`${shot.id} 控制参数没变`);
+      out(
+        values.clear
+          ? `已清掉 ${shot.id} 的控制视频（事件 #${event.seq}）`
+          : `已接上控制视频：${values.video}（strength ${params.controlStrength} · 到 ${params.controlEnd} 释放，事件 #${event.seq}）`,
+      );
+      out(`下一步：filmbench jobs submit --shot ${shot.id} && filmbench jobs run`);
+    });
+    return;
+  }
   if (sub === "param") {
     const { values } = parseArgs({
       args: argv.slice(1),
