@@ -147,6 +147,8 @@ export const EVENT_PAYLOADS = {
   "shot.added": z.object({ shot: SHOT }),
   "shot.patched": z.object({ id: ident, patch: SHOT_PATCH }),
   "shot.removed": z.object({ id: ident }),
+  /** 字幕层：一个 manifest（每条 cue 指向一张带 alpha 的 PNG） */
+  "subtitles.set": z.object({ manifest: z.string(), style: z.string().default("vertical") }),
   /** 审片：九宫格图的路径 + 机器判出的问题 + 人/agent 补的问题 */
   "shot.reviewed": z.object({
     shot: ident,

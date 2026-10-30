@@ -78,6 +78,23 @@ filmbench shot control --id h4-cliff --video control/h4-cliff-control.mp4 --stre
 filmbench jobs submit --shot h4-cliff && filmbench jobs run
 ```
 
+## 字幕（艺术体，烧进画面）
+
+```bash
+filmbench subtitles --from vo-monologue --style vertical   # 把旁白切成 cue，渲染竖排艺术字
+filmbench subtitles --clear                                 # 撤掉字幕层
+filmbench build                                             # 编译时按帧区间叠上去
+```
+
+做法：`compile` 的 IR 里多一层 `overlays`，每条 cue 是一张带 alpha 的 PNG + 帧区间 + 淡入淡出帧数。
+PNG 由 SVG（宋体竖排 + 双层投影 + 朱印）经 `rsvg-convert` 渲染，右侧带一条很淡的暗角，保证亮背景上也读得清。
+
+两个必须记住的点：
+
+- **PNG 输入的时间轴从 0 开始**，要先 `setpts=PTS+入点/TB` 平移到 cue 的位置；否则淡入淡出全落在片头，
+  真正的字幕窗口里只剩一张全透明的末帧（这个 bug 表现为"字幕完全不显示"）
+- **淡入淡出的 st 要用平移之后的时间戳**（入点 / 出点），不是 0 和时长
+
 ## 把钱花在能验证的地方
 
 - 出片前先 `filmbench check`，出片后 `review-shot`：一次重拍 11 分钟 / 0.8 CU，返工两轮就是 1.6 CU 外加一小时

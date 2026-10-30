@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Service, build, collectJob, compile, ffmpegArgs, hashReferencedFiles, lintPrompt, recordReview, rehashJob, reviewShot, shotStale, projectStoryboard, reconcileOrphans, runJobs, shotDetail, submit, summarize } from "../src/index.ts";
 import { builtinProviders } from "../../providers/src/index.ts";
 
@@ -547,4 +547,27 @@ test("视频提示词规则：文字泄漏 / 背景不动 / 物理 / 分层", ()
   // 没有分层描述 → note
   const f = lintPrompt(mk("石匠把凿子抵在石面，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
   expect(f).toContain("prompt.layering");
+});
+
+test("字幕层：manifest 里的 cue 进 IR，缺图会被拦住", async () => {
+  const { svc, sub } = project("subs");
+  const registry = builtinProviders();
+  const { jobId } = submit(svc, registry, { shot: "shot-a", actor: { kind: "human", id: "test" } });
+  await runJobs(svc, registry, { jobId });
+  svc.setSelection("shot-a", "video", svc.state().shots[0].produce!.asset, { actor: { kind: "human", id: "test" } });
+  svc.decideReview("shot-a", svc.state().shots[0].produce!.asset, "approved", { actor: { kind: "human", id: "test" } });
+
+  // 造一张带 alpha 的 PNG 与 manifest
+  const png = join(sub, "build/subtitles/cue-01.png");
+  mkdirSync(dirname(png), { recursive: true });
+  const gen = Bun.spawnSync(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=white:s=64x36,format=rgba,colorchannelmixer=aa=0.5", "-frames:v", "1", png]);
+  expect(gen.exitCode).toBe(0);
+  const manifest = join(sub, "build/subtitles/manifest.json");
+  writeFileSync(manifest, JSON.stringify({ style: "vertical", cues: [{ png: "build/subtitles/cue-01.png", startFrame: 0, durationFrames: 12, fadeFrames: 2, text: "测试" }] }));
+  svc.setSubtitles("build/subtitles/manifest.json", { style: "vertical" });
+
+  const { ir } = compile(svc.state(), sub);
+  expect(ir?.overlays).toHaveLength(1);
+  expect(ir?.overlays[0].text).toBe("测试");
+  svc.close();
 });

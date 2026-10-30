@@ -4,7 +4,7 @@
  */
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import { stringify as toYaml } from "yaml";
@@ -93,6 +93,8 @@ function help(): void {
   filmbench status
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
+  filmbench subtitles --from <旁白镜头> [--style vertical] [--out build/subtitles] [--size N] [--clear]
+                                        # 把旁白切成字幕 cue，渲染竖排艺术字 PNG 并挂成字幕层
   filmbench review-shot [--shot ID] [--finding "..."] [--severity error|warn|info] [--record] [--open] [--compare] [--json]
                                         # 九宫格审片：抽 9 帧 + 机器规则 + 人工结论
   filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
@@ -750,6 +752,126 @@ const cmdReview = (argv: string[]) =>
     out(`已${decision === "approved" ? "批准" : "否决"} ${values.shot} / ${asset}（事件 #${event.seq}）`);
   });
 
+const cmdSubtitles = (argv: string[]) =>
+  withService((svc, dir) => {
+    const { values } = parseArgs({
+      args: argv,
+      options: {
+        from: { type: "string" },      // 旁白镜头 id
+        style: { type: "string", default: "vertical" },
+        out: { type: "string", default: "build/subtitles" },
+        size: { type: "string" },
+        color: { type: "string" },
+        clear: { type: "boolean" },
+      },
+    });
+    const state = svc.state();
+    if (values.clear) {
+      svc.setSubtitles("", { style: "off", actor: { kind: "human", id: "cli" } });
+      out("已关闭字幕层");
+      return;
+    }
+    if (!values.from) throw new Error("subtitles 需要 --from <旁白镜头 id>");
+    const shot = state.shots.find((x) => x.id === values.from);
+    if (!shot) throw new Error(`镜头不存在: ${values.from}`);
+    if (!shot.produce) throw new Error(`${shot.id} 还没有产物`);
+    const text = (shot.intent.narration || "").replace(/\s+/g, "");
+    if (!text) throw new Error(`${shot.id} 没有旁白文本`);
+
+    const fps = state.project!.format.fps;
+    const W = state.project!.format.width;
+    const H = state.project!.format.height;
+    const startFrame = Number(shot.binder.params.startFrame ?? 0);
+    const totalFrames = shot.produce.durationFrames;
+
+    // 断句：按标点切，再把过短的并进去，目标 8–18 字一条
+    // 先按句读切，再把过长的按 12–14 字断开——一条字幕盖住半个画面就不好看了
+    const clauses = text.split(/(?<=[。！？；，、：——])/u).map((t) => t.trim()).filter(Boolean);
+    const lines: string[] = [];
+    for (const clause of clauses) {
+      const chars = [...clause];
+      if ([...clause].length <= 16) {
+        if (lines.length && [...lines[lines.length - 1]].length + chars.length <= 16) lines[lines.length - 1] += clause;
+        else lines.push(clause);
+        continue;
+      }
+      for (let i = 0; i < chars.length; i += 14) lines.push(chars.slice(i, i + 14).join(""));
+    }
+    const totalChars = lines.reduce((n, l) => n + [...l].length, 0);
+    const outDir = resolve(dir, values.out);
+    mkdirSync(outDir, { recursive: true });
+
+    const fontSize = Number(values.size ?? Math.round(W / 40));
+    const color = String(values.color ?? "f2ecdf");
+    const cues: { png: string; startFrame: number; durationFrames: number; fadeFrames: number; text: string }[] = [];
+    let cursor = startFrame;
+    lines.forEach((line, i) => {
+      const frames = Math.max(Math.round(fps * 1.6), Math.round((totalFrames * [...line].length) / totalChars));
+      const chars = [...line];
+      const perCol = Math.min(9, Math.max(4, Math.ceil(Math.sqrt(chars.length * 1.6))));
+      const cols: string[][] = [];
+      for (let k = 0; k < chars.length; k += perCol) cols.push(chars.slice(k, k + perCol));
+      const colGap = Math.round(fontSize * 1.75);
+      const charStep = Math.round(fontSize * 1.3);
+      const rightPad = Math.round(W * 0.055);
+      // baseline 是"最下面那个字"的位置，从底边往上留 12%
+      const bottom = H - Math.round(H * 0.12);
+      // 竖排：从右往左
+      const svgCols = cols
+        .map((col, c) => {
+          const x = W - rightPad - c * colGap;
+          return col
+            .map((ch, r) => {
+              const y = bottom - (col.length - 1) * charStep + r * charStep;
+              return `<text x="${x}" y="${y}">${ch}</text>`;
+            })
+            .join("");
+        })
+        .join("");
+      const ruleX = W - rightPad + Math.round(fontSize * 0.9);
+      const ruleTop = bottom - (Math.min(perCol, chars.length) - 1) * charStep - fontSize;
+      const ruleH = (Math.min(perCol, chars.length) - 1) * charStep + fontSize * 1.4;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <defs>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0a0805" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a0805" stop-opacity="0.42"/>
+    </linearGradient>
+    <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0805" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a0805" stop-opacity="0.3"/>
+    </linearGradient>
+  </defs>
+  <rect x="${W - 460}" y="0" width="460" height="${H}" fill="url(#side)"/>
+  <rect x="0" y="${H - 220}" width="${W}" height="220" fill="url(#foot)"/>
+  <g font-family="Songti SC, serif" font-size="${fontSize}" fill="#${color}" letter-spacing="1.5">
+    <g opacity="0.35" fill="#000" transform="translate(3,3)">${svgCols}</g>
+    <g opacity="0.45" fill="#000" transform="translate(1.5,1.5)">${svgCols}</g>
+    ${svgCols}
+  </g>
+  <rect x="${ruleX}" y="${ruleTop}" width="1.5" height="${ruleH}" fill="#${color}" opacity="0.5"/>
+  ${i === 0 || i === lines.length - 1
+      ? `<rect x="${W - rightPad - Math.round(0.6 * fontSize)}" y="${bottom + Math.round(fontSize * 0.9)}"
+        width="${Math.round(fontSize * 0.9)}" height="${Math.round(fontSize * 0.9)}" fill="#ad3a20" opacity="0.9"/>`
+      : ""}
+</svg>`;
+      const svgPath = join(outDir, `cue-${String(i + 1).padStart(2, "0")}.svg`);
+      const png = join(outDir, `cue-${String(i + 1).padStart(2, "0")}.png`);
+      writeFileSync(svgPath, svg);
+      const r = Bun.spawnSync(["rsvg-convert", "-w", String(W), "-h", String(H), "-o", png, svgPath]);
+      if (r.exitCode !== 0) throw new Error(`rsvg-convert 失败：${r.stderr.toString().slice(-200)}`);
+      cues.push({ png: relative(dir, png), startFrame: cursor, durationFrames: frames, fadeFrames: 6, text: line });
+      cursor += frames;
+    });
+
+    const manifest = join(outDir, "manifest.json");
+    writeFileSync(manifest, JSON.stringify({ style: values.style, from: shot.id, cues }, null, 2) + "\n");
+    svc.setSubtitles(relative(dir, manifest), { style: values.style, actor: { kind: "human", id: "cli" } });
+    out(`字幕 ${cues.length} 条 · ${values.style} · ${(totalChars)} 字`);
+    out(`manifest ${relative(dir, manifest)}`);
+    out(`下一步：filmbench build`);
+  });
+
 const cmdReviewShot = (argv: string[]) =>
   withService((svc, dir) => {
     const { values } = parseArgs({
@@ -1212,6 +1334,8 @@ async function main(): Promise<void> {
         return await cmdReview(rest);
       case "review-shot":
         return await cmdReviewShot(rest);
+      case "subtitles":
+        return await cmdSubtitles(rest);
       case "build":
         return await cmdBuild(rest);
       case "storyboard":

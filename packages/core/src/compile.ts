@@ -39,6 +39,14 @@ export interface RenderIR {
     /** 旁白避让：enabled=false 就完全不做 sidechain（旁白铺满全片时静态让位更自然） */
     duck: { enabled: boolean; threshold: number; ratio: number; attackMs: number; releaseMs: number };
   }[];
+  /** 字幕层：每条 cue 一张带 alpha 的 PNG，按帧区间叠在拼好的画面上 */
+  overlays: {
+    png: string;
+    startFrame: number;
+    durationFrames: number;
+    fadeFrames: number;
+    text: string;
+  }[];
   requirements: ("ffmpeg" | "ffprobe")[];
   output: { container: "mp4"; videoCodec: "libx264"; pixelFormat: "yuv420p"; audio: "none" };
 }
@@ -193,6 +201,37 @@ export function compile(
     }
   }
 
+  // 字幕层：manifest 由 `filmbench subtitles` 生成，路径存在项目状态里
+  const overlays: RenderIR["overlays"] = [];
+  if (state.subtitles?.manifest) {
+    const file = join(baseDir, state.subtitles.manifest);
+    if (!existsSync(file)) {
+      issues.push({ code: "asset-file-missing", detail: `字幕 manifest 不存在: ${state.subtitles.manifest}` });
+    } else {
+      try {
+        const parsed = JSON.parse(readFileSync(file, "utf8")) as {
+          cues: { png: string; startFrame: number; durationFrames: number; fadeFrames?: number; text?: string }[];
+        };
+        for (const cue of parsed.cues ?? []) {
+          const png = cue.png.startsWith("/") ? cue.png : join(baseDir, cue.png);
+          if (!existsSync(png)) {
+            issues.push({ code: "asset-file-missing", detail: `字幕图不存在: ${cue.png}` });
+            continue;
+          }
+          overlays.push({
+            png: cue.png,
+            startFrame: cue.startFrame,
+            durationFrames: cue.durationFrames,
+            fadeFrames: cue.fadeFrames ?? 6,
+            text: cue.text ?? "",
+          });
+        }
+      } catch (e) {
+        issues.push({ code: "asset-file-missing", detail: `字幕 manifest 解析失败：${(e as Error).message}` });
+      }
+    }
+  }
+
   if (issues.length > 0) return { ir: null, issues };
 
   return {
@@ -203,6 +242,7 @@ export function compile(
       totalFrames: totalFrames(state),
       clips,
       audio,
+      overlays,
       requirements: ["ffmpeg", "ffprobe"],
       output: { container: "mp4", videoCodec: "libx264", pixelFormat: "yuv420p", audio: "none" },
     },
@@ -227,6 +267,12 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
   for (const track of ir.audio) {
     inputs.push("-i", track.path.startsWith("/") ? track.path : join(baseDir, track.path));
   }
+  // 字幕层：每条 cue 一个 loop 输入，时长按帧数
+  const overlayBase = ir.clips.length + ir.audio.length;
+  for (const o of ir.overlays ?? []) {
+    const file = o.png.startsWith("/") ? o.png : join(baseDir, o.png);
+    inputs.push("-loop", "1", "-t", secs(o.durationFrames, fps), "-i", file);
+  }
 
   const norm = ir.clips
     .map((c, i) => {
@@ -245,6 +291,30 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
   const concat = `${ir.clips.map((_, i) => `[v${i}]`).join("")}concat=n=${ir.clips.length}:v=1:a=0[v]`;
 
   const durationSec = ir.totalFrames / fps;
+
+  // concat 之后接字幕：每条 cue 先把 PNG 做 alpha 淡入淡出，再按时间窗叠上去
+  let vchain = concat;
+  let vlabel = "v";
+  (ir.overlays ?? []).forEach((o, k) => {
+    const idx = overlayBase + k;
+    const fade = Math.max(0, Math.min(o.fadeFrames, Math.floor(o.durationFrames / 3)));
+    const d = secs(o.durationFrames, fps);
+    // 关键：PNG 输入的时间轴从 0 开始，必须先平移到 cue 的入点，
+    // 否则淡入淡出落在片头，真正的字幕窗口里只剩一张全透明的末帧
+    const startSec = secs(o.startFrame, fps);
+    const fadeSec = secs(fade, fps);
+    const outAt = (Number(startSec) + Number(d) - Number(fadeSec)).toFixed(3);
+    // fade 的时间戳是"平移之后"的：淡入落在 cue 入点，淡出落在 cue 出点前 fade 秒
+    vchain += `;[${idx}:v]format=rgba,setpts=PTS+${startSec}/TB,fade=t=in:st=${startSec}:d=${fadeSec}:alpha=1` +
+      (fade ? `,fade=t=out:st=${outAt}:d=${fadeSec}:alpha=1` : "") +
+      `[o${k}]`;
+    vchain += `;[${vlabel}][o${k}]overlay=0:0:format=auto:enable='between(t,${secs(o.startFrame, fps)},${secs(o.startFrame + o.durationFrames, fps)})'[v${k}]`;
+    vlabel = `v${k}`;
+  });
+  if ((ir.overlays ?? []).length) {
+    // 最终标签统一成 [v]，给 -map 用
+    vchain += `;[${vlabel}]null[vfinal]`;
+  }
   const audioChains = ir.audio.map((track, i) => {
     const parts: string[] = [];
     // 旁白比音乐床更靠前：-16 LUFS；音乐 -18 LUFS
@@ -316,14 +386,14 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
 
   // 多轨相加会顶到 0 dBFS：总线后面挂一个限幅器，别让编码前的峰值越界
   const master = mix ? `${mix.replace(/\[a\]$/, "[apre]")};[apre]alimiter=limit=0.7:level=false:attack=5:release=120[a]` : null;
-  const graph = [norm, concat, ...audioChains, ...duck, ...(master ? [master] : [])].join(";");
+  const graph = [norm, vchain, ...audioChains, ...duck, ...(master ? [master] : [])].join(";");
   return [
     "-y",
     ...inputs,
     "-filter_complex",
     graph,
     "-map",
-    "[v]",
+    (ir.overlays ?? []).length ? "[vfinal]" : "[v]",
     ...(mix ? ["-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"] : ["-an"]),
     "-c:v",
     ir.output.videoCodec,

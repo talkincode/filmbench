@@ -220,6 +220,15 @@ export class Service {
     return this.append("script.set", input, options);
   }
 
+  /** 字幕层：只记录 manifest 路径，编译时读它 */
+  setSubtitles(manifest: string, options?: AppendOptions & { style?: string }) {
+    return this.append(
+      "subtitles.set",
+      { manifest, style: options?.style ?? "vertical" },
+      { actor: options?.actor ?? SYSTEM, opid: options?.opid, base: options?.base },
+    );
+  }
+
   setCover(shot: string, options?: AppendOptions) {
     const state = this.state();
     const target = state.shots.find((s) => s.id === shot);

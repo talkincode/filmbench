@@ -52,6 +52,9 @@ filmbench review-shot --shot h1 --record --finding "凿子直插石头" --severi
 # 重拍后对比：上=上一版 / 下=当前，各取首中尾三帧
 filmbench review-shot --shot h1 --compare
 
+# 字幕层（艺术体竖排，烧进画面）
+filmbench subtitles --from <旁白镜头> --style vertical
+
 # 出片与验收
 filmbench build && filmbench check
 ```

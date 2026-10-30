@@ -103,6 +103,8 @@ export interface ProjectState {
   project?: { name: string; title: string; format: Format; budget?: { currency: string; limit: number } };
   script?: ScriptState;
   cover?: { shot: string; asset: string; atSeq: number };
+  /** 字幕层：manifest 里的 cue 会被编译成 overlay */
+  subtitles?: { manifest: string; style: string };
   shots: ShotState[];
   subjects: Map<string, SubjectState>;
   assets: Map<string, AssetState>;
@@ -291,6 +293,10 @@ export function fold(
         }
         const shot = state.shots.find((s) => s.id === (job?.shot ?? ""));
         if (shot) shot.produce = produce;
+        break;
+      }
+      case "subtitles.set": {
+        state.subtitles = { manifest: p.manifest, style: p.style ?? "vertical" };
         break;
       }
       case "job.rehashed": {
