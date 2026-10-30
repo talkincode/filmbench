@@ -415,6 +415,16 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
   }
   const remoteOut = (spec.out ?? `${remote}/out/{jobId}.mp4`).replace("{jobId}", input.jobId);
 
+  // 控制视频（可选）：本地路径先上传，run.py 会把它放进 ComfyUI/input
+  let controlVideo = input.params?.controlVideo;
+  if (typeof controlVideo === "string" && controlVideo) {
+    const local = controlVideo.startsWith("/") ? controlVideo : join(projectDir, controlVideo);
+    if (!existsSync(local)) throw new Error(`控制视频不存在: ${controlVideo}`);
+    const remoteControl = `${jobDir}/refs/control.mp4`;
+    const up = await runColab(["upload", local, remoteControl, "--session", state.session], projectDir, { onLog });
+    if (up.code !== 0) throw new Error(`上传控制视频失败：${up.err.slice(-300)}`);
+  }
+
   // 参考图先传：按镜头声明顺序，最多 provider 上限
   const refs: string[] = [];
   for (const [i, ref] of (input.shot.references ?? []).entries()) {
@@ -431,6 +441,8 @@ export async function colabRunJob(input: ProviderRunInput & { jobId: string }): 
     workflow: spec.comfy ?? "comfy/workflow.json",
     params: {
       ...input.params,
+      // 控制视频已上传，用远端路径覆盖本地路径
+      ...(controlVideo ? { controlVideo: `${jobDir}/refs/control.mp4` } : {}),
       prompt:
         (input.params.prompt as string | undefined) ??
         (input.shot.intent.prompts?.video || input.shot.intent.prompt),

@@ -21,8 +21,14 @@ TRAINED_MIN, TRAINED_MAX = 124, 362
 def api(path, payload=None):
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(URL + path, data=data, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read() or b"{}")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        # ComfyUI 的校验错误在 body 里：不打印出来就只能看到一句 400
+        body = e.read().decode("utf-8", "replace")
+        print(f"[run] HTTP {e.code} {path}: {body[:1500]}", flush=True)
+        raise
 
 
 def snap_length(requested: int) -> int:
@@ -35,6 +41,15 @@ def snap_length(requested: int) -> int:
         print(f"[run] length {requested} 超出训练区间，截到 {TRAINED_MAX}", flush=True)
         frames = TRAINED_MAX
     return frames
+
+
+def stage_video(remote_path: str, name: str) -> str:
+    """控制视频放进 ComfyUI/input，返回 LoadVideo 用的文件名。"""
+    src = remote_path if os.path.isabs(remote_path) else os.path.join(REMOTE, remote_path)
+    dst = os.path.join(COMFY, "input", name)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copyfile(src, dst)
+    return name
 
 
 def stage_image(remote_path: str, name: str) -> str:
@@ -103,6 +118,33 @@ def main():
         graph.pop("21", None)
         inputs.pop("last_frame", None)
 
+    # —— 控制视频（MiniMax H3 Fun ControlNet Union）——
+    # 之前这个 patch 只下载没接：节点 34 孤立在 graph 里，采样链根本没用它。
+    control = params.get("controlVideo")
+    # 正式档在上面的 draft 分支里已经把 LoRA 节点删掉了，模型链要从底模接
+    base_model = ["2", 0] if draft else ["1", 0]
+    model_ref = base_model
+    if control:
+        remote_control = stage_video(control, f"{job['jobId']}-control.mp4")
+        graph["30"] = {"class_type": "LoadVideo", "inputs": {"file": remote_control}}
+        graph["31"] = {"class_type": "GetVideoComponents", "inputs": {"video": ["30", 0]}}
+        graph["32"] = {
+            "class_type": "MiniMaxH3FunControlNetApply",
+            "inputs": {
+                "model": base_model,
+                "model_patch": ["34", 0],
+                "vae": ["4", 0],
+                "strength": float(params.get("controlStrength") or 1.0),
+                "start_percent": float(params.get("controlStart") or 0.0),
+                "end_percent": float(params.get("controlEnd") if params.get("controlEnd") is not None else 0.6),
+                "control_video": ["31", 0],
+            },
+        }
+        model_ref = ["32", 0]
+        print(f"[run] controlnet strength={params.get('controlStrength') or 1.0} end={params.get('controlEnd') or 0.6}", flush=True)
+
+    graph["8"]["inputs"]["model"] = model_ref
+    graph["10"]["inputs"]["model"] = model_ref
     graph["8"]["inputs"]["steps"] = steps
     graph["9"]["inputs"]["noise_seed"] = seed
     graph["15"]["inputs"]["filename_prefix"] = f"fb/{job['jobId']}"
@@ -111,7 +153,7 @@ def main():
     pid = api("/prompt", {"prompt": graph})["prompt_id"]
     print(
         f"[run] submit {job['jobId']} draft={draft} steps={steps} seed={seed} "
-        f"{width}x{height}x{length} last_frame={bool(last)}",
+        f"{width}x{height}x{length} last_frame={bool(last)} control={bool(control)}",
         flush=True,
     )
 

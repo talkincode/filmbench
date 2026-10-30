@@ -16,7 +16,7 @@
     "lastFrame": true,
     "referenceImages": false,
     "referenceVideos": false,
-    "controlVideo": false
+    "controlVideo": true
   },
   "models": [
     "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -31,5 +31,5 @@
   "out": "/content/filmbench/out/{jobId}.mp4",
   "pips": [],
   "env": {},
-  "notes": "默认 3:4（768×1024），length 会吸附到 17k+5 并在 124–362 训练区间内；草稿挂 turbo LoRA 8 步，正式 24 步、cfg 1、seed 固定"
+  "notes": "默认 3:4（768×1024），length 会吸附到 17k+5 并在 124–362 训练区间内；草稿挂 turbo LoRA 8 步，正式 24 步、cfg 1、seed 固定。controlVideo 走 MiniMaxH3FunControlNetApply（model_patch 节点 34，strength 1.0 / end 0.6 起）"
 }
