@@ -535,6 +535,12 @@ test("视频提示词规则：文字泄漏 / 背景不动 / 物理 / 分层", ()
   const e = lintPrompt(mk("石匠把凿子抵在石面浅槽里，木槌敲凿尾，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
   expect(e).not.toContain("prompt.physics");
 
+  // 有人却没有人的动作 → 报；写了走/挑/弯腰 → 不报
+  const g = lintPrompt(mk("门洞里有几名役夫，火把在跳，门外的雾在流动，画面里没有任何文字"), video).map((i) => i.id);
+  expect(g).toContain("prompt.static-subject");
+  const h2 = lintPrompt(mk("一名役夫挑着空筐从门洞里走进来，另一人弯腰搬石块；火把在跳，门外的雾在流动，画面里没有任何文字"), video).map((i) => i.id);
+  expect(h2).not.toContain("prompt.static-subject");
+
   // 没有分层描述 → note
   const f = lintPrompt(mk("石匠把凿子抵在石面，河面水纹在流动，画面里没有任何文字"), video).map((i) => i.id);
   expect(f).toContain("prompt.layering");

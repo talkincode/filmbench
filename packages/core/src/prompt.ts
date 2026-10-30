@@ -24,6 +24,11 @@ const BG_MOTION =
   /(河面|水面|水纹|波纹|浪|雾|云|火星|烟|尘埃|尘土|雨|旗(帜|幡)?|树叶|芦苇|光线|天光|远处.{0,6}(动|流|飘|移)|背景.{0,8}(动|流|飘|移))/;
 const FG_LAYER = /(前景|中景|远景|背景|虚焦)/;
 
+/** 画面里有"人"时，必须给出人自己的动作——否则 H3 会让人物定格，只有火/雾在动 */
+const SUBJECT = /(人|役夫|工匠|士卒|挑夫|队伍|百姓|孩子|老翁|女子|男子)/;
+const SUBJECT_MOTION =
+  /(走|挑|抬|扛|搬|弯|蹲|转身|回头|迈步|停下|跑|拉|推|挥|举|俯身|直起身|穿过|走进|走出|递|接过|攀|踏)/;
+
 /** 动作类动词：判"物理关系"有没有写全 */
 const TOOL_ACTION = /(凿|锤|撬|推|拉|抡|敲|钉|锯|抬|扛|劈)/;
 const CONTACT = /(抵|触|嵌|贴|插|入|落在|压|顶住|接触|打进|钉入)/;
@@ -80,6 +85,14 @@ export function lintPrompt(shot: Shot, provider: Provider | undefined): PromptIs
           id: "prompt.physics",
           status: "warn",
           detail: "写了工具动作但没有写接触关系（抵住/嵌入/落在）：凿子插进石头、锤子砸到手这类错误就出在这里",
+        });
+      }
+      // 有人却没有人的动作：成片里人就是静止的，只有火和雾在动（门洞那镜踩过）
+      if (SUBJECT.test(prompt) && !SUBJECT_MOTION.test(prompt)) {
+        issues.push({
+          id: "prompt.static-subject",
+          status: "warn",
+          detail: "画面里有人，但没有写人自己的动作（走/挑/弯腰/转身…）：模型会让人物定格，只有环境在动",
         });
       }
       if (!FG_LAYER.test(prompt)) {
