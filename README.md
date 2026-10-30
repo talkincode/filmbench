@@ -4,6 +4,20 @@
 
 不做服务端、不做账号、不做协作后端。出站的只有你自己配置的生成 provider（imagine / colab / 自定义 CLI）。
 
+## 给 agent 用：内置 skill
+
+仓库自带一份 agent 技能，装一次之后任何 agent 都能按同一套规矩干活：
+
+```bash
+filmbench install            # 装到 ~/.agents/skills/filmbench 与 ~/.claude/skills/filmbench
+filmbench install --check    # 看装没装
+filmbench install --dir DIR  # 装到指定目录
+filmbench install --force    # 覆盖
+```
+
+技能内容：`skills/filmbench/SKILL.md`（真相模型、常用流程、升级顺序、提示词四条硬规则、controlnet 用法、
+出错处理、钱与边界）。它和 `docs/method.md` 是同一套判断，前者给 agent 读，后者给人读。
+
 ## 出片方法（默认按这个来）
 
 遇到画面不达标时按顺序升级：**改静帧 → 改提示词 → 上 ControlNet 灰模 → 换构图 → 换素材**。

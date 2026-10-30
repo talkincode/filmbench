@@ -3,8 +3,9 @@
  * filmbench CLI。所有命令都是 Service 的薄壳——没有任何一条命令绕过事件日志。
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import { stringify as toYaml } from "yaml";
 import {
@@ -107,6 +108,8 @@ function help(): void {
   filmbench cues [--shot ID] [--tolerance 0.06]
   filmbench info
   filmbench check                     # 一键验收（exit 1 = 不通过）
+  filmbench install [--dir <skills 目录>] [--force] [--check] [--dry-run]
+                                        # 把内置的 filmbench skill 装到 ~/.agents/skills 与 ~/.claude/skills
   filmbench doctor
   filmbench ui [--shot ID]
   filmbench mcp
@@ -951,6 +954,48 @@ const cmdColab = (argv: string[]) =>
     throw new Error(`未知子命令 colab ${sub}`);
   });
 
+const cmdInstall = (argv: string[]) =>
+  (() => {
+    const { values } = parseArgs({
+      args: argv,
+      options: {
+        dir: { type: "string" },
+        force: { type: "boolean" },
+        check: { type: "boolean" },
+        "dry-run": { type: "boolean" },
+      },
+    });
+    const source = resolve(import.meta.dir, "../../../skills/filmbench/SKILL.md");
+    if (!existsSync(source)) throw new Error(`找不到内置 skill：${source}`);
+    const targets = (values.dir ? [values.dir] : [join(homedir(), ".agents", "skills"), join(homedir(), ".claude", "skills")])
+      .map((base) => join(base, "filmbench"));
+
+    if (values.check) {
+      for (const dir of targets) {
+        const file = join(dir, "SKILL.md");
+        out(`${existsSync(file) ? "✓" : "—"} ${file}`);
+      }
+      return;
+    }
+    for (const dir of targets) {
+      const file = join(dir, "SKILL.md");
+      const exists = existsSync(file);
+      if (exists && !values.force) {
+        const same = readFileSync(file, "utf8") === readFileSync(source, "utf8");
+        out(`${same ? "已是" : "已存在（--force 覆盖）"}：${file}`);
+        continue;
+      }
+      if (values["dry-run"]) {
+        out(`将写入 ${file}`);
+        continue;
+      }
+      mkdirSync(dir, { recursive: true });
+      copyFileSync(source, file);
+      out(`已安装 skill：${file}`);
+    }
+    out("\n用起来：在任意项目里 `filmbench status` / `filmbench check`，或让 agent 读这个 skill。");
+  })();
+
 const cmdDoctor = async () => {
   const rows: [string, boolean, string][] = [];
   const ff = sh(["ffmpeg", "-version"]);
@@ -1172,6 +1217,8 @@ async function main(): Promise<void> {
         return await cmdColab(rest);
       case "doctor":
         return await cmdDoctor();
+      case "install":
+        return cmdInstall(rest);
       case "ui":
         return await cmdUi(rest);
       case "mcp":
