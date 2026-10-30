@@ -302,7 +302,10 @@
   .modal .panel{width:min(620px,92vw);max-height:76vh;background:var(--paper-hi);border:1px solid var(--ink);border-radius:6px;
     display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.6)}
   .modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--rule)}
-  .modal header h3{margin:0;font-size:16.5px}
+  .modal header h3{margin:0;font-size:16.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* 标题一长，右侧按钮就被挤出去（成片预览的「关闭」曾经点不到） */
+  .modal header > div{flex:0 0 auto}
+  .modal header button{flex:0 0 auto;white-space:nowrap}
   .modal .list{overflow:auto;padding:10px 12px}
   .pick{display:flex;align-items:center;gap:10px;padding:10px 10px;border:1px solid transparent;border-radius:6px;cursor:pointer}
   .pick:hover{background:var(--paper);border-color:var(--rule)}
@@ -640,7 +643,18 @@ window.addEventListener("DOMContentLoaded", () => {
   $("zoomX").onclick = closeZoom;
   stage.addEventListener("click", (e) => { if (e.target === stage) closeZoom(); });
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && modal.classList.contains("open")) { closeZoom(); e.stopPropagation(); }
+    if (e.key !== "Escape") return;
+    const order = ["zoomModal", "previewModal", "filmModal", "overviewModal", "checkModal", "logModal", "assetModal"];
+    for (const id of order) {
+      const el = document.getElementById(id);
+      if (el?.classList.contains("open")) {
+        el.classList.remove("open");
+        if (id === "zoomModal") closeZoom();
+        if (id === "previewModal") $("pvBody").innerHTML = "";
+        e.stopPropagation();
+        return;
+      }
+    }
   });
 });
 
