@@ -27,6 +27,7 @@ import {
   projectStoryboard,
   reconcileOrphans,
   collectJob,
+  buildCompare,
   recordReview,
   reviewShot,
   rehashJob,
@@ -92,7 +93,7 @@ function help(): void {
   filmbench status
   filmbench select --shot ID [--asset A]
   filmbench review --shot ID [--asset A] [--reject]
-  filmbench review-shot [--shot ID] [--finding "..."] [--severity error|warn|info] [--record] [--open] [--json]
+  filmbench review-shot [--shot ID] [--finding "..."] [--severity error|warn|info] [--record] [--open] [--compare] [--json]
                                         # 九宫格审片：抽 9 帧 + 机器规则 + 人工结论
   filmbench build [--ir] [--out path] [--force]   # --force：产物过期也强行出片
   filmbench storyboard [--out path] [--embed]   # --embed：把预览图内联进单文件
@@ -761,6 +762,7 @@ const cmdReviewShot = (argv: string[]) =>
         json: { type: "boolean" },
         record: { type: "boolean" },
         open: { type: "boolean" },
+        compare: { type: "boolean" },
       },
     });
     const shots = values.shot ? [values.shot] : svc.state().shots.filter((s) => s.produce && (s.role ?? "picture") === "picture").map((s) => s.id);
@@ -788,6 +790,17 @@ const cmdReviewShot = (argv: string[]) =>
       for (const f of r.findings) out(`    [${f.severity}] ${f.code}${f.frame !== undefined ? ` @${f.frame}` : ""} — ${f.detail}`);
       out(`    采样 ${r.samples.map((x) => `${x.timeSec.toFixed(2)}s`).join(" / ")}（镜头内时间）`);
       out(`    九宫格 ${join(dir, r.grid)}`);
+    }
+    if (values.compare && reviews.length === 1) {
+      const shot = svc.state().shots.find((x) => x.id === reviews[0].shot)!;
+      const cmpPath = join(dir, "build", "reviews", `${shot.id}-compare.png`);
+      const cmp = buildCompare(svc, shot, cmpPath);
+      if (cmp) {
+        out(`对比图（上=上一版 ${cmp.previous.slice(-6)} · 下=当前 ${cmp.current.slice(-6)}）`);
+        out(`    ${cmpPath}`);
+      } else {
+        out("没有可对比的上一版（这镜只跑过一版）");
+      }
     }
     if (values.open && reviews[0]) {
       Bun.spawn(["open", join(dir, reviews[0].grid)]);

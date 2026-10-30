@@ -49,6 +49,8 @@ filmbench select --shot h1 && filmbench review --shot h1
 
 # 审片：九宫格（按镜头时长等分 9 段）+ 机器规则；看懂图后把语义问题记进账本
 filmbench review-shot --shot h1 --record --finding "凿子直插石头" --severity error
+# 重拍后对比：上=上一版 / 下=当前，各取首中尾三帧
+filmbench review-shot --shot h1 --compare
 
 # 出片与验收
 filmbench build && filmbench check

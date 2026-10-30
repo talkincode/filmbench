@@ -1047,7 +1047,8 @@ function renderDetail(d) {
       img.src = fileUrl(r.grid) + `?v=${r.frames.join("-")}-${findings?.length ?? 0}`;
       const labels = $("rvLabels");
       if (labels) labels.innerHTML = (r.samples ?? []).map((x) => `<span>${x.timeSec.toFixed(2)}s</span>`).join("");
-      meta.textContent = `${r.frames.length} 帧 · 亮度 ${r.metrics.meanLuma.toFixed(0)} · 对比 ${r.metrics.contrast.toFixed(0)} · 运动 ${r.metrics.motion.toFixed(2)} · 静止区 ${r.metrics.staticRegions}/9`;
+      const m = r.metrics;
+      meta.textContent = `${r.frames.length} 帧 · 亮度 ${m.meanLuma.toFixed(0)} · 对比 ${m.contrast.toFixed(0)} · 运动 ${m.motion.toFixed(2)} · 中心 ${m.centerMotion.toFixed(2)} · 静止区 ${m.staticRegions}/9${m.controlFollow !== undefined ? ` · 控制跟随 ${m.controlFollow}` : ""}`;
       box.innerHTML = r.findings.length
         ? r.findings.map((f) => `<div class="rv-find" data-s="${f.severity}"><b>${f.severity}</b><span>${esc(f.code)}${f.frame !== undefined ? ` @${f.frame}` : ""}</span><span>${esc(f.detail)}</span></div>`).join("")
         : `<span class="dim">机器规则没有报问题——语义问题（构件悬空、锤子砸手、水面不动）要靠看图补</span>`;

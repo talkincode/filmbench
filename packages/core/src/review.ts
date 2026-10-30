@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { ShotState } from "./state.ts";
 import { PATHS, ValidationError, type Actor, type Service } from "./service.ts";
 
@@ -52,6 +52,12 @@ export interface ShotReview {
     motion: number;
     /** 九个区域里"基本没动"的比例 */
     staticRegions: number;
+    /** 中心区（主体所在）的运动量 */
+    centerMotion: number;
+    /** 运动最多的两个区域占总运动的比例——高就说明只有局部在动 */
+    top2Share: number;
+    /** 与参考控制视频的运动包络相关系数（没接 controlnet 时缺省） */
+    controlFollow?: number;
   };
 }
 
@@ -126,13 +132,60 @@ export function buildGrid(
   return { frames, samples, path: out };
 }
 
+/**
+ * 新旧对比图：上一版产物 vs 当前产物，各取首/中/尾三帧，上下两行拼一张。
+ * 重拍之后想知道"到底好没好"，光看九宫格不够——得并排看同一时刻。
+ */
+export function buildCompare(service: Service, shot: ShotState, out: string, size = 520): { previous: string; current: string; path: string } | null {
+  const state = service.state();
+  const current = shot.produce;
+  if (!current) throw new ValidationError(`${shot.id} 还没有产物`);
+  const previous = [...state.jobs.values()]
+    .filter((j) => j.shot === shot.id && j.produce && j.produce.asset !== current.asset)
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .pop()?.produce;
+  if (!previous) return null;
+
+  const pick = (frames: number) => [0.08, 0.5, 0.92].map((t) => Math.round(t * (frames - 1)));
+  const grab = (file: string, frames: number, tag: string) => {
+    const idx = pick(frames);
+    const pngs = idx.map((f) => join(service.dir, PATHS.build, "reviews", `${shot.id}-${tag}-${f}.png`));
+    idx.forEach((f, i) => {
+      mkdirSync(dirname(pngs[i]), { recursive: true });
+      const r = spawnSync(
+        "ffmpeg",
+        ["-y", "-v", "error", "-i", file, "-vf", `select='eq(n\,${f})',scale=${size}:-1`, "-frames:v", "1", pngs[i]],
+        { maxBuffer: 1 << 30 },
+      );
+      if (r.status !== 0) throw new Error(`抽帧失败：${r.stderr.toString().slice(-200)}`);
+    });
+    return pngs;
+  };
+
+  const prevPath = join(service.dir, previous.path);
+  const curPath = join(service.dir, current.path);
+  if (!existsSync(prevPath) || !existsSync(curPath)) return null;
+  const prevPngs = grab(prevPath, previous.durationFrames || shot.durationFrames, "old");
+  const curPngs = grab(curPath, current.durationFrames || shot.durationFrames, "new");
+  mkdirSync(dirname(out), { recursive: true });
+  const r = spawnSync(
+    "ffmpeg",
+    ["-y", "-v", "error", ...prevPngs.flatMap((p) => ["-i", p]), ...curPngs.flatMap((p) => ["-i", p]),
+      "-filter_complex", `[0:v][1:v][2:v]hstack=inputs=3[top];[3:v][4:v][5:v]hstack=inputs=3[bot];[top][bot]vstack=inputs=2[out]`,
+      "-map", "[out]", "-frames:v", "1", out],
+    { maxBuffer: 1 << 30 },
+  );
+  if (r.status !== 0) throw new Error(`对比图拼接失败：${r.stderr.toString().slice(-200)}`);
+  return { previous: previous.asset, current: current.asset, path: out };
+}
+
 /** 只跑机器能判的规则；看图得出的结论由调用方追加。 */
 export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "metrics" | "findings"> {
   const produce = shot.produce!;
   const file = join(service.dir, produce.path);
   if (produce.kind !== "video") {
     return {
-      metrics: { meanLuma: 0, contrast: 0, lumaSpread: 0, motion: 0, staticRegions: 0 },
+      metrics: { meanLuma: 0, contrast: 0, lumaSpread: 0, motion: 0, staticRegions: 0, centerMotion: 0, top2Share: 0 },
       findings: [{ code: "not-video", severity: "info", detail: "静帧产物，只看图，不做运动分析" }],
     };
   }
@@ -173,6 +226,11 @@ export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "me
   }
   const perRegion = regionMotion.map((v, i) => v / Math.max(1, regionCount[i]));
   const maxRegion = Math.max(...perRegion);
+  const centerMotion = perRegion[4]; // 3×3 的正中一格
+  const sortedRegion = [...perRegion].sort((a, b) => b - a);
+  const top2Share = sortedRegion[0] + sortedRegion[1] ? (sortedRegion[0] + sortedRegion[1]) / perRegion.reduce((a, b) => a + b, 0) : 0;
+  const dupFrames = diffs.filter((d) => d < 0.05).length;
+  const flickers = lumas.filter((v, i) => i > 0 && Math.abs(v - lumas[i - 1]) > 6).length;
 
   const findings: ReviewFinding[] = [];
   const meanLuma = mean(lumas);
@@ -221,6 +279,38 @@ export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "me
   // 没有起伏：整段亮度几乎不变
   if (lumaSpread < 2 && !design) findings.push({ code: "no-arc", severity: "info", detail: `整段亮度波动只有 ${lumaSpread.toFixed(1)}，缺少明暗起伏` });
 
+  // 主体静止：四周在动（火把/雾/水），正中那一格不动——人像被定住
+  if (!design && centerMotion < Math.max(0.25, maxRegion * 0.18) && maxRegion > 0.6) {
+    findings.push({
+      code: "subject-static",
+      severity: "error",
+      detail: `中心区运动 ${centerMotion.toFixed(2)}，最活跃区 ${maxRegion.toFixed(2)}：动的是边上，主体几乎定住`,
+    });
+  }
+
+  // 运动集中在局部：最多的两格吃掉 85% 以上的运动
+  if (!design && top2Share > 0.85 && maxRegion > 0.5 && perRegion.reduce((a, b) => a + b, 0) > 1) {
+    findings.push({
+      code: "motion-concentration",
+      severity: "warn",
+      detail: `运动集中在 2/9 个区域（占 ${(top2Share * 100).toFixed(0)}%），其余区域几乎不动`,
+    });
+  }
+
+  // 重复帧：连续两帧几乎一模一样，超过 15% 就是在"卡帧"
+  if (!design && diffs.length > 10 && dupFrames / diffs.length > 0.15) {
+    findings.push({
+      code: "duplicate-frames",
+      severity: "warn",
+      detail: `${((dupFrames / diffs.length) * 100).toFixed(0)}% 的相邻帧几乎相同，镜头会顿`,
+    });
+  }
+
+  // 闪烁：亮度逐帧跳变超过 6 的次数
+  if (!design && flickers > 4) {
+    findings.push({ code: "flicker", severity: "warn", detail: `有 ${flickers} 次亮度跳变（>6），曝光不稳` });
+  }
+
   // 背景静止：九个区域里至少 6 个几乎不动，只有 1–2 个在动 → 很像"图层拼合"
   const staticRegions = perRegion.filter((v) => v < Math.max(0.5, maxRegion * 0.15)).length;
   if (staticRegions >= 6 && maxRegion > 0.8) {
@@ -231,7 +321,55 @@ export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "me
     });
   }
 
-  return { metrics: { meanLuma, contrast, lumaSpread, motion: mean(diffs), staticRegions }, findings };
+  return {
+    metrics: { meanLuma, contrast, lumaSpread, motion: mean(diffs), staticRegions, centerMotion, top2Share },
+    findings,
+  };
+}
+
+/** 3×3 区域运动向量：控制与成片"哪个区域在动"是否一致，比时间包络更能说明构图是否被约束 */
+function regionVector(file: string, frames: number, W = 96, H = 54): number[] | null {
+  const raw = readGray(file, W, H, frames);
+  const size = W * H;
+  const count = Math.floor(raw.length / size);
+  if (count < 3) return null;
+  const acc = new Array(GRID * GRID).fill(0);
+  const cnt = new Array(GRID * GRID).fill(0);
+  for (let f = 1; f < count; f++) {
+    for (let y = 0; y < H; y++) {
+      const ry = Math.min(GRID - 1, Math.floor((y / H) * GRID));
+      for (let x = 0; x < W; x++) {
+        const d = Math.abs(raw[f * size + y * W + x] - raw[(f - 1) * size + y * W + x]);
+        const idx = ry * GRID + Math.min(GRID - 1, Math.floor((x / W) * GRID));
+        acc[idx] += d;
+        cnt[idx] += 1;
+      }
+    }
+  }
+  return acc.map((v, i) => v / Math.max(1, cnt[i]));
+}
+
+const cosine = (a: number[], b: number[]) => {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na && nb ? dot / Math.sqrt(na * nb) : NaN;
+};
+
+/** 接了什么控制视频，就核对成片的运动分布是不是跟着它走 */
+function controlFollow(service: Service, shot: ShotState, outputFile: string, frames: number): number | null {
+  const rel = shot.binder.params?.controlVideo;
+  if (typeof rel !== "string" || !rel) return null;
+  const file = rel.startsWith("/") ? rel : join(service.dir, rel);
+  if (!existsSync(file)) return null;
+  const control = regionVector(file, frames);
+  const out = regionVector(outputFile, frames);
+  if (!control || !out) return null;
+  const corr = cosine(control, out);
+  return Number.isFinite(corr) ? Number(corr.toFixed(3)) : null;
 }
 
 export function reviewShot(
@@ -246,6 +384,24 @@ export function reviewShot(
   const gridPath = join(PATHS.build, "reviews", `${shot.id}-grid.png`);
   const { frames, samples } = buildGrid(service, shot, join(service.dir, gridPath));
   const { metrics, findings } = analyze(service, shot);
+  // 控制视频的"跟随度"：成片动得和控制要求的是不是一回事
+  const corr = controlFollow(service, shot, join(service.dir, shot.produce!.path), shot.produce!.durationFrames || shot.durationFrames);
+  if (corr !== null) {
+    metrics.controlFollow = corr;
+    if (corr < 0.3) {
+      findings.push({
+        code: "control-not-followed",
+        severity: "error",
+        detail: `成片的运动分布与控制视频只有 ${corr} 的相似度：构图基本没被约束住，检查 strength / end 或控制视频`,
+      });
+    } else if (corr < 0.5) {
+      findings.push({
+        code: "control-weak",
+        severity: "warn",
+        detail: `成片与控制的运动分布相似度 ${corr} 偏低：控制只在局部起作用`,
+      });
+    }
+  }
   const all = [...findings, ...(options.extraFindings ?? [])];
   return {
     shot: shot.id,
