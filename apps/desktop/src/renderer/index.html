@@ -291,6 +291,9 @@
   .zoom-bar .dim{color:rgba(238,231,214,.6)}
   .zoom-stage{position:relative;overflow:hidden;cursor:grab;display:grid;place-items:center}
   .zoom-stage.dragging{cursor:grabbing}
+  .zoom-x{position:absolute;top:12px;right:16px;width:34px;height:34px;border-radius:17px;cursor:pointer;
+    border:1px solid rgba(238,231,214,.4);background:rgba(20,16,12,.7);color:#efe7d6;font-size:15px;line-height:1}
+  .zoom-x:hover{background:rgba(238,231,214,.18)}
   .zoom-bar button{font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:3px;cursor:pointer;
     border:1px solid rgba(238,231,214,.34);background:transparent;color:#efe7d6}
   .zoom-bar button:hover{background:rgba(238,231,214,.12)}
@@ -440,7 +443,10 @@
     <button class="sm ghost" id="zoomOpen">打开文件</button>
     <button class="sm" id="zoomClose">关闭</button>
   </div>
-  <div class="zoom-stage" id="zoomStage"><img id="zoomImg" alt=""></div>
+  <div class="zoom-stage" id="zoomStage">
+    <img id="zoomImg" alt="">
+    <button class="zoom-x" id="zoomX" title="关闭（Esc）">✕</button>
+  </div>
 </div>
 
 <div class="modal" id="previewModal">
@@ -630,6 +636,12 @@ window.addEventListener("DOMContentLoaded", () => {
     zoomApply();
   });
   window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+  // 三条退路：工具条「关闭」、右上角 ✕、Esc；点图片外的空白也关
+  $("zoomX").onclick = closeZoom;
+  stage.addEventListener("click", (e) => { if (e.target === stage) closeZoom(); });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("open")) { closeZoom(); e.stopPropagation(); }
+  });
 });
 
 async function load() {
