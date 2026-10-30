@@ -273,12 +273,17 @@ export function ffmpegArgs(ir: RenderIR, baseDir: string, out: string): string[]
     mix = null;
   } else if (voiceIdx.length > 0 && musicIdx.length > 0) {
     const voiceLabels = voiceIdx.map((i) => `[a${i}]`).join("");
+    // 每条音乐轨都要一个 sidechain 输入：asplit 的份数 = 1（混音）+ 音乐轨数，
+    // 两条音乐轨却只 asplit=2 时，第二路会复用同一个 [vsc]，ffmpeg 直接报 "
+    // Error binding filtergraph inputs/outputs"
+    const vscCount = musicIdx.length;
+    const vscLabels = musicIdx.map((_, k) => `[vsc${k}]`);
     duck.push(
       `${voiceLabels}amix=inputs=${voiceIdx.length}:duration=longest:dropout_transition=0:normalize=0,` +
-        `apad=whole_dur=${durationSec.toFixed(3)},asplit=2[vmix][vsc]`,
+        `apad=whole_dur=${durationSec.toFixed(3)},asplit=${vscCount + 1}[vmix]${vscLabels.join("")}`,
     );
-    const ducked = musicIdx.map((i) => {
-      duck.push(`[a${i}][vsc]sidechaincompress=threshold=0.02:ratio=6:attack=15:release=350[duck${i}]`);
+    const ducked = musicIdx.map((i, k) => {
+      duck.push(`[a${i}]${vscLabels[k]}sidechaincompress=threshold=0.02:ratio=6:attack=15:release=350[duck${i}]`);
       return `[duck${i}]`;
     });
     mix = `${ducked.join("")}[vmix]amix=inputs=${musicIdx.length + 1}:duration=longest:dropout_transition=0:normalize=0[a]`;

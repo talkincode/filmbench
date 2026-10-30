@@ -684,6 +684,8 @@ export function qwentts(): Provider {
       const out = join(tmp, `${input.shot.id}.wav`);
       // 有参考音频就走 base 克隆（男声/女声由参考决定），否则用 CustomVoice 预置音色
       const referenceAudio = String(input.params.referenceAudio ?? "");
+      const model = String(input.params.model ?? "customvoice");
+      const instruct = String(input.params.instruct ?? "");
       const args =
         referenceAudio && referenceAudio !== "false"
           ? [
@@ -692,13 +694,22 @@ export function qwentts(): Provider {
               "--reference-audio", referenceAudio,
               "--speed", String(input.params.speed ?? 1),
             ]
-          : [
-              bin, "-t", text, "-o", out,
-              "--model", String(input.params.model ?? "customvoice"),
-              "--voice", String(input.params.voice ?? "Serena"),
-              "--emotion-intensity", String(input.params.emotion ?? "low"),
-              "--speed", String(input.params.speed ?? 1),
-            ];
+          : model === "voice-design"
+            ? [
+                // VoiceDesign：靠一段描述造音色，不指定 --voice
+                bin, "-t", text, "-o", out,
+                "--model", "voice-design",
+                ...(instruct ? ["--instruct", instruct] : []),
+                "--speed", String(input.params.speed ?? 1),
+              ]
+            : [
+                bin, "-t", text, "-o", out,
+                "--model", model,
+                "--voice", String(input.params.voice ?? "Serena"),
+                "--emotion-intensity", String(input.params.emotion ?? "low"),
+                ...(instruct ? ["--instruct", instruct] : []),
+                "--speed", String(input.params.speed ?? 1),
+              ];
       const { code, stderr } = await run(args, input.projectDir, input.onLog, undefined, input.signal);
       if (code !== 0) throw new Error(`qwentts 失败：${stderr.split("\n").slice(-4).join("\n")}`);
       if (!existsSync(out)) throw new Error("qwentts 没有写出音频");
