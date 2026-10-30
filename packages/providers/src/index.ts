@@ -716,8 +716,35 @@ export function qwentts(): Provider {
       const probe = Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out]);
       const seconds = Number(probe.stdout.toString().trim());
       if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("无法读取旁白时长");
-      const frames = Math.round(seconds * input.format.fps);
-      input.onLog?.(`旁白 ${seconds.toFixed(2)}s / ${frames}f`);
+      // 时长对齐：TTS 每次生成的长短会飘（同一段文案两次能差 20%）。
+      // 给 targetSeconds 就用 atempo（保音高）把整段拉到目标秒数，超出 ±25% 才报错。
+      const target = Number(input.params.targetSeconds ?? "NaN");
+      let post = String(input.params.postFilter ?? "");
+      if (Number.isFinite(target) && target > 0) {
+        const ratio = seconds / target;
+        if (ratio < 0.75 || ratio > 1.3) {
+          throw new Error(`旁白 ${seconds.toFixed(1)}s 与目标 ${target}s 相差太多（${ratio.toFixed(2)}×）：换文案或改 instruct 的语速`);
+        }
+        const tempo = Math.min(1.25, Math.max(0.8, ratio));
+        post = [`atempo=${tempo.toFixed(3)}`, post].filter(Boolean).join(",");
+        input.onLog?.(`旁白时长对齐 ${seconds.toFixed(1)}s → ${target}s（atempo ${tempo.toFixed(3)}）`);
+      }
+      if (post) {
+        const slowed = join(tmp, `${input.shot.id}-post.wav`);
+        const r = await run(["ffmpeg", "-y", "-v", "error", "-i", out, "-af", post, "-c:a", "pcm_s16le", slowed],
+          input.projectDir, input.onLog, undefined, input.signal);
+        if (r.code !== 0) throw new Error(`旁白后处理失败：${r.stderr.split("\n").slice(-4).join("\n")}`);
+        copyFileSync(slowed, out);
+        const again = Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out]);
+        input.onLog?.(`旁白后处理 ${post} → ${Number(again.stdout.toString().trim()).toFixed(2)}s`);
+      }
+      const finalSeconds = Number(
+        Bun.spawnSync(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out])
+          .stdout.toString().trim(),
+      );
+      const effective = Number.isFinite(finalSeconds) && finalSeconds > 0 ? finalSeconds : seconds;
+      const frames = Math.round(effective * input.format.fps);
+      input.onLog?.(`旁白 ${effective.toFixed(2)}s / ${frames}f`);
       return {
         files: [{ kind: "audio" as const, path: out, mime: "audio/wav", width: 0, height: 0, durationFrames: frames }],
         cost: { kind: "local" as const, units: "line", unitPrice: 0, amount: 0, currency: "USD" },
