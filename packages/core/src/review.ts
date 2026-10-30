@@ -279,11 +279,15 @@ export function analyze(service: Service, shot: ShotState): Pick<ShotReview, "me
   // 没有起伏：整段亮度几乎不变
   if (lumaSpread < 2 && !design) findings.push({ code: "no-arc", severity: "info", detail: `整段亮度波动只有 ${lumaSpread.toFixed(1)}，缺少明暗起伏` });
 
-  // 主体静止：四周在动（火把/雾/水），正中那一格不动——人像被定住
+  // 主体静止：四周在动（火把/雾/水），正中那一格不动。
+  // 只有"画面里本来有人"的镜头才算错——风景镜头中心是山脊，不动才是对的。
+  const mentionsPeople = /(人|役夫|工匠|士卒|挑夫|队伍|百姓|孩子|女子|男子)/.test(
+    `${shot.intent.prompts?.video ?? ""}${shot.intent.prompt ?? ""}`,
+  );
   if (!design && centerMotion < Math.max(0.25, maxRegion * 0.18) && maxRegion > 0.6) {
     findings.push({
       code: "subject-static",
-      severity: "error",
+      severity: mentionsPeople ? "error" : "warn",
       detail: `中心区运动 ${centerMotion.toFixed(2)}，最活跃区 ${maxRegion.toFixed(2)}：动的是边上，主体几乎定住`,
     });
   }

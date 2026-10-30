@@ -45,14 +45,22 @@ export function projectStoryboard(service: Service, registry: ProviderRegistry, 
     }
 
     if (produce) {
-      if (produce.kind === "video" && (produce.width !== format.width || produce.height !== format.height)) {
+      // fit: scale 允许混合来源：画幅不同交给 ffmpeg 归一化，只有"比声明短"才是硬伤
+      const allowScale = shot.binder.params.fit === "scale";
+      if (!allowScale && produce.kind === "video" && (produce.width !== format.width || produce.height !== format.height)) {
         checks.push({
           id: "artifact.spec",
           status: "fail",
           detail: `产物 ${produce.width}×${produce.height} ≠ 成片 ${format.width}×${format.height}`,
         });
       }
-      if (produce.kind === "video" && produce.durationFrames !== shot.durationFrames) {
+      if (produce.kind === "video" && produce.durationFrames < shot.durationFrames) {
+        checks.push({
+          id: "artifact.spec",
+          status: "fail",
+          detail: `产物只有 ${produce.durationFrames} 帧，短于镜头声明 ${shot.durationFrames} 帧`,
+        });
+      } else if (!allowScale && produce.kind === "video" && produce.durationFrames !== shot.durationFrames) {
         checks.push({
           id: "artifact.spec",
           status: "fail",

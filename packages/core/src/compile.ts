@@ -164,14 +164,23 @@ export function compile(
         detail: `输入变了（意图/参考/参数），产物停在 #${p.atSeq}：重新生成，或 build --force 强行出片`,
       });
     }
-    if (p.kind === "video" && (p.width !== state.project.format.width || p.height !== state.project.format.height)) {
+    // 混合来源：视频画幅与成片不一致时默认拦下；标了 fit: scale 就交给 ffmpeg 归一化（缩放 + 补边）
+    const allowScale = shot.binder.params.fit === "scale";
+    if (!allowScale && p.kind === "video" && (p.width !== state.project.format.width || p.height !== state.project.format.height)) {
       issues.push({
         code: "spec-mismatch",
         shot: shot.id,
         detail: `产物 ${p.width}×${p.height} ≠ 成片 ${state.project.format.width}×${state.project.format.height}`,
       });
     }
-    if (p.kind === "video" && p.durationFrames !== shot.durationFrames) {
+    if (p.kind === "video" && p.durationFrames < shot.durationFrames) {
+      issues.push({
+        code: "spec-mismatch",
+        shot: shot.id,
+        detail: `产物只有 ${p.durationFrames} 帧，短于镜头声明 ${shot.durationFrames} 帧`,
+      });
+    }
+    if (!allowScale && p.kind === "video" && p.durationFrames !== shot.durationFrames) {
       issues.push({
         code: "spec-mismatch",
         shot: shot.id,
