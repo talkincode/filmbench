@@ -157,6 +157,13 @@
   .film-row.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
   .film-row.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
   .tl-hint{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);margin-top:6px}
+  #fatalBox{position:fixed;left:0;right:0;bottom:0;top:0;display:none;place-items:center;z-index:80;
+    background:rgba(236,229,215,.96);text-align:center}
+  #fatalBox.on{display:grid}
+  #fatalBox h3{font-family:var(--serif);font-size:18px;margin:0 0 8px;color:var(--ink)}
+  #fatalBox p{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin:0 0 14px;max-width:520px}
+  #fatalBox button{font-family:var(--mono);font-size:11.5px;padding:6px 16px;border-radius:3px;
+    border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer}
   .rv-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
   .rv-head b{font-family:var(--serif);font-size:13px;letter-spacing:.04em}
   .rv-grid{background:rgba(0,0,0,.06);border:1px solid var(--rule-hi);border-radius:3px;padding:4px}
@@ -626,14 +633,40 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function load() {
-  const p = await f.project();
-  S.project = p;
-  const st = await rpc("state");
-  S.state = st;
-  S.shots = st.shots;
-  render();
-  if (S.shotId && !S.shots.some((s) => s.id === S.shotId)) closeDetail();
+  try {
+    const p = await f.project();
+    S.project = p;
+    const st = await rpc("state");
+    S.state = st;
+    S.shots = st.shots;
+    hideFatal();
+    render();
+    if (S.shotId && !S.shots.some((s) => s.id === S.shotId)) closeDetail();
+  } catch (e) {
+    showFatal(`读不到项目状态：${e.message}`, "引擎可能刚重启，点「重试」再读一次。");
+  }
 }
+
+/* —— 致命错误兜底：空白界面是最难查的故障 —— */
+function showFatal(title, hint) {
+  let box = document.getElementById("fatalBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "fatalBox";
+    box.innerHTML = `<h3></h3><p></p><button class="sm">重试</button>`;
+    document.body.appendChild(box);
+    box.querySelector("button").onclick = () => { hideFatal(); load(); };
+  }
+  box.querySelector("h3").textContent = title;
+  box.querySelector("p").textContent = hint ?? "";
+  box.classList.add("on");
+}
+function hideFatal() {
+  document.getElementById("fatalBox")?.classList.remove("on");
+}
+
+// 引擎被主进程自动拉起后，界面自己重读一次，不用手动点
+if (f.onEngineRestart) f.onEngineRestart(() => { toast("引擎已重启，正在重读项目…"); load(); });
 
 function render() {
   const st = S.state;

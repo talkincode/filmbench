@@ -60,6 +60,9 @@ let child = null;
 let seq = 0;
 const pending = new Map();
 
+let engineRestarts = 0;
+let quitting = false;
+
 function startEngine() {
   child = spawn(process.env.FILMBENCH_BUN ?? "bun", [join(repo, "packages/cli/src/engine.ts"), projectDir], {
     cwd: repo,
@@ -81,12 +84,41 @@ function startEngine() {
   child.on("exit", (code) => {
     for (const p of pending.values()) p.reject(new Error(`engine 退出（${code}）`));
     pending.clear();
+    child = null;
+    // 引擎崩了就把界面晾成空白是最糟的体验：自动拉起，并告诉渲染层发生了什么
+    if (!quitting && engineRestarts < 20) {
+      engineRestarts += 1;
+      console.error(`engine 退出（${code}），重启第 ${engineRestarts} 次`);
+      mainWindow?.webContents.send("engine-restarted", { code, attempt: engineRestarts });
+      setTimeout(() => {
+        if (!child && !quitting) startEngine();
+      }, 600);
+    }
   });
 }
 
-const rpc = (cmd, args = {}) =>
+const rpc = async (cmd, args = {}) =>
   new Promise((res, rej) => {
-    if (!child) return rej(new Error("engine 未启动"));
+    // 进程刚崩、还没被拉起来时，这里等一下它，而不是直接把错误甩给界面
+    if (!child) {
+      startEngine();
+      const t0 = Date.now();
+      const wait = setInterval(() => {
+        if (child) {
+          clearInterval(wait);
+          send();
+        } else if (Date.now() - t0 > 4000) {
+          clearInterval(wait);
+          rej(new Error("engine 未启动（重启失败）"));
+        }
+      }, 50);
+      function send() {
+        const id = ++seq;
+        pending.set(id, { resolve: res, reject: rej });
+        child.stdin.write(`${JSON.stringify({ id, cmd, args })}\n`);
+      }
+      return;
+    }
     const id = ++seq;
     pending.set(id, { resolve: res, reject: rej });
     child.stdin.write(`${JSON.stringify({ id, cmd, args })}\n`);
@@ -144,6 +176,10 @@ if (!gotLock) {
     });
   });
 }
+
+app.on("before-quit", () => {
+  quitting = true;
+});
 
 app.on("window-all-closed", () => {
   child?.kill();

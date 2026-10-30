@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld("filmbench", {
   reveal: (p) => ipcRenderer.invoke("reveal", p),
   onFocusShot: (cb) => ipcRenderer.on("focus-shot", (_e, id) => cb(id)),
   onOpenProject: (cb) => ipcRenderer.on("open-project", (_e, payload) => cb(payload)),
+  onEngineRestart: (cb) => ipcRenderer.on("engine-restarted", (_e, info) => cb(info)),
 });
