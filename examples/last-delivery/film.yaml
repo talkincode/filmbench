@@ -247,7 +247,7 @@ shots:
         startFrame: 60
         volume: 1.25
         model: base
-        referenceAudio: /Users/wangjuntao/.agents/skills/qwentts/speakers/锅哥男声.mp3
+        referenceAudio: ~/.agents/skills/qwentts/speakers/锅哥男声.mp3
     subjects: []
     references: []
     dependsOn: []
@@ -270,7 +270,7 @@ shots:
         startFrame: 360
         volume: 1.25
         model: base
-        referenceAudio: /Users/wangjuntao/.agents/skills/qwentts/speakers/锅哥男声.mp3
+        referenceAudio: ~/.agents/skills/qwentts/speakers/锅哥男声.mp3
     subjects: []
     references: []
     dependsOn: []

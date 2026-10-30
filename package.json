@@ -1,7 +1,7 @@
 {
   "name": "filmbench",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "本地视频编排工作台：事件日志 + sqlite 索引 + provider 作业 + 编译出片 + 审计故事板 + stdio MCP + pi agent",
   "workspaces": [

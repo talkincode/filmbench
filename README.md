@@ -103,8 +103,8 @@ filmbench doctor` 一次性体检：ffmpeg / ffprobe / electron / pi / colab(ADC
 
 ```json
 { "mcpServers": { "filmbench": { "command": "bun",
-  "args": ["/Users/wangjuntao/github/filmbench/packages/cli/src/cli.ts", "mcp"],
-  "cwd": "/Users/wangjuntao/github/filmbench/demo-project" } } }
+  "args": ["<repo>/packages/cli/src/cli.ts", "mcp"],
+  "cwd": "<你的项目目录>" } } }
 ```
 
 ## Remotion 剪辑例子

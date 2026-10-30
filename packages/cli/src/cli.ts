@@ -39,7 +39,7 @@ import {
 import { builtinProviders } from "@filmbench/providers";
 import { renderDocument, resolvePreviews } from "@filmbench/storyboard-audit";
 
-const VERSION = "0.0.1";
+const VERSION = "0.1.0";
 
 // 管道里被 head 之类提前关掉时不要抛栈：CLI 应该安静退出
 process.stdout.on("error", (err: NodeJS.ErrnoException) => {

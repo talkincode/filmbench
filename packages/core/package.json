@@ -1,6 +1,6 @@
 {
   "name": "@filmbench/core",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "事件日志 + 单一写入 Service + 作业执行 + 编译 IR + 账本 + 故事板投影",

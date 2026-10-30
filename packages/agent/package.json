@@ -1,6 +1,6 @@
 {
   "name": "@filmbench/agent",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "内置 pi agent：工具表与 MCP 同源",

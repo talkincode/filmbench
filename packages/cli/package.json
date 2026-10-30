@@ -1,6 +1,6 @@
 {
   "name": "@filmbench/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "filmbench 命令行：项目 / 镜头 / 作业 / 出片 / 账本 / 故事板 / MCP",

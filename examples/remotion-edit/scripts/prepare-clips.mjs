@@ -15,7 +15,7 @@ fs.mkdirSync(outDir, {recursive: true});
 
 const CANDIDATES = [
   process.env.FILMBENCH_CLIP_DIR,
-  '/Users/wangjuntao/github/filmbench-demo/spillway-landmarks/source',
+  '../filmbench-demo/spillway-landmarks/source',
 ].filter(Boolean);
 
 const plan = [
